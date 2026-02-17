@@ -10,7 +10,7 @@ const FoodContext = createContext();
 export const useFood = () => useContext(FoodContext);
 
 export const FoodProvider = ({ children }) => {
-    const { user } = useUser();
+    const { user, isMock } = useUser();
     const [dailyLog, setDailyLog] = useState([]);
 
     useEffect(() => {
@@ -22,7 +22,7 @@ export const FoodProvider = ({ children }) => {
     }, [user]);
 
     const fetchLogs = async () => {
-        if (!user) return;
+        if (!user || isMock) return;
         try {
             const { data, error } = await supabase
                 .from('food_logs')
@@ -42,6 +42,25 @@ export const FoodProvider = ({ children }) => {
             Alert.alert("Please sign in to save your data");
             return;
         }
+
+        if (isMock) {
+            // Just update local state for mock users
+            const multiplier = quantity;
+            const mockEntry = {
+                id: 'mock-' + Date.now(),
+                user_id: user.id,
+                date: new Date().toISOString().split('T')[0],
+                food_name: quantity > 1 ? `${food.name || food.food_name || food.item_name} (x${quantity})` : (food.name || food.food_name || food.item_name),
+                calories: (food.calories || food.nf_calories) * multiplier,
+                protein: (food.protein || food.nf_protein) * multiplier,
+                carbs: (food.carbs || food.nf_total_carbohydrate) * multiplier,
+                fat: (food.fat || food.nf_total_fat) * multiplier,
+                meal_type: mealType,
+            };
+            setDailyLog(prev => [mockEntry, ...prev]);
+            return;
+        }
+
 
         const multiplier = quantity;
 
@@ -87,6 +106,10 @@ export const FoodProvider = ({ children }) => {
         setDailyLog(prev => prev.filter(item => item.id !== id));
 
         try {
+            if (isMock) {
+                setDailyLog(prev => prev.filter(item => item.id !== id));
+                return;
+            }
             const { error } = await supabase
                 .from('food_logs')
                 .delete()

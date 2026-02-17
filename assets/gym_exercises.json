@@ -1,0 +1,338 @@
+[
+  {
+    "Exercise": "Bench Press",
+    "Body Area": "Upper",
+    "Equipment": "Olympic Barbell + Flat Bench",
+    "Level": "Intermediate",
+    "MET": 6,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Incline Bench Press",
+    "Body Area": "Upper",
+    "Equipment": "Olympic Barbell + Incline Bench",
+    "Level": "Intermediate",
+    "MET": 6,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Dumbbell Bench Press",
+    "Body Area": "Upper",
+    "Equipment": "Dumbbells + Flat Bench",
+    "Level": "Beginner",
+    "MET": 5.5,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Cable Chest Fly",
+    "Body Area": "Upper",
+    "Equipment": "Dual Adjustable Cable Machine",
+    "Level": "Intermediate",
+    "MET": 6,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Pull-up",
+    "Body Area": "Upper",
+    "Equipment": "Pull-up Bar",
+    "Level": "Intermediate",
+    "MET": 6,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Chin-up",
+    "Body Area": "Upper",
+    "Equipment": "Pull-up Bar",
+    "Level": "Intermediate",
+    "MET": 6,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Barbell Row",
+    "Body Area": "Upper",
+    "Equipment": "Olympic Barbell",
+    "Level": "Intermediate",
+    "MET": 6,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Single-arm Dumbbell Row",
+    "Body Area": "Upper",
+    "Equipment": "Dumbbell + Bench",
+    "Level": "Beginner",
+    "MET": 5.5,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Shoulder Press",
+    "Body Area": "Upper",
+    "Equipment": "Dumbbells + Bench",
+    "Level": "Beginner",
+    "MET": 5.5,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Barbell Overhead Press",
+    "Body Area": "Upper",
+    "Equipment": "Olympic Barbell",
+    "Level": "Intermediate",
+    "MET": 6,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Arnold Press",
+    "Body Area": "Upper",
+    "Equipment": "Dumbbells",
+    "Level": "Intermediate",
+    "MET": 6,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Lateral Raise",
+    "Body Area": "Upper",
+    "Equipment": "Dumbbells",
+    "Level": "Beginner",
+    "MET": 5.5,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Cable Lateral Raise",
+    "Body Area": "Upper",
+    "Equipment": "Cable Machine",
+    "Level": "Intermediate",
+    "MET": 6,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Front Raise",
+    "Body Area": "Upper",
+    "Equipment": "Dumbbells",
+    "Level": "Beginner",
+    "MET": 5.5,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Face Pull",
+    "Body Area": "Upper",
+    "Equipment": "Cable Machine + Rope Attachment",
+    "Level": "Beginner",
+    "MET": 5.5,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Bicep Curl",
+    "Body Area": "Upper",
+    "Equipment": "Dumbbells",
+    "Level": "Beginner",
+    "MET": 5.5,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Barbell Curl",
+    "Body Area": "Upper",
+    "Equipment": "Olympic Barbell",
+    "Level": "Intermediate",
+    "MET": 6,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Hammer Curl",
+    "Body Area": "Upper",
+    "Equipment": "Dumbbells",
+    "Level": "Beginner",
+    "MET": 5.5,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Preacher Curl",
+    "Body Area": "Upper",
+    "Equipment": "Preacher Bench + EZ Bar",
+    "Level": "Intermediate",
+    "MET": 6,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Tricep Pushdown",
+    "Body Area": "Upper",
+    "Equipment": "Cable Machine + Straight Bar",
+    "Level": "Beginner",
+    "MET": 5.5,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Overhead Tricep Extension",
+    "Body Area": "Upper",
+    "Equipment": "Dumbbell",
+    "Level": "Beginner",
+    "MET": 5.5,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Skull Crushers",
+    "Body Area": "Upper",
+    "Equipment": "EZ Bar + Bench",
+    "Level": "Intermediate",
+    "MET": 6,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Barbell Back Squat",
+    "Body Area": "Lower",
+    "Equipment": "Olympic Barbell + Squat Rack",
+    "Level": "Intermediate",
+    "MET": 6.5,
+    "Purpose": "Muscle gain / strength / weight control"
+  },
+  {
+    "Exercise": "Front Squat",
+    "Body Area": "Lower",
+    "Equipment": "Olympic Barbell + Squat Rack",
+    "Level": "Intermediate",
+    "MET": 6.5,
+    "Purpose": "Muscle gain / strength / weight control"
+  },
+  {
+    "Exercise": "Goblet Squat",
+    "Body Area": "Lower",
+    "Equipment": "Dumbbell",
+    "Level": "Beginner",
+    "MET": 6,
+    "Purpose": "Muscle gain / strength / weight control"
+  },
+  {
+    "Exercise": "Dumbbell Lunges",
+    "Body Area": "Lower",
+    "Equipment": "Dumbbells",
+    "Level": "Beginner",
+    "MET": 6,
+    "Purpose": "Muscle gain / strength / weight control"
+  },
+  {
+    "Exercise": "Bulgarian Split Squat",
+    "Body Area": "Lower",
+    "Equipment": "Dumbbells + Bench",
+    "Level": "Intermediate",
+    "MET": 6.5,
+    "Purpose": "Muscle gain / strength / weight control"
+  },
+  {
+    "Exercise": "Step-up",
+    "Body Area": "Lower",
+    "Equipment": "Box + Dumbbells",
+    "Level": "Beginner",
+    "MET": 6,
+    "Purpose": "Muscle gain / strength / weight control"
+  },
+  {
+    "Exercise": "Deadlift",
+    "Body Area": "Lower",
+    "Equipment": "Olympic Barbell",
+    "Level": "Pro",
+    "MET": 7.5,
+    "Purpose": "Muscle gain / strength / weight control"
+  },
+  {
+    "Exercise": "Romanian Deadlift",
+    "Body Area": "Lower",
+    "Equipment": "Olympic Barbell",
+    "Level": "Intermediate",
+    "MET": 6.5,
+    "Purpose": "Muscle gain / strength / weight control"
+  },
+  {
+    "Exercise": "Sumo Deadlift",
+    "Body Area": "Lower",
+    "Equipment": "Olympic Barbell",
+    "Level": "Intermediate",
+    "MET": 6.5,
+    "Purpose": "Muscle gain / strength / weight control"
+  },
+  {
+    "Exercise": "Hip Thrust",
+    "Body Area": "Lower",
+    "Equipment": "Olympic Barbell + Bench",
+    "Level": "Intermediate",
+    "MET": 6.5,
+    "Purpose": "Muscle gain / strength / weight control"
+  },
+  {
+    "Exercise": "Cable Kickback",
+    "Body Area": "Lower",
+    "Equipment": "Cable Machine + Ankle Strap",
+    "Level": "Beginner",
+    "MET": 6,
+    "Purpose": "Muscle gain / strength / weight control"
+  },
+  {
+    "Exercise": "Cable Crunch",
+    "Body Area": "Upper",
+    "Equipment": "Cable Machine + Rope",
+    "Level": "Intermediate",
+    "MET": 6,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Hanging Leg Raise",
+    "Body Area": "Upper",
+    "Equipment": "Pull-up Bar",
+    "Level": "Intermediate",
+    "MET": 6,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Decline Sit-up",
+    "Body Area": "Upper",
+    "Equipment": "Decline Bench",
+    "Level": "Intermediate",
+    "MET": 6,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Treadmill Running",
+    "Body Area": "Cardio",
+    "Equipment": "Motorized Treadmill",
+    "Level": "Beginner",
+    "MET": 7.5,
+    "Purpose": "Fat loss / cardiovascular endurance"
+  },
+  {
+    "Exercise": "Cycling",
+    "Body Area": "Cardio",
+    "Equipment": "Stationary Bike",
+    "Level": "Beginner",
+    "MET": 7.5,
+    "Purpose": "Fat loss / cardiovascular endurance"
+  },
+  {
+    "Exercise": "Jump Rope",
+    "Body Area": "Cardio",
+    "Equipment": "Speed Rope",
+    "Level": "Beginner",
+    "MET": 7.5,
+    "Purpose": "Fat loss / cardiovascular endurance"
+  },
+  {
+    "Exercise": "Clean and Press",
+    "Body Area": "Upper",
+    "Equipment": "Olympic Barbell",
+    "Level": "Pro",
+    "MET": 7,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Snatch",
+    "Body Area": "Upper",
+    "Equipment": "Olympic Barbell",
+    "Level": "Pro",
+    "MET": 7,
+    "Purpose": "Muscle gain / strength / toning"
+  },
+  {
+    "Exercise": "Farmer’s Carry",
+    "Body Area": "Upper",
+    "Equipment": "Heavy Dumbbells",
+    "Level": "Intermediate",
+    "MET": 6,
+    "Purpose": "Muscle gain / strength / toning"
+  }
+]

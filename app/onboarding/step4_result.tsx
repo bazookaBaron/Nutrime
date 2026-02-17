@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Check, ArrowRight } from 'lucide-react-native';
 
 export default function Step4Result() {
-    const { nutritionTargets, completeOnboarding } = useUser();
+    const { nutritionTargets, completeOnboarding, userProfile } = useUser();
     const router = useRouter();
 
     const handleFinish = async () => {
@@ -15,6 +15,24 @@ export default function Step4Result() {
     };
 
     const { calories, mealSplit } = nutritionTargets;
+
+    // Calculate daily burn target based on user goal
+    const calculateDailyBurn = () => {
+        if (!userProfile) return 0;
+
+        const weightDiff = Math.abs((userProfile.weight || 70) - (userProfile.target_weight || 70));
+        const durationWeeks = userProfile.target_duration_weeks || 4;
+        const durationDays = durationWeeks * 7;
+
+        // 1 kg = 7700 kcal
+        const totalCaloriesDiff = weightDiff * 7700;
+        const dailyBurn = Math.round(totalCaloriesDiff / durationDays);
+
+        // Cap between 200-1000 kcal
+        return Math.max(200, Math.min(1000, dailyBurn));
+    };
+
+    const dailyBurnTarget = calculateDailyBurn();
 
     return (
         <View style={styles.container}>
@@ -29,13 +47,21 @@ export default function Step4Result() {
                         <Check size={40} color="#fff" />
                     </View>
                     <Text style={styles.title}>Your Plan is Ready!</Text>
-                    <Text style={styles.subtitle}>Based on your goals and stats, here is your daily nutritional target.</Text>
+                    <Text style={styles.subtitle}>Based on your goals and stats, here are your daily targets.</Text>
                 </View>
 
-                <View style={styles.targetCard}>
-                    <Text style={styles.cardLabel}>Daily Target</Text>
-                    <Text style={styles.cardValue}>{calories}</Text>
-                    <Text style={styles.cardUnit}>Calories / Day</Text>
+                <View style={styles.targetsRow}>
+                    <View style={[styles.targetCard, { flex: 1, marginRight: 8 }]}>
+                        <Text style={styles.cardLabel}>Daily Intake</Text>
+                        <Text style={styles.cardValue}>{calories}</Text>
+                        <Text style={styles.cardUnit}>kcal</Text>
+                    </View>
+
+                    <View style={[styles.targetCard, { flex: 1, marginLeft: 8, backgroundColor: '#fef3c7' }]}>
+                        <Text style={styles.cardLabel}>Daily Burn</Text>
+                        <Text style={[styles.cardValue, { color: '#f59e0b' }]}>{dailyBurnTarget}</Text>
+                        <Text style={styles.cardUnit}>kcal</Text>
+                    </View>
                 </View>
 
                 <Text style={styles.sectionTitle}>Meal Breakdown</Text>
@@ -138,6 +164,11 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         paddingHorizontal: 20,
         lineHeight: 24,
+    },
+    targetsRow: {
+        flexDirection: 'row',
+        width: '100%',
+        marginBottom: 30,
     },
     targetCard: {
         backgroundColor: '#fff',

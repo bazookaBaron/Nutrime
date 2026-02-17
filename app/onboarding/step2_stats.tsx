@@ -9,18 +9,20 @@ export default function Step2Stats() {
     const [height, setHeight] = useState('');
     const [age, setAge] = useState('');
     const [gender, setGender] = useState('male'); // default
+    const [country, setCountry] = useState('');
+    const [state, setState] = useState('');
 
     const { updateProfile } = useUser();
     const router = useRouter();
 
     const handleNext = () => {
-        if (weight && height && age) {
-            updateProfile({ weight, height, age, gender });
+        if (weight && height && age && country) {
+            updateProfile({ weight, height, age, gender, country, state });
             router.push('/onboarding/step3_activity');
         }
     };
 
-    const isFormValid = weight && height && age;
+    const isFormValid = weight && height && age && country;
 
     return (
         <View style={styles.container}>
@@ -88,6 +90,26 @@ export default function Step2Stats() {
                         keyboardType="numeric"
                         value={age}
                         onChangeText={setAge}
+                    />
+                </View>
+
+                <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Country</Text>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="e.g., United States"
+                        value={country}
+                        onChangeText={setCountry}
+                    />
+                </View>
+
+                <View style={styles.inputGroup}>
+                    <Text style={styles.label}>State / Province (Optional)</Text>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="e.g., California"
+                        value={state}
+                        onChangeText={setState}
                     />
                 </View>
             </ScrollView>

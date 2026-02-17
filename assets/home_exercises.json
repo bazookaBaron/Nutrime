@@ -1,0 +1,162 @@
+[
+  {
+    "Exercise Name": "Push-ups",
+    "Works (Upper/Lower/Cardio/Core/Full Body)": "Upper Body",
+    "Equipment Needed": "None",
+    "Level (Beginner/Intermediate)": "Beginner",
+    "MET (Metabolic Equivalent)": 8,
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Muscle gain (chest, triceps), endurance, fat loss"
+  },
+  {
+    "Exercise Name": "Knee Push-ups",
+    "Works (Upper/Lower/Cardio/Core/Full Body)": "Upper Body",
+    "Equipment Needed": "None",
+    "Level (Beginner/Intermediate)": "Beginner",
+    "MET (Metabolic Equivalent)": 4,
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Beginner strength building"
+  },
+  {
+    "Exercise Name": "Squats (Bodyweight)",
+    "Works (Upper/Lower/Cardio/Core/Full Body)": "Lower Body",
+    "Equipment Needed": "None",
+    "Level (Beginner/Intermediate)": "Beginner",
+    "MET (Metabolic Equivalent)": 5,
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Leg muscle gain, fat loss"
+  },
+  {
+    "Exercise Name": "Lunges",
+    "Works (Upper/Lower/Cardio/Core/Full Body)": "Lower Body",
+    "Equipment Needed": "None",
+    "Level (Beginner/Intermediate)": "Beginner",
+    "MET (Metabolic Equivalent)": 6,
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Leg strength, balance, fat loss"
+  },
+  {
+    "Exercise Name": "Jump Squats",
+    "Works (Upper/Lower/Cardio/Core/Full Body)": "Lower Body",
+    "Equipment Needed": "None",
+    "Level (Beginner/Intermediate)": "Intermediate",
+    "MET (Metabolic Equivalent)": 8,
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Explosive power, weight loss"
+  },
+  {
+    "Exercise Name": "Plank",
+    "Works (Upper/Lower/Cardio/Core/Full Body)": "Core",
+    "Equipment Needed": "None",
+    "Level (Beginner/Intermediate)": "Beginner",
+    "MET (Metabolic Equivalent)": 3.5,
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Core strength, posture improvement"
+  },
+  {
+    "Exercise Name": "Side Plank",
+    "Works (Upper/Lower/Cardio/Core/Full Body)": "Core",
+    "Equipment Needed": "None",
+    "Level (Beginner/Intermediate)": "Intermediate",
+    "MET (Metabolic Equivalent)": 3.8,
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Oblique strength, core stability"
+  },
+  {
+    "Exercise Name": "Mountain Climbers",
+    "Works (Upper/Lower/Cardio/Core/Full Body)": "Cardio/Core",
+    "Equipment Needed": "None",
+    "Level (Beginner/Intermediate)": "Intermediate",
+    "MET (Metabolic Equivalent)": 8,
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Weight loss, core strength, endurance"
+  },
+  {
+    "Exercise Name": "Burpees",
+    "Works (Upper/Lower/Cardio/Core/Full Body)": "Full Body/Cardio",
+    "Equipment Needed": "None",
+    "Level (Beginner/Intermediate)": "Intermediate",
+    "MET (Metabolic Equivalent)": 10,
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "High calorie burn, weight loss, conditioning"
+  },
+  {
+    "Exercise Name": "Jumping Jacks",
+    "Works (Upper/Lower/Cardio/Core/Full Body)": "Cardio/Full Body",
+    "Equipment Needed": "None",
+    "Level (Beginner/Intermediate)": "Beginner",
+    "MET (Metabolic Equivalent)": 8,
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Cardio endurance, fat loss"
+  },
+  {
+    "Exercise Name": "High Knees",
+    "Works (Upper/Lower/Cardio/Core/Full Body)": "Cardio",
+    "Equipment Needed": "None",
+    "Level (Beginner/Intermediate)": "Intermediate",
+    "MET (Metabolic Equivalent)": 8,
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Weight loss, endurance"
+  },
+  {
+    "Exercise Name": "Glute Bridge",
+    "Works (Upper/Lower/Cardio/Core/Full Body)": "Lower Body",
+    "Equipment Needed": "None",
+    "Level (Beginner/Intermediate)": "Beginner",
+    "MET (Metabolic Equivalent)": 4,
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Glute activation, muscle gain"
+  },
+  {
+    "Exercise Name": "Wall Sit",
+    "Works (Upper/Lower/Cardio/Core/Full Body)": "Lower Body",
+    "Equipment Needed": "None",
+    "Level (Beginner/Intermediate)": "Beginner",
+    "MET (Metabolic Equivalent)": 5,
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Leg endurance, strength building"
+  },
+  {
+    "Exercise Name": "Crunches",
+    "Works (Upper/Lower/Cardio/Core/Full Body)": "Core",
+    "Equipment Needed": "None",
+    "Level (Beginner/Intermediate)": "Beginner",
+    "MET (Metabolic Equivalent)": 3,
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Abdominal strength"
+  },
+  {
+    "Exercise Name": "Bicycle Crunch",
+    "Works (Upper/Lower/Cardio/Core/Full Body)": "Core",
+    "Equipment Needed": "None",
+    "Level (Beginner/Intermediate)": "Intermediate",
+    "MET (Metabolic Equivalent)": 4,
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Core definition, fat loss"
+  },
+  {
+    "Exercise Name": "Superman Hold",
+    "Works (Upper/Lower/Cardio/Core/Full Body)": "Lower Back/Core",
+    "Equipment Needed": "None",
+    "Level (Beginner/Intermediate)": "Beginner",
+    "MET (Metabolic Equivalent)": 3.5,
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Lower back strength, posture"
+  },
+  {
+    "Exercise Name": "Bear Crawl",
+    "Works (Upper/Lower/Cardio/Core/Full Body)": "Full Body",
+    "Equipment Needed": "None",
+    "Level (Beginner/Intermediate)": "Intermediate",
+    "MET (Metabolic Equivalent)": 7,
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Full body strength, conditioning"
+  },
+  {
+    "Exercise Name": "Step-back Lunges",
+    "Works (Upper/Lower/Cardio/Core/Full Body)": "Lower Body",
+    "Equipment Needed": "None",
+    "Level (Beginner/Intermediate)": "Beginner",
+    "MET (Metabolic Equivalent)": 5.5,
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Leg strength, fat loss"
+  },
+  {
+    "Exercise Name": "Incline Push-ups (Wall)",
+    "Works (Upper/Lower/Cardio/Core/Full Body)": "Upper Body",
+    "Equipment Needed": "None",
+    "Level (Beginner/Intermediate)": "Beginner",
+    "MET (Metabolic Equivalent)": 4,
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Beginner upper body strength"
+  },
+  {
+    "Exercise Name": "Flutter Kicks",
+    "Works (Upper/Lower/Cardio/Core/Full Body)": "Core",
+    "Equipment Needed": "None",
+    "Level (Beginner/Intermediate)": "Intermediate",
+    "MET (Metabolic Equivalent)": 4,
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Lower abs strength, endurance"
+  }
+]

@@ -6,7 +6,7 @@ import { Settings, Edit2, Bell, ChevronRight, User, Moon, Lock, LogOut, Award, S
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function ProfileScreen() {
-    const { userProfile, nutritionTargets, logout } = useUser();
+    const { user, userProfile, nutritionTargets, logout } = useUser();
     const router = useRouter();
     const [isDarkMode, setIsDarkMode] = useState(false);
 
@@ -21,7 +21,7 @@ export default function ProfileScreen() {
                     style: 'destructive',
                     onPress: async () => {
                         await logout();
-                        router.replace('/auth/login');
+                        // Redirection handled by RootLayout
                     }
                 }
             ]
@@ -72,7 +72,7 @@ export default function ProfileScreen() {
                         </TouchableOpacity>
                     </View>
                     <Text style={styles.userName}>{userProfile?.full_name || 'Sajibur Rahman'}</Text>
-                    <Text style={styles.userEmail}>{userProfile?.email || 'sajibur.ui@gmail.com'}</Text>
+                    <Text style={styles.userEmail}>{user?.email || userProfile?.email || 'sajibur.ui@gmail.com'}</Text>
                 </View>
 
                 {/* Stats Row */}

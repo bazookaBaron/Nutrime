@@ -18,7 +18,7 @@ export default function Step3Activity() {
 
     const handleNext = () => {
         if (selectedActivity) {
-            updateProfile({ activity: selectedActivity });
+            updateProfile({ activity_level: selectedActivity });
             router.push('/onboarding/step3b_target');
         }
     };

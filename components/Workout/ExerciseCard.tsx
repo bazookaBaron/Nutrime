@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { CheckCircle, Circle, RefreshCw, Play } from 'lucide-react-native';
 
 interface Exercise {
@@ -11,17 +10,29 @@ interface Exercise {
     duration_minutes: number;
     equipment: string;
     instance_id?: string;
+    videoLink?: string;
 }
 
 interface ExerciseCardProps {
     exercise: Exercise;
     onComplete: () => void;
     onReplace?: () => void;
+    onStart?: () => void;
     isCompleted: boolean;
     disabled?: boolean;
 }
 
-const ExerciseCard = ({ exercise, onComplete, onReplace, isCompleted, disabled }: ExerciseCardProps) => {
+const getVideoId = (url: string | undefined) => {
+    if (!url) return null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+};
+
+const ExerciseCard = ({ exercise, onComplete, onReplace, onStart, isCompleted, disabled }: ExerciseCardProps) => {
+    const videoId = getVideoId(exercise.videoLink);
+    const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : null;
+
     return (
         <View style={[styles.card, disabled && { opacity: 0.7 }]}>
             <View style={styles.header}>
@@ -44,6 +55,12 @@ const ExerciseCard = ({ exercise, onComplete, onReplace, isCompleted, disabled }
                 </TouchableOpacity>
             </View>
 
+            {thumbnailUrl && (
+                <View style={styles.thumbnailContainer}>
+                    <Image source={{ uri: thumbnailUrl }} style={styles.thumbnail} />
+                </View>
+            )}
+
             <View style={styles.statsContainer}>
                 <View style={styles.stat}>
                     <Text style={styles.statLabel}>Burn</Text>
@@ -62,18 +79,18 @@ const ExerciseCard = ({ exercise, onComplete, onReplace, isCompleted, disabled }
             {/* Actions Row */}
             <View style={styles.actionsRow}>
                 <TouchableOpacity
-                    style={[styles.actionBtn, styles.replaceBtn]}
+                    style={[styles.actionBtn, styles.replaceBtn, (disabled || isCompleted) && { opacity: 0.5 }]}
                     onPress={onReplace}
-                    disabled={disabled}
+                    disabled={disabled || isCompleted}
                 >
                     <RefreshCw size={14} color="#FFF" />
                     <Text style={styles.actionBtnText}>Replace</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={[styles.actionBtn, styles.startBtn, { opacity: 0.5 }]}
-                    disabled={true}
-                    onPress={() => { }}
+                    style={[styles.actionBtn, styles.startBtn, (disabled || isCompleted) && { opacity: 0.5 }]}
+                    disabled={disabled || isCompleted}
+                    onPress={onStart}
                 >
                     <Play size={14} color="#000" fill="#000" />
                     <Text style={[styles.actionBtnText, { color: '#000' }]}>Start</Text>
@@ -112,6 +129,26 @@ const styles = StyleSheet.create({
     },
     checkButton: {
         padding: 4,
+    },
+    thumbnailContainer: {
+        width: '100%',
+        height: 120,
+        borderRadius: 12,
+        overflow: 'hidden',
+        marginBottom: 12,
+        backgroundColor: '#000',
+        position: 'relative',
+    },
+    thumbnail: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
+        opacity: 0.6,
+    },
+    playOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     statsContainer: {
         flexDirection: 'row',

@@ -136,9 +136,11 @@ export const UserProvider = ({ children }) => {
 
             if (data) {
                 setUserProfile(data);
-                updateStreak(userId, data.streak || 0, data.last_active_date);
-                fetchDailyStats(userId);
-                fetchWorkoutSchedule(userId);
+                // Await all sub-fetches to ensure "all data is get"
+                await updateStreak(userId, data.streak || 0, data.last_active_date);
+                await fetchDailyStats(userId);
+                await fetchWorkoutSchedule(userId, data);
+
                 // Always recalculate based on latest stats to ensure consistency
                 calculateTargets(data);
             }
@@ -181,23 +183,27 @@ export const UserProvider = ({ children }) => {
             .eq('id', userId);
     };
 
-    const fetchDailyStats = async (userId) => {
+    const fetchDailyStats = async (userId, date = null) => {
         if (isMock) return;
 
-        const today = new Date().toISOString().split('T')[0];
+        const targetDate = date || new Date().toISOString().split('T')[0];
         const { data, error } = await supabase
             .from('daily_stats')
             .select('water_glasses')
             .eq('user_id', userId)
-            .eq('date', today)
+            .eq('date', targetDate)
             .single();
 
         if (data) {
             setWaterIntake(data.water_glasses);
         } else {
             setWaterIntake(0);
-            // Create record for today
-            await supabase.from('daily_stats').insert({ user_id: userId, date: today, water_glasses: 0 });
+            // Only create record if it's today? Or just let it be 0 until updated?
+            // If we are viewing past, we probably don't want to auto-create rows just by viewing.
+            // But if we are viewing today, we might.
+            // Let's just set 0 and wait for update.
+            // Actually, existing logic created a row. Let's keep it consistent for 'today', but maybe not for history to save DB space?
+            // Simplified: just set 0. The update function handles upsert.
         }
     };
 
@@ -237,6 +243,23 @@ export const UserProvider = ({ children }) => {
         }
     };
 
+
+    const addXP = async (amount) => {
+        if (isMock) {
+            setUserProfile(prev => ({ ...prev, xp: (prev.xp || 0) + amount }));
+            return;
+        }
+        try {
+            // Optimistic update
+            setUserProfile(prev => ({ ...prev, xp: (prev.xp || 0) + amount }));
+
+            const { error } = await supabase.rpc('increment_xp', { amount });
+            if (error) throw error;
+        } catch (e) {
+            console.error("Error adding XP:", e);
+            // Revert on error? For now, let's just log it.
+        }
+    };
 
     const manageWorkoutSchedule = async (userId, currentSchedule, profile) => {
         if (!currentSchedule || !profile) return;
@@ -355,25 +378,27 @@ export const UserProvider = ({ children }) => {
         }
     };
 
-
-    const updateWaterIntake = async (glasses) => {
+    const updateWaterIntake = async (glasses, date = null) => {
         if (!user) return;
 
+        const targetDate = date || new Date().toISOString().split('T')[0];
         const newTotal = glasses;
+
+        // Only update state if we are modifying the currently viewed date (or today if implied)
+        // But since we treat 'waterIntake' as "currently viewed day's water", we just update it.
         setWaterIntake(newTotal);
 
-        if (newTotal === 12) { // 3L goal
+        // Notifications only for today
+        const today = new Date().toISOString().split('T')[0];
+        if (targetDate === today && newTotal === 12) { // 3L goal
             if (Constants.appOwnership === 'expo') {
-                // In Expo Go, stick to Alert to avoid push notification SDK crashes
                 Alert.alert("Goal Reached! 💧", "You've reached your 3L daily water goal. Great job staying hydrated!");
             } else {
+                // ... notification logic
                 try {
                     const Notifications = require('expo-notifications');
                     await Notifications.scheduleNotificationAsync({
-                        content: {
-                            title: "Goal Reached! 💧",
-                            body: "You've reached your 3L daily water goal. Great job staying hydrated!",
-                        },
+                        content: { title: "Goal Reached! 💧", body: "You've reached your 3L daily water goal. Great job staying hydrated!" },
                         trigger: null,
                     });
                 } catch (e) {
@@ -385,18 +410,16 @@ export const UserProvider = ({ children }) => {
 
         if (isMock) return;
 
-        const d = new Date();
-        const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         await supabase
             .from('daily_stats')
             .upsert({
                 user_id: user.id,
-                date: today,
+                date: targetDate,
                 water_glasses: newTotal
             }, { onConflict: 'user_id,date' });
     };
 
-    const completeExercise = async (dayNumber, exerciseId) => {
+    const completeExercise = async (dayNumber, exerciseId, mode = 'Gym') => {
         if (!user || !userProfile) return;
 
         let dayId = null;
@@ -417,10 +440,17 @@ export const UserProvider = ({ children }) => {
                     newXp += 10;
                 }
 
+                // Check if ALL exercises for the current mode are completed
+                const targetExercises = mode === 'Home' ? day.home.exercises : day.gym.exercises;
+                const isAllDone = targetExercises.every(ex => {
+                    const id = ex.instance_id || ex.name;
+                    return updatedCompletions.includes(id);
+                });
+
                 return {
                     ...day,
                     completed_exercises: updatedCompletions,
-                    completed: updatedCompletions.length > 0
+                    completed: isAllDone
                 };
             }
             return day;
@@ -834,8 +864,11 @@ export const UserProvider = ({ children }) => {
             signUp,
             loading,
             replaceExercise,
+            replaceExercise,
             gymExercises,
-            homeExercises
+            homeExercises,
+            fetchDailyStats,
+            addXP
         }}>
             {children}
         </UserContext.Provider>

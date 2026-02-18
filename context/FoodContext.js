@@ -12,17 +12,22 @@ export const useFood = () => useContext(FoodContext);
 export const FoodProvider = ({ children }) => {
     const { user, isMock } = useUser();
     const [dailyLog, setDailyLog] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         if (user) {
             fetchLogs();
         } else {
             setDailyLog([]);
+            setLoading(false);
         }
     }, [user]);
 
     const fetchLogs = async () => {
-        if (!user || isMock) return;
+        if (!user || isMock) {
+            setLoading(false);
+            return;
+        }
         try {
             const { data, error } = await supabase
                 .from('food_logs')
@@ -34,6 +39,8 @@ export const FoodProvider = ({ children }) => {
             if (data) setDailyLog(data);
         } catch (e) {
             console.error("Error fetching food logs", e);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -167,7 +174,7 @@ export const FoodProvider = ({ children }) => {
     };
 
     return (
-        <FoodContext.Provider value={{ dailyLog, foodDatabase, addFoodToLog, removeFoodFromLog, getDailySummary, getMTDSummary, getLast7DaysCalories }}>
+        <FoodContext.Provider value={{ dailyLog, foodDatabase, addFoodToLog, removeFoodFromLog, getDailySummary, getMTDSummary, getLast7DaysCalories, loading }}>
             {children}
         </FoodContext.Provider>
     );

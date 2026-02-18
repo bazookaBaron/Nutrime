@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Home, PlusCircle, BarChart2, User, Dumbbell } from 'lucide-react-native';
+import { Home, PlusCircle, BarChart2, User, Dumbbell, Trophy } from 'lucide-react-native';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -28,6 +28,7 @@ export default function TabLayout() {
         name="add"
         options={{
           title: 'Add Food',
+          href: null,
           tabBarIcon: ({ color }) => <PlusCircle size={24} color={color} />,
         }}
       />
@@ -36,6 +37,19 @@ export default function TabLayout() {
         options={{
           title: 'Workout',
           tabBarIcon: ({ color }) => <Dumbbell size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="challenges"
+        options={{
+          title: 'Challenges',
+          tabBarIcon: ({ color }) => <Trophy size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="create-challenge"
+        options={{
+          href: null,
         }}
       />
       <Tabs.Screen

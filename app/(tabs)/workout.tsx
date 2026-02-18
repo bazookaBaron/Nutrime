@@ -1,16 +1,35 @@
-
-import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Dimensions, Modal, Image } from 'react-native';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Dimensions, Modal, Image, Alert, RefreshControl } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 import { useUser } from '@/context/UserContext';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AlertCircle, Flame, Dumbbell, Home as HomeIcon, X } from 'lucide-react-native';
+import { AlertCircle, Flame, Dumbbell, Home as HomeIcon, X, RefreshCw } from 'lucide-react-native';
 import ExerciseCard from '@/components/Workout/ExerciseCard';
 import Leaderboard from '@/components/Workout/Leaderboard';
+import AnimatedProgressBar from '@/components/AnimatedProgressBar';
 
 const { width } = Dimensions.get('window');
 
 export default function WorkoutScreen() {
+    const router = useRouter();
     const { userProfile, workoutSchedule, completeExercise, regenerateFullSchedule, fetchLeaderboard } = useUser();
+    const isFocused = useIsFocused();
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        // User context typically handles schedule, we might want to refetch profile
+        // but for now let's just refresh leaderboard
+        await fetchLeaderboard('city');
+        setRefreshing(false);
+    }, []);
+
+    useEffect(() => {
+        if (isFocused) {
+            fetchLeaderboard('city');
+        }
+    }, [isFocused]);
 
     // State
     const [selectedDayIndex, setSelectedDayIndex] = useState(0); // 0-based index for UI
@@ -110,8 +129,24 @@ export default function WorkoutScreen() {
             newSet.add(id);
         }
 
-        completeExercise(currentDay.day_number, id);
+        completeExercise(currentDay.day_number, id, mode);
         setCompletedExerciseIds(newSet);
+    };
+
+    const handleStart = (exercise: any) => {
+        router.push({
+            pathname: '/workout/active' as any,
+            params: {
+                name: exercise.name,
+                videoLink: exercise.videoLink || '',
+                met: exercise.MET || exercise.met || 5,
+                duration_minutes: exercise.duration_minutes,
+                equipment: exercise.equipment,
+                instance_id: exercise.instance_id,
+                day_number: currentDay?.day_number,
+                mode: mode // Pass mode
+            }
+        });
     };
 
     const handleReplaceRequest = (exercise: any) => {
@@ -159,7 +194,13 @@ export default function WorkoutScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 100 }}>
+            <ScrollView
+                style={styles.scrollView}
+                contentContainerStyle={{ paddingBottom: 100 }}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#bef264" />
+                }
+            >
                 {/* Header Section with Level and Total XP */}
                 <View style={styles.headerContainer}>
                     <View style={styles.topRow}>
@@ -186,7 +227,7 @@ export default function WorkoutScreen() {
                             <Text style={styles.burnTrackerValue}>{actualBurn} / {plannedBurn} kcal</Text>
                         </View>
                         <View style={styles.burnProgressBar}>
-                            <View style={[styles.burnProgressFill, { width: `${Math.min((actualBurn / Math.max(plannedBurn, 1)) * 100, 100)}%` }]} />
+                            <AnimatedProgressBar progress={actualBurn / Math.max(plannedBurn, 1)} color="#bef264" backgroundColor="#333" height={6} />
                         </View>
                     </View>
 
@@ -198,7 +239,25 @@ export default function WorkoutScreen() {
 
                 {/* Day Selector */}
                 <View style={styles.daySelectorContainer}>
-                    <Text style={styles.sectionTitle}>Your Schedule</Text>
+                    <View style={styles.sectionHeaderRow}>
+                        <Text style={styles.sectionTitle}>Your Schedule</Text>
+                        <TouchableOpacity
+                            onPress={() => {
+                                Alert.alert(
+                                    "Regenerate Plan",
+                                    "This will create a new workout schedule based on your current goal.",
+                                    [
+                                        { text: "Cancel", style: "cancel" },
+                                        { text: "Regenerate", onPress: () => handleRegenerate() }
+                                    ]
+                                );
+                            }}
+                            disabled={regenerateloading}
+                            style={styles.regenerateBtn}
+                        >
+                            <RefreshCw size={20} color={regenerateloading ? "#666" : "#4ade80"} />
+                        </TouchableOpacity>
+                    </View>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dayScroll}>
                         {sortedSchedule.map((day: any, index: number) => {
                             const isSelected = index === selectedDayIndex;
@@ -283,6 +342,7 @@ export default function WorkoutScreen() {
                                     exercise={ex}
                                     onComplete={() => handleComplete(ex)}
                                     onReplace={() => handleReplaceRequest(ex)}
+                                    onStart={() => handleStart(ex)}
                                     disabled={!isTodaySelected}
                                     isCompleted={completedExerciseIds.has(ex.instance_id || ex.name)}
                                 />
@@ -442,8 +502,17 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         color: '#FFF',
-        marginBottom: 12,
         paddingHorizontal: 20,
+    },
+    sectionHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+        paddingRight: 10,
+    },
+    regenerateBtn: {
+        padding: 8,
     },
     daySelectorContainer: {
         marginBottom: 24,

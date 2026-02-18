@@ -5,7 +5,8 @@
     "Equipment Needed": "None",
     "Level (Beginner/Intermediate)": "Beginner",
     "MET (Metabolic Equivalent)": 8,
-    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Muscle gain (chest, triceps), endurance, fat loss"
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Muscle gain (chest, triceps), endurance, fat loss",
+    "videoLink": "https://www.youtube.com/watch?v=IODxDxX7oi4"
   },
   {
     "Exercise Name": "Knee Push-ups",
@@ -13,7 +14,8 @@
     "Equipment Needed": "None",
     "Level (Beginner/Intermediate)": "Beginner",
     "MET (Metabolic Equivalent)": 4,
-    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Beginner strength building"
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Beginner strength building",
+    "videoLink": "https://www.youtube.com/watch?v=jWc8gHlAkoM"
   },
   {
     "Exercise Name": "Squats (Bodyweight)",
@@ -21,7 +23,8 @@
     "Equipment Needed": "None",
     "Level (Beginner/Intermediate)": "Beginner",
     "MET (Metabolic Equivalent)": 5,
-    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Leg muscle gain, fat loss"
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Leg muscle gain, fat loss",
+    "videoLink": "https://www.youtube.com/watch?v=YaXPRqUwItQ"
   },
   {
     "Exercise Name": "Lunges",
@@ -29,7 +32,8 @@
     "Equipment Needed": "None",
     "Level (Beginner/Intermediate)": "Beginner",
     "MET (Metabolic Equivalent)": 6,
-    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Leg strength, balance, fat loss"
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Leg strength, balance, fat loss",
+    "videoLink": "https://www.youtube.com/watch?v=QOVaHwm-Q6U"
   },
   {
     "Exercise Name": "Jump Squats",
@@ -37,7 +41,8 @@
     "Equipment Needed": "None",
     "Level (Beginner/Intermediate)": "Intermediate",
     "MET (Metabolic Equivalent)": 8,
-    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Explosive power, weight loss"
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Explosive power, weight loss",
+    "videoLink": "https://www.youtube.com/watch?v=CVaEhXotL7M"
   },
   {
     "Exercise Name": "Plank",
@@ -45,7 +50,8 @@
     "Equipment Needed": "None",
     "Level (Beginner/Intermediate)": "Beginner",
     "MET (Metabolic Equivalent)": 3.5,
-    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Core strength, posture improvement"
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Core strength, posture improvement",
+    "videoLink": "https://www.youtube.com/watch?v=pSHjTRCQxIw"
   },
   {
     "Exercise Name": "Side Plank",
@@ -53,7 +59,8 @@
     "Equipment Needed": "None",
     "Level (Beginner/Intermediate)": "Intermediate",
     "MET (Metabolic Equivalent)": 3.8,
-    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Oblique strength, core stability"
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Oblique strength, core stability",
+    "videoLink": "https://www.youtube.com/watch?v=N_3XDzFlZ_g"
   },
   {
     "Exercise Name": "Mountain Climbers",
@@ -61,7 +68,8 @@
     "Equipment Needed": "None",
     "Level (Beginner/Intermediate)": "Intermediate",
     "MET (Metabolic Equivalent)": 8,
-    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Weight loss, core strength, endurance"
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Weight loss, core strength, endurance",
+    "videoLink": "https://www.youtube.com/watch?v=nmwgirgXLYM"
   },
   {
     "Exercise Name": "Burpees",
@@ -69,7 +77,8 @@
     "Equipment Needed": "None",
     "Level (Beginner/Intermediate)": "Intermediate",
     "MET (Metabolic Equivalent)": 10,
-    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "High calorie burn, weight loss, conditioning"
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "High calorie burn, weight loss, conditioning",
+    "videoLink": "https://www.youtube.com/watch?v=auBLPXO8Fww"
   },
   {
     "Exercise Name": "Jumping Jacks",
@@ -77,7 +86,8 @@
     "Equipment Needed": "None",
     "Level (Beginner/Intermediate)": "Beginner",
     "MET (Metabolic Equivalent)": 8,
-    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Cardio endurance, fat loss"
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Cardio endurance, fat loss",
+    "videoLink": "https://www.youtube.com/watch?v=iSSAk4XCsRA"
   },
   {
     "Exercise Name": "High Knees",
@@ -85,7 +95,8 @@
     "Equipment Needed": "None",
     "Level (Beginner/Intermediate)": "Intermediate",
     "MET (Metabolic Equivalent)": 8,
-    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Weight loss, endurance"
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Weight loss, endurance",
+    "videoLink": "https://www.youtube.com/watch?v=Z11_8x_u5kI"
   },
   {
     "Exercise Name": "Glute Bridge",
@@ -93,7 +104,8 @@
     "Equipment Needed": "None",
     "Level (Beginner/Intermediate)": "Beginner",
     "MET (Metabolic Equivalent)": 4,
-    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Glute activation, muscle gain"
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Glute activation, muscle gain",
+    "videoLink": "https://www.youtube.com/watch?v=wPM8icPu6T8"
   },
   {
     "Exercise Name": "Wall Sit",
@@ -101,7 +113,8 @@
     "Equipment Needed": "None",
     "Level (Beginner/Intermediate)": "Beginner",
     "MET (Metabolic Equivalent)": 5,
-    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Leg endurance, strength building"
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Leg endurance, strength building",
+    "videoLink": "https://www.youtube.com/watch?v=-cdph8hv0O0"
   },
   {
     "Exercise Name": "Crunches",
@@ -109,7 +122,8 @@
     "Equipment Needed": "None",
     "Level (Beginner/Intermediate)": "Beginner",
     "MET (Metabolic Equivalent)": 3,
-    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Abdominal strength"
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Abdominal strength",
+    "videoLink": "https://www.youtube.com/watch?v=MKClYfX0EIA"
   },
   {
     "Exercise Name": "Bicycle Crunch",
@@ -117,7 +131,8 @@
     "Equipment Needed": "None",
     "Level (Beginner/Intermediate)": "Intermediate",
     "MET (Metabolic Equivalent)": 4,
-    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Core definition, fat loss"
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Core definition, fat loss",
+    "videoLink": "https://www.youtube.com/watch?v=IwyvZENru84"
   },
   {
     "Exercise Name": "Superman Hold",
@@ -125,7 +140,8 @@
     "Equipment Needed": "None",
     "Level (Beginner/Intermediate)": "Beginner",
     "MET (Metabolic Equivalent)": 3.5,
-    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Lower back strength, posture"
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Lower back strength, posture",
+    "videoLink": "https://www.youtube.com/watch?v=z6PJMT2y8GQ"
   },
   {
     "Exercise Name": "Bear Crawl",
@@ -133,7 +149,8 @@
     "Equipment Needed": "None",
     "Level (Beginner/Intermediate)": "Intermediate",
     "MET (Metabolic Equivalent)": 7,
-    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Full body strength, conditioning"
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Full body strength, conditioning",
+    "videoLink": "https://www.youtube.com/watch?v=FPZw9L1lneU"
   },
   {
     "Exercise Name": "Step-back Lunges",
@@ -141,7 +158,8 @@
     "Equipment Needed": "None",
     "Level (Beginner/Intermediate)": "Beginner",
     "MET (Metabolic Equivalent)": 5.5,
-    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Leg strength, fat loss"
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Leg strength, fat loss",
+    "videoLink": "https://www.youtube.com/watch?v=U3u-6Cwb00g"
   },
   {
     "Exercise Name": "Incline Push-ups (Wall)",
@@ -149,7 +167,8 @@
     "Equipment Needed": "None",
     "Level (Beginner/Intermediate)": "Beginner",
     "MET (Metabolic Equivalent)": 4,
-    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Beginner upper body strength"
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Beginner upper body strength",
+    "videoLink": "https://www.youtube.com/watch?v=a6YZb8PLnTA"
   },
   {
     "Exercise Name": "Flutter Kicks",
@@ -157,6 +176,7 @@
     "Equipment Needed": "None",
     "Level (Beginner/Intermediate)": "Intermediate",
     "MET (Metabolic Equivalent)": 4,
-    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Lower abs strength, endurance"
+    "Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)": "Lower abs strength, endurance",
+    "videoLink": "https://www.youtube.com/watch?v=ANVdMDaYRts"
   }
 ]

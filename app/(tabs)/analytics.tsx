@@ -1,15 +1,19 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity, Modal, ActivityIndicator } from 'react-native';
 import { BarChart, PieChart } from 'react-native-gifted-charts';
 import { useFood } from '../../context/FoodContext';
 import { useUser } from '../../context/UserContext';
 import { ChevronLeft, Calendar as CalendarIcon, MoreHorizontal, Check, Droplet } from 'lucide-react-native';
 import { Calendar } from 'react-native-calendars';
 import { useRouter } from 'expo-router';
+import AnimatedProgressBar from '../../components/AnimatedProgressBar';
 
 export default function Analytics() {
-    const { dailyLog } = useFood();
-    const { nutritionTargets, userProfile } = useUser();
+    const { dailyLog, loading: foodLoading } = useFood();
+    const { nutritionTargets, userProfile, loading: userLoading } = useUser();
+
+    const isDataLoading = foodLoading || userLoading;
+
     const router = useRouter();
     const screenWidth = Dimensions.get('window').width;
 
@@ -44,15 +48,13 @@ export default function Analytics() {
         const endDate = new Date(getDateRange.end);
         const startDate = new Date(getDateRange.start);
 
-        // Create map of aggregated logs
-        const logsByDate = dailyLog.reduce((acc, item) => {
+        const logsByDate = dailyLog.reduce((acc: any, item: any) => {
             const date = item.date;
             if (!acc[date]) acc[date] = 0;
             acc[date] += (Number(item.calories) || 0);
             return acc;
         }, {} as Record<string, number>);
 
-        // Iterate through date range
         for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
             const dateStr = d.toISOString().split('T')[0];
             const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
@@ -65,7 +67,6 @@ export default function Analytics() {
                 spacing: 14,
                 labelTextStyle: { color: '#9ca3af', fontSize: 10 },
             });
-            // Burnt placeholder (mock data mostly constant or random for now)
             data.push({
                 value: 2000,
                 frontColor: '#1f2937',
@@ -75,7 +76,6 @@ export default function Analytics() {
     }, [dailyLog, getDateRange]);
 
 
-    // Aggregate Data for Pie Chart (Macros)
     const pieData = useMemo(() => {
         const rangeLogs = dailyLog.filter((item: any) =>
             item.date >= getDateRange.start && item.date <= getDateRange.end
@@ -91,17 +91,16 @@ export default function Analytics() {
         const total = macros.protein + macros.carbs + macros.fat;
 
         if (total === 0) return [
-            { value: 1, color: '#f3f4f6' } // Empty state
+            { value: 1, color: '#f3f4f6' }
         ];
 
         return [
-            { value: macros.fat, color: '#1f2937', focused: true },
-            { value: macros.carbs, color: '#bef264' },
-            { value: macros.protein, color: '#e5e7eb' },
+            { value: macros.fat || 0.1, color: '#1f2937', focused: true },
+            { value: macros.carbs || 0.1, color: '#bef264' },
+            { value: macros.protein || 0.1, color: '#e5e7eb' },
         ];
     }, [dailyLog, getDateRange]);
 
-    // Monthly Goal Calculation (Calories)
     const monthlyGoalData = useMemo(() => {
         const today = new Date();
         const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
@@ -122,36 +121,34 @@ export default function Analytics() {
         ];
     }, [dailyLog, nutritionTargets]);
 
-    // Nutrient Trends (Sparklines Logic)
     const nutrientTrends = useMemo(() => {
         const nutrients = [
             { key: 'protein', name: 'Protein', unit: 'g', color: '#84cc16', bgColor: '#ecfccb', iconColor: '#84cc16' },
-            { key: 'magnesium', name: 'Magnesium', unit: 'mg', color: '#2563eb', bgColor: '#dbeafe', iconColor: '#2563eb' }, // Assuming these fields exist or mapping simplified
+            { key: 'magnesium', name: 'Magnesium', unit: 'mg', color: '#2563eb', bgColor: '#dbeafe', iconColor: '#2563eb' },
             { key: 'vitC', name: 'Vit C', unit: 'mg', color: '#ea580c', bgColor: '#ffedd5', iconColor: '#ea580c' },
         ];
 
-        // For simple sparkline, let's just take last 7 days aggregation
-        // Note: Real implementation needs mapping from food DB nutrient IDs if they aren't top-level columns
-        // Assuming top level for simplicity based on context, or using defaults
-
         return nutrients.map(nut => {
-            const values = [10, 12, 15, 14, 20, 18, 22]; // Mock data for sparkline visual as we don't have detailed nutrient breakdown in `food_logs` top level columns except macros
-            // In a real app complexity, we'd query relation to food_nutrients or JSON data
-
-            // Check if we can get at least protein from logs
+            const values = [10, 12, 15, 14, 20, 18, 22];
             if (nut.key === 'protein') {
-                // Calculate average or sum
-                const total = dailyLog.reduce((sum, item) => sum + (Number(item.protein) || 0), 0);
-                return { ...nut, value: Math.round(total), data: values }; // Using mock values for graph shape
+                const total = dailyLog.reduce((sum: number, item: any) => sum + (Number(item.protein) || 0), 0);
+                return { ...nut, value: Math.round(total), data: values };
             }
-
-            return { ...nut, value: 0, data: values }; // Mock
+            return { ...nut, value: 0, data: values };
         });
     }, [dailyLog]);
 
+    if (isDataLoading) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color="#bef264" />
+                <Text style={{ color: '#888', marginTop: 10 }}>Loading charts...</Text>
+            </View>
+        );
+    }
+
     return (
         <View style={styles.container}>
-            {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
                     <ChevronLeft size={24} color="#1f2937" />
@@ -166,8 +163,6 @@ export default function Analytics() {
             </View>
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-
-                {/* Segmented Control */}
                 <View style={styles.segmentContainer}>
                     {['Daily', 'Weekly', 'Monthly'].map((range) => (
                         <TouchableOpacity
@@ -183,7 +178,6 @@ export default function Analytics() {
                     ))}
                 </View>
 
-                {/* Calories Chart */}
                 <View style={styles.card}>
                     <View style={styles.cardHeader}>
                         <View>
@@ -211,13 +205,12 @@ export default function Analytics() {
                             yAxisTextStyle={{ color: '#9ca3af', fontSize: 10 }}
                             scrollAnimation={true}
                             isAnimated
+                            animationDuration={800}
                         />
                     </View>
                 </View>
 
-                {/* Distributions & Monthly Goal Row */}
                 <View style={styles.row}>
-                    {/* Distribution */}
                     <View style={[styles.card, styles.halfCard]}>
                         <Text style={styles.cardTitle}>Distribution</Text>
                         <View style={{ alignItems: 'center', marginVertical: 15 }}>
@@ -231,6 +224,8 @@ export default function Analytics() {
                                         <Text style={{ fontSize: 10, color: '#9ca3af' }}>{selectedRange}</Text>
                                     </View>
                                 )}
+                                isAnimated
+                                animationDuration={800}
                             />
                         </View>
                         <View style={styles.legendRow}>
@@ -249,7 +244,6 @@ export default function Analytics() {
                         </View>
                     </View>
 
-                    {/* Monthly Goal */}
                     <View style={[styles.card, styles.halfCard]}>
                         <Text style={styles.cardTitle}>Monthly Goal</Text>
                         <View style={{ alignItems: 'center', marginVertical: 15 }}>
@@ -263,16 +257,16 @@ export default function Analytics() {
                                         <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1f2937' }}>{monthlyGoalData[0].value}%</Text>
                                     </View>
                                 )}
+                                isAnimated
+                                animationDuration={800}
                             />
                         </View>
                         <Text style={styles.monthlyGoalText}>You're on track to meet your monthly goal.</Text>
                     </View>
                 </View>
 
-                {/* Nutrient Trends Header */}
                 <Text style={styles.sectionTitle}>Nutrient Trends</Text>
 
-                {/* Nutrient Cards */}
                 {nutrientTrends.map((nut, index) => (
                     <View key={index} style={styles.nutrientCard}>
                         <View style={[styles.nutrientIconBg, { backgroundColor: nut.bgColor }]}>
@@ -285,18 +279,14 @@ export default function Analytics() {
                             <Text style={styles.nutrientTitle}>{nut.name}</Text>
                             <Text style={styles.nutrientValue}>{nut.value}<Text style={styles.nutrientUnit}>{nut.unit}</Text></Text>
                         </View>
-                        {/* Sparkline placeholder - implementing real line chart here would be overkill for now, keeping generic bar for visual match */}
                         <View style={{ width: 100, height: 30, justifyContent: 'center' }}>
-                            <View style={{ height: 4, backgroundColor: nut.bgColor, borderRadius: 2, width: '100%' }}>
-                                <View style={{ height: 4, backgroundColor: nut.iconColor, borderRadius: 2, width: '60%' }} />
-                            </View>
+                            <AnimatedProgressBar progress={0.6} color={nut.iconColor} backgroundColor={nut.bgColor} height={4} />
                         </View>
                     </View>
                 ))}
 
             </ScrollView>
 
-            {/* Calendar Modal */}
             <Modal visible={showCalendar} transparent animationType="fade">
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>

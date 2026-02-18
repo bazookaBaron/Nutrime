@@ -6,6 +6,7 @@ import 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { UserProvider } from '../context/UserContext';
 import { FoodProvider } from '../context/FoodContext';
+import { ChallengesProvider } from '../context/ChallengesContext';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -58,7 +59,9 @@ export default function RootLayout() {
   return (
     <UserProvider>
       <FoodProvider>
-        <RootLayoutNav />
+        <ChallengesProvider>
+          <RootLayoutNav />
+        </ChallengesProvider>
       </FoodProvider>
     </UserProvider>
   );

@@ -51,6 +51,7 @@ const normalizeExercises = (gymExercises, homeExercises) => {
         level: ex.Level,
         met: ex.MET,
         purpose: ex.Purpose,
+        videoLink: ex.videoLink,
         type: 'Gym'
     }));
 
@@ -70,6 +71,7 @@ const normalizeExercises = (gymExercises, homeExercises) => {
             level: ex['Level (Beginner/Intermediate)'],
             met: ex['MET (Metabolic Equivalent)'],
             purpose: ex['Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)'],
+            videoLink: ex.videoLink,
             type: 'Home'
         };
     });

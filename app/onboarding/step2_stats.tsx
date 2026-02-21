@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useUser } from '../../context/UserContext';
 import { ArrowLeft, ArrowRight } from 'lucide-react-native';
+import LocationPicker from '../../components/LocationPicker';
+import { COUNTRIES, LocationEntry } from '../../data/locations';
 
 export default function Step2Stats() {
     const [weight, setWeight] = useState('');
@@ -11,6 +13,14 @@ export default function Step2Stats() {
     const [gender, setGender] = useState('male'); // default
     const [country, setCountry] = useState('');
     const [state, setState] = useState('');
+
+    // Dynamically compute available states when country changes
+    const selectedCountryEntry = useMemo<LocationEntry | undefined>(
+        () => COUNTRIES.find(c => c.value === country),
+        [country]
+    );
+    const availableStates = selectedCountryEntry?.states || [];
+    const hasStates = availableStates.length > 0;
 
     const { updateProfile } = useUser();
     const router = useRouter();
@@ -23,6 +33,12 @@ export default function Step2Stats() {
     };
 
     const isFormValid = weight && height && age && country;
+
+    // When country changes, clear the state if it was set
+    const handleCountrySelect = (val: string) => {
+        setCountry(val);
+        setState('');
+    };
 
     return (
         <View style={styles.container}>
@@ -93,25 +109,35 @@ export default function Step2Stats() {
                     />
                 </View>
 
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Country</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="e.g., United States"
-                        value={country}
-                        onChangeText={setCountry}
-                    />
-                </View>
+                <LocationPicker
+                    label="Country"
+                    placeholder="Select your country"
+                    value={country}
+                    options={COUNTRIES}
+                    onSelect={handleCountrySelect}
+                />
 
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>State / Province (Optional)</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="e.g., California"
+                {hasStates && (
+                    <LocationPicker
+                        label="State / Province"
+                        placeholder="Select your state"
                         value={state}
-                        onChangeText={setState}
+                        options={availableStates}
+                        onSelect={setState}
                     />
-                </View>
+                )}
+
+                {!hasStates && country && (
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>State / Province (Optional)</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="e.g., Region"
+                            value={state}
+                            onChangeText={setState}
+                        />
+                    </View>
+                )}
             </ScrollView>
 
             <View style={styles.footer}>

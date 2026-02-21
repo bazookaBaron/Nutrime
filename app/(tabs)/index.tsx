@@ -3,7 +3,9 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Activ
 import { useIsFocused } from '@react-navigation/native';
 import { useFood } from '../../context/FoodContext';
 import { useUser } from '../../context/UserContext';
+import { useChallenges } from '../../context/ChallengesContext';
 import { useRouter } from 'expo-router';
+import { usePostHog } from 'posthog-react-native';
 import {
   Calendar, BarChart2, Flame, Utensils, Droplet, Plus, Minus,
   Circle, AlertTriangle
@@ -17,6 +19,8 @@ const { width } = Dimensions.get('window');
 export default function Dashboard() {
   const { dailyLog, getDailySummary, getMTDSummary, loading: foodLoading } = useFood();
   const { userProfile, nutritionTargets, waterIntake, streak, updateWaterIntake, workoutSchedule, fetchLeaderboard, fetchDailyStats, loading: userLoading } = useUser();
+  const { verifyChallenges } = useChallenges();
+  const posthog = usePostHog();
 
   const isDataLoading = foodLoading || userLoading;
 
@@ -68,15 +72,17 @@ export default function Dashboard() {
   };
 
   const fetchRanking = async () => {
-    if (!ranking) {
+    if (!ranking && userProfile?.state) {
       try {
-        const data = await fetchLeaderboard('city');
-        if (data && userProfile) {
-          const myRank = data.findIndex((u: any) => u.id === userProfile.id);
-          if (myRank !== -1) setRanking(myRank + 1);
-          else setRanking('-');
+        const result = await fetchLeaderboard('state', userProfile.state);
+        if (result && result.currentUserEntry) {
+          setRanking(result.currentUserEntry.rank);
+        } else {
+          setRanking('-');
         }
-      } catch (e) { console.log(e); }
+      } catch (e) {
+        console.log("Error fetching dashboard rank", e);
+      }
     }
   }
 
@@ -170,7 +176,7 @@ export default function Dashboard() {
                 <BarChart2 size={14} color="#ca8a04" />
               </View>
               <View>
-                <Text style={[styles.streakLabel, { color: '#FFF' }]}>Ranking</Text>
+                <Text style={[styles.streakLabel, { color: '#FFF' }]}>State Rank</Text>
                 <Text style={[styles.streakValue, { color: '#FFF' }]}>#{ranking || '-'}</Text>
               </View>
             </View>
@@ -246,20 +252,36 @@ export default function Dashboard() {
 
           <View style={[styles.waterMainRow, { marginTop: 12 }]}>
             <View>
-              <Text style={[styles.waterMainValue, { fontSize: 28 }]}>{waterIntake} <Text style={styles.waterMainUnit}>glasses</Text></Text>
-              <Text style={[styles.waterSubText, { fontSize: 14 }]}>{(waterIntake * 0.25).toFixed(1)} L</Text>
+              <Text style={[styles.waterMainValue, { fontSize: 28 }]}>{waterIntake.toFixed(2)} <Text style={styles.waterMainUnit}>L</Text></Text>
+              <Text style={[styles.waterSubText, { fontSize: 14 }]}>{Math.round(waterIntake / 0.25)} glasses</Text>
             </View>
             {isToday && (
               <View style={styles.waterControlsRedesign}>
                 <TouchableOpacity
                   style={[styles.waterBtnWhite, { width: 48, height: 48, backgroundColor: '#333' }]}
-                  onPress={() => updateWaterIntake(Math.max(0, waterIntake - 1), selectedDate)}
+                  onPress={() => {
+                    const newValue = Math.max(0, waterIntake - 0.25);
+                    updateWaterIntake(newValue, selectedDate);
+                    posthog.capture('water_intake_updated', {
+                      new_value_liters: newValue,
+                      action: 'decrease',
+                      glasses: Math.round(newValue / 0.25),
+                    });
+                  }}
                 >
                   <Minus size={20} color="#3b82f6" />
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.waterBtnBlue, { width: 48, height: 48 }]}
-                  onPress={() => updateWaterIntake(waterIntake + 1, selectedDate)}
+                  onPress={() => {
+                    const newValue = waterIntake + 0.25;
+                    updateWaterIntake(newValue, selectedDate);
+                    posthog.capture('water_intake_updated', {
+                      new_value_liters: newValue,
+                      action: 'increase',
+                      glasses: Math.round(newValue / 0.25),
+                    });
+                  }}
                 >
                   <Plus size={20} color="#fff" />
                 </TouchableOpacity>

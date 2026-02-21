@@ -12,7 +12,7 @@ export default function CreateChallengeScreen() {
     const [form, setForm] = useState({
         title: '',
         description: '',
-        type: 'steps', // steps | calories | manual
+        type: '', // steps | calories | manual | sleep | water
         target_value: '',
         duration_days: '7',
         difficulty: 'medium' as 'easy' | 'medium' | 'hard'
@@ -29,6 +29,10 @@ export default function CreateChallengeScreen() {
             Alert.alert('Error', 'Please fill in all required fields');
             return;
         }
+        if (!form.type) {
+            Alert.alert('Error', 'Please select a challenge category');
+            return;
+        }
 
         setLoading(true);
         try {
@@ -40,15 +44,15 @@ export default function CreateChallengeScreen() {
                 title: form.title,
                 description: form.description,
                 type: form.type,
-                target_value: parseInt(form.target_value),
+                target_value: parseFloat(form.target_value),
                 duration_days: parseInt(form.duration_days),
                 xp_reward: difficultyXpMap[form.difficulty],
                 start_time: now.toISOString(),
                 end_time: endDate.toISOString(),
             });
 
-            Alert.alert('Success', 'Challenge created successfully!', [
-                { text: 'OK', onPress: () => router.back() }
+            Alert.alert('Success', 'Challenge created! You have been automatically joined.', [
+                { text: 'OK', onPress: () => router.replace('/(tabs)/challenges') }
             ]);
         } catch (error) {
             Alert.alert('Error', 'Failed to create challenge');
@@ -96,7 +100,7 @@ export default function CreateChallengeScreen() {
                 <View style={[styles.formGroup]}>
                     <Text style={styles.label}>Category</Text>
                     <View style={styles.typeSelector}>
-                        {['steps', 'calories', 'manual'].map(t => (
+                        {['steps', 'calories', 'manual', 'sleep', 'water'].map(t => (
                             <TouchableOpacity
                                 key={t}
                                 style={[styles.typeOption, form.type === t && styles.activeType]}
@@ -130,14 +134,24 @@ export default function CreateChallengeScreen() {
                 <View style={styles.row}>
                     <View style={[styles.formGroup, { flex: 1, marginRight: 10 }]}>
                         <Text style={styles.label}>Target Value</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="e.g. 10000"
-                            placeholderTextColor="#6b7280"
-                            keyboardType="numeric"
-                            value={form.target_value}
-                            onChangeText={t => setForm(prev => ({ ...prev, target_value: t }))}
-                        />
+                        <View style={styles.inputWithUnit}>
+                            <TextInput
+                                style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                                placeholder={form.type === 'water' ? "e.g. 3.0" : "e.g. 10000"}
+                                placeholderTextColor="#6b7280"
+                                keyboardType="numeric"
+                                value={form.target_value}
+                                onChangeText={t => setForm(prev => ({ ...prev, target_value: t }))}
+                            />
+                            {form.type && (
+                                <Text style={styles.unitLabel}>
+                                    {form.type === 'water' ? 'L' :
+                                        form.type === 'calories' ? 'kcal' :
+                                            form.type === 'steps' ? 'steps' :
+                                                form.type === 'sleep' ? 'hrs' : ''}
+                                </Text>
+                            )}
+                        </View>
                     </View>
                     <View style={[styles.formGroup, { flex: 1 }]}>
                         <Text style={styles.label}>Duration (Days)</Text>
@@ -210,6 +224,23 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#374151',
         fontSize: 16,
+        marginBottom: 20,
+    },
+    inputWithUnit: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#1f2937',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#374151',
+        marginBottom: 20,
+        paddingRight: 16,
+    },
+    unitLabel: {
+        color: '#9ca3af',
+        fontSize: 14,
+        fontWeight: '600',
+        marginLeft: 8,
     },
     textArea: {
         height: 100,

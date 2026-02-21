@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useUser } from '../../context/UserContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, ArrowRight, Target, TrendingUp, Heart, Zap } from 'lucide-react-native';
+import { usePostHog } from 'posthog-react-native';
 
 const goals = [
     { id: 'lose_weight', title: 'Lose Weight', description: 'Get leaner and fitter', icon: Target, color: '#fee2e2' },
@@ -16,9 +17,14 @@ export default function Step1Goal() {
     const [selectedGoal, setSelectedGoal] = useState(null);
     const { updateProfile } = useUser();
     const router = useRouter();
+    const posthog = usePostHog();
 
     const handleNext = () => {
         if (selectedGoal) {
+            posthog.capture('onboarding_goal_selected', {
+                goal: selectedGoal,
+                onboarding_step: 1,
+            });
             updateProfile({ goal: selectedGoal });
             router.push('/onboarding/step2_stats');
         }

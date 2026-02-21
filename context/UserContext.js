@@ -33,8 +33,15 @@ export const UserProvider = ({ children }) => {
 
     useEffect(() => {
         // Check active sessions and subscribe to auth changes
-        supabase.auth.getSession().then(({ data: { session } }) => {
+        supabase.auth.getSession().then(({ data: { session }, error }) => {
             if (isMock) return; // Don't overwrite mock session
+            if (error) {
+                // Likely an invalid refresh token — treat as logged out
+                console.warn('Session restore error (stale token?):', error.message);
+                setUser(null);
+                setLoading(false);
+                return;
+            }
             setUser(session?.user ?? null);
             if (session?.user) {
                 fetchProfile(session.user.id);
@@ -49,6 +56,7 @@ export const UserProvider = ({ children }) => {
             if (session?.user) {
                 fetchProfile(session.user.id);
             } else {
+                // Handles SIGNED_OUT and token expiry — clear state cleanly
                 setUserProfile(null);
                 setLoading(false);
             }
@@ -66,13 +74,14 @@ export const UserProvider = ({ children }) => {
         return data;
     };
 
-    const signUp = async (email, password, fullName) => {
+    const signUp = async (email, password, fullName, username) => {
         const { data, error } = await supabase.auth.signUp({
             email,
             password,
             options: {
                 data: {
                     full_name: fullName,
+                    username: username,
                 }
             }
         });
@@ -85,6 +94,7 @@ export const UserProvider = ({ children }) => {
                 .upsert({
                     id: data.user.id,
                     full_name: fullName,
+                    username: username || null,
                     updated_at: new Date(),
                 });
             if (profileError) console.error('Error creating profile:', profileError);
@@ -195,7 +205,7 @@ export const UserProvider = ({ children }) => {
             .single();
 
         if (data) {
-            setWaterIntake(data.water_glasses);
+            setWaterIntake(parseFloat(data.water_glasses || 0));
         } else {
             setWaterIntake(0);
             // Only create record if it's today? Or just let it be 0 until updated?
@@ -246,18 +256,37 @@ export const UserProvider = ({ children }) => {
 
     const addXP = async (amount) => {
         if (isMock) {
-            setUserProfile(prev => ({ ...prev, xp: (prev.xp || 0) + amount }));
+            setUserProfile(prev => {
+                const newXp = (prev.workout_xp || 0) + amount;
+                let newLevel = 1;
+                if (newXp >= 5001) newLevel = 5;
+                else if (newXp >= 5000) newLevel = 4;
+                else if (newXp >= 3500) newLevel = 3;
+                else if (newXp >= 2000) newLevel = 2;
+
+                return { ...prev, workout_xp: newXp, workout_level: newLevel };
+            });
             return;
         }
         try {
             // Optimistic update
-            setUserProfile(prev => ({ ...prev, xp: (prev.xp || 0) + amount }));
+            setUserProfile(prev => {
+                const newXp = (prev.workout_xp || 0) + amount;
+                let newLevel = 1;
+                if (newXp >= 5001) newLevel = 5;
+                else if (newXp >= 5000) newLevel = 4;
+                else if (newXp >= 3500) newLevel = 3;
+                else if (newXp >= 2000) newLevel = 2;
+
+                return { ...prev, workout_xp: newXp, workout_level: newLevel };
+            });
 
             const { error } = await supabase.rpc('increment_xp', { amount });
             if (error) throw error;
         } catch (e) {
             console.error("Error adding XP:", e);
-            // Revert on error? For now, let's just log it.
+            // Re-fetch to ensure sync after failure
+            if (user) fetchProfile(user.id);
         }
     };
 
@@ -357,7 +386,7 @@ export const UserProvider = ({ children }) => {
                 is_completed: false
             }));
 
-            const { error: insError } = await supabase.from('workout_daily_plans').insert(dbRows);
+            const { error: insError } = await supabase.from('workout_daily_plans').upsert(dbRows, { onConflict: 'user_id,date' });
             if (!insError) {
                 console.log("Generated new block successfully.");
 
@@ -378,32 +407,30 @@ export const UserProvider = ({ children }) => {
         }
     };
 
-    const updateWaterIntake = async (glasses, date = null) => {
+    const updateWaterIntake = async (litres, date = null) => {
         if (!user) return;
 
         const targetDate = date || new Date().toISOString().split('T')[0];
-        const newTotal = glasses;
+        const newTotal = parseFloat(litres.toFixed(2));
 
         // Only update state if we are modifying the currently viewed date (or today if implied)
-        // But since we treat 'waterIntake' as "currently viewed day's water", we just update it.
         setWaterIntake(newTotal);
 
         // Notifications only for today
         const today = new Date().toISOString().split('T')[0];
-        if (targetDate === today && newTotal === 12) { // 3L goal
+        if (targetDate === today && newTotal >= 3.5) { // 3.5L goal as seen in UI
             if (Constants.appOwnership === 'expo') {
-                Alert.alert("Goal Reached! 💧", "You've reached your 3L daily water goal. Great job staying hydrated!");
+                Alert.alert("Goal Reached! 💧", "You've reached your 3.5L daily water goal. Great job staying hydrated!");
             } else {
-                // ... notification logic
                 try {
                     const Notifications = require('expo-notifications');
                     await Notifications.scheduleNotificationAsync({
-                        content: { title: "Goal Reached! 💧", body: "You've reached your 3L daily water goal. Great job staying hydrated!" },
+                        content: { title: "Goal Reached! 💧", body: "You've reached your 3.5L daily water goal. Great job staying hydrated!" },
                         trigger: null,
                     });
                 } catch (e) {
                     console.log("Notification failed", e);
-                    Alert.alert("Goal Reached! 💧", "You've reached your 3L daily water goal. Great job staying hydrated!");
+                    Alert.alert("Goal Reached! 💧", "You've reached your 3.5L daily water goal. Great job staying hydrated!");
                 }
             }
         }
@@ -415,7 +442,7 @@ export const UserProvider = ({ children }) => {
             .upsert({
                 user_id: user.id,
                 date: targetDate,
-                water_glasses: newTotal
+                water_glasses: newTotal // We use the same column name but store Litres
             }, { onConflict: 'user_id,date' });
     };
 
@@ -663,7 +690,7 @@ export const UserProvider = ({ children }) => {
                 is_completed: false
             }));
 
-            const { error } = await supabase.from('workout_daily_plans').insert(dbRows);
+            const { error } = await supabase.from('workout_daily_plans').upsert(dbRows, { onConflict: 'user_id,date' });
             if (!error) {
                 fetchWorkoutSchedule(user.id, { ...userProfile, ...updates });
                 // Log queue completion
@@ -771,7 +798,7 @@ export const UserProvider = ({ children }) => {
                 is_completed: false
             }));
 
-            await supabase.from('workout_daily_plans').insert(dbRows);
+            await supabase.from('workout_daily_plans').upsert(dbRows, { onConflict: 'user_id,date' });
             fetchWorkoutSchedule(user.id);
             Alert.alert("Success", "Rolling workout plan generated successfully!");
         } catch (error) {
@@ -808,36 +835,62 @@ export const UserProvider = ({ children }) => {
         }
 
         try {
-            let query = supabase
+            // First, fetch the top 10 for the scope
+            let topQuery = supabase
                 .from('profiles')
                 .select('id, full_name, username, workout_xp, workout_level, country, state')
                 .not('workout_xp', 'is', null)
                 .gt('workout_xp', 0);
 
-            // Apply scope filter - only country or state
             if (scope === 'country' && filter) {
-                query = query.eq('country', filter);
+                topQuery = topQuery.eq('country', filter);
             } else if (scope === 'state' && filter) {
-                query = query.eq('state', filter);
+                topQuery = topQuery.eq('state', filter);
             }
 
-            // Fetch top 10 to account for current user display logic
-            query = query.order('workout_xp', { ascending: false }).limit(10);
+            topQuery = topQuery.order('workout_xp', { ascending: false }).limit(10);
+            const { data: topData, error: topError } = await topQuery;
 
-            const { data, error } = await query;
+            if (topError) throw topError;
 
-            if (error) throw error;
-
-            return data.map((entry, index) => ({
+            const top10 = topData.map((entry, index) => ({
                 rank: index + 1,
                 user_id: entry.id,
                 username: entry.username || entry.full_name || 'Anonymous',
                 workout_xp: entry.workout_xp || 0,
                 workout_level: entry.workout_level || 1
             }));
+
+            // Next, find exactly where the current user stands in that scope
+            let myRank = null;
+            let myEntry = null;
+
+            if (userProfile && userProfile.workout_xp > 0) {
+                let rankQuery = supabase
+                    .from('profiles')
+                    .select('id', { count: 'exact', head: true })
+                    .gt('workout_xp', userProfile.workout_xp);
+
+                if (scope === 'country' && filter) rankQuery = rankQuery.eq('country', filter);
+                else if (scope === 'state' && filter) rankQuery = rankQuery.eq('state', filter);
+
+                const { count, error: countError } = await rankQuery;
+                if (!countError) {
+                    myRank = (count || 0) + 1;
+                    myEntry = {
+                        rank: myRank,
+                        user_id: userProfile.id,
+                        username: userProfile.username || userProfile.full_name || 'Anonymous',
+                        workout_xp: userProfile.workout_xp,
+                        workout_level: userProfile.workout_level
+                    };
+                }
+            }
+
+            return { top10, currentUserEntry: myEntry };
         } catch (error) {
             console.error('Error fetching leaderboard:', error);
-            return [];
+            return { top10: [], currentUserEntry: null };
         }
     };
 

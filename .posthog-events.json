@@ -1,0 +1,52 @@
+[
+  {
+    "event": "user_signed_up",
+    "description": "User creates a new account with email and password",
+    "file": "app/auth/login.tsx"
+  },
+  {
+    "event": "user_logged_in",
+    "description": "User signs into their existing account",
+    "file": "app/auth/login.tsx"
+  },
+  {
+    "event": "user_logged_out",
+    "description": "User logs out of their account",
+    "file": "app/(tabs)/profile.tsx"
+  },
+  {
+    "event": "onboarding_completed",
+    "description": "User finishes the onboarding flow and their plan is generated",
+    "file": "app/onboarding/step4_result.tsx"
+  },
+  {
+    "event": "onboarding_goal_selected",
+    "description": "User selects their fitness goal during onboarding",
+    "file": "app/onboarding/step1_goal.tsx"
+  },
+  {
+    "event": "food_logged",
+    "description": "User adds a food item to their daily log",
+    "file": "app/(tabs)/add.tsx"
+  },
+  {
+    "event": "exercise_completed",
+    "description": "User marks an exercise as completed in their workout plan",
+    "file": "app/(tabs)/workout.tsx"
+  },
+  {
+    "event": "workout_plan_regenerated",
+    "description": "User regenerates their workout plan",
+    "file": "app/(tabs)/workout.tsx"
+  },
+  {
+    "event": "challenge_joined",
+    "description": "User joins a fitness challenge",
+    "file": "app/(tabs)/challenges.tsx"
+  },
+  {
+    "event": "water_intake_updated",
+    "description": "User updates their water intake for the day",
+    "file": "app/(tabs)/index.tsx"
+  }
+]

@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Trophy, User } from 'lucide-react-native';
+import React, { useState, useCallback } from 'react';
+import {
+    View, Text, StyleSheet, TouchableOpacity, Pressable, Modal,
+    TouchableWithoutFeedback,
+} from 'react-native';
+import { Trophy, User, X, Zap, Star } from 'lucide-react-native';
 
 interface LeaderboardEntry {
     rank: number;
@@ -14,32 +17,52 @@ interface LeaderboardProps {
     currentUserId: string;
     userCountry?: string;
     userState?: string;
-    onFetchLeaderboard: (scope: 'country' | 'state', filter?: string) => Promise<LeaderboardEntry[]>;
+    onFetchLeaderboard: (scope: 'country' | 'state', filter?: string) => Promise<any>;
 }
 
-// Mock data for development
-const MOCK_LEADERBOARD: LeaderboardEntry[] = [
-    { rank: 1, user_id: 'user1', username: 'Anonymous', workout_xp: 10500, workout_level: 10 },
-    { rank: 2, user_id: 'user2', username: 'Sarah Miller', workout_xp: 8450, workout_level: 8 },
-    { rank: 3, user_id: 'user3', username: 'Jake Thompson', workout_xp: 7920, workout_level: 7 },
-    { rank: 4, user_id: 'user4', username: 'David Chen', workout_xp: 7105, workout_level: 7 },
-    { rank: 5, user_id: 'user5', username: 'Maria B.', workout_xp: 6840, workout_level: 6 },
-    { rank: 6, user_id: 'user6', username: 'Tom Wilson', workout_xp: 6120, workout_level: 6 },
-    { rank: 7, user_id: 'user7', username: 'Elena G.', workout_xp: 5890, workout_level: 5 },
-    { rank: 8, user_id: 'user8', username: 'Ryan K.', workout_xp: 5230, workout_level: 5 },
-    { rank: 15, user_id: 'current-user', username: 'You', workout_xp: 3200, workout_level: 3 },
-];
+interface LeaderboardData {
+    top10: LeaderboardEntry[];
+    currentUserEntry: LeaderboardEntry | null;
+}
 
-const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId }) => {
-    const [scope, setScope] = useState<'country' | 'state'>('country');
+// Deterministic avatar bg color per user
+const AVATAR_COLORS = ['#7c3aed', '#0f766e', '#b45309', '#be185d', '#1d4ed8', '#166534', '#9a3412'];
+function avatarColor(userId: string) {
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+function initials(username: string) {
+    return (username || '?').slice(0, 2).toUpperCase();
+}
 
-    // Use mock data for now - show top 8
-    const top8 = MOCK_LEADERBOARD.slice(0, 8);
-    const currentUserEntry = MOCK_LEADERBOARD.find(entry => entry.user_id === 'current-user');
-    const isCurrentUserInTop8 = currentUserEntry && currentUserEntry.rank <= 8;
+const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId, userCountry, userState, onFetchLeaderboard }) => {
+    const [scope, setScope] = useState<'country' | 'state'>('state');
+    const [data, setData] = useState<LeaderboardData>({ top10: [], currentUserEntry: null });
+    const [loading, setLoading] = useState(true);
 
-    // Build display list: if user not in top 8, add them as 9th entry
-    const displayData = isCurrentUserInTop8 ? top8 : [...top8, currentUserEntry!];
+    // Hover chip state
+    const [hoveredEntry, setHoveredEntry] = useState<LeaderboardEntry | null>(null);
+    const [chipX, setChipX] = useState(0);
+    const [chipY, setChipY] = useState(0);
+
+    React.useEffect(() => {
+        const loadData = async () => {
+            setLoading(true);
+            const filterValue = scope === 'country' ? userCountry : userState;
+            const result = await onFetchLeaderboard(scope, filterValue);
+            // @ts-ignore
+            setData(result);
+            setLoading(false);
+        };
+        loadData();
+    }, [scope, userCountry, userState, onFetchLeaderboard]);
+
+    const isCurrentUserInTop10 = data.top10.some(entry => entry.user_id === currentUserId);
+    const displayData = [...data.top10];
+    if (!isCurrentUserInTop10 && data.currentUserEntry) {
+        displayData.push(data.currentUserEntry);
+    }
 
     const getBadgeIcon = (rank: number) => {
         if (rank === 1) return '🥇';
@@ -48,17 +71,30 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId }) => {
         return null;
     };
 
+    const handleLongPress = useCallback((item: LeaderboardEntry, event: any) => {
+        const { pageX, pageY } = event.nativeEvent;
+        setChipX(pageX);
+        setChipY(pageY);
+        setHoveredEntry(item);
+    }, []);
+
     const renderItem = ({ item, index }: { item: LeaderboardEntry; index: number }) => {
-        const isCurrentUser = item.user_id === 'current-user';
+        const isCurrentUser = item.user_id === currentUserId;
         const showBadge = item.rank <= 3;
-        const isUserRow = !isCurrentUserInTop8 && index === 8;
+        const isUserRow = !isCurrentUserInTop10 && isCurrentUser && index === data.top10.length;
+        const bgColor = avatarColor(item.user_id);
 
         return (
-            <View style={[
-                styles.entryRow,
-                isCurrentUser && styles.entryRowCurrent,
-                isUserRow && styles.userRowSeparator
-            ]}>
+            <Pressable
+                onLongPress={(e) => handleLongPress(item, e)}
+                onPress={() => handleLongPress(item, { nativeEvent: { pageX: 120, pageY: 300 } })}
+                delayLongPress={200}
+                style={[
+                    styles.entryRow,
+                    isCurrentUser && styles.entryRowCurrent,
+                    isUserRow && styles.userRowSeparator
+                ]}
+            >
                 <View style={styles.rankContainer}>
                     <Text style={[styles.rankText, isCurrentUser && styles.textCurrent]}>
                         {item.rank}
@@ -69,8 +105,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId }) => {
                     {showBadge ? (
                         <Text style={styles.badgeIcon}>{getBadgeIcon(item.rank)}</Text>
                     ) : (
-                        <View style={[styles.avatar, isCurrentUser && styles.avatarCurrent]}>
-                            <User size={16} color={isCurrentUser ? "#4ade80" : "#666"} />
+                        <View style={[styles.avatar, { backgroundColor: bgColor }, isCurrentUser && styles.avatarCurrent]}>
+                            <Text style={styles.avatarInitials}>{initials(item.username)}</Text>
                         </View>
                     )}
                 </View>
@@ -85,7 +121,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId }) => {
                 <Text style={[styles.xpText, isCurrentUser && styles.textCurrent]}>
                     {item.workout_xp.toLocaleString()} XP
                 </Text>
-            </View>
+            </Pressable>
         );
     };
 
@@ -96,12 +132,12 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId }) => {
                 <View style={styles.titleRow}>
                     <Text style={styles.title}>Leaderboard</Text>
                     <View style={styles.trophyIcon}>
-                        <Trophy size={18} color="#4ade80" />
+                        <Trophy size={18} color="#bef264" />
                     </View>
                 </View>
             </View>
 
-            {/* Scope Selector - Country/State only */}
+            {/* Scope Selector */}
             <View style={styles.scopeSelector}>
                 <TouchableOpacity
                     style={[styles.scopeBtn, scope === 'country' && styles.scopeBtnActive]}
@@ -124,12 +160,62 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId }) => {
 
             {/* Leaderboard List */}
             <View style={styles.list}>
-                {displayData.map((item, index) => (
-                    <React.Fragment key={item.user_id}>
-                        {renderItem({ item, index })}
-                    </React.Fragment>
-                ))}
+                {loading ? (
+                    <Text style={{ color: '#666', textAlign: 'center', marginTop: 20 }}>Loading rankings...</Text>
+                ) : displayData.length === 0 ? (
+                    <Text style={{ color: '#666', textAlign: 'center', marginTop: 20 }}>No users found in this region.</Text>
+                ) : (
+                    displayData.map((item, index) => (
+                        <React.Fragment key={`${item.user_id}-${index}`}>
+                            {renderItem({ item, index })}
+                        </React.Fragment>
+                    ))
+                )}
             </View>
+
+            {/* Hover Chip Modal */}
+            {hoveredEntry && (
+                <Modal transparent animationType="fade" visible onRequestClose={() => setHoveredEntry(null)}>
+                    <TouchableWithoutFeedback onPress={() => setHoveredEntry(null)}>
+                        <View style={styles.chipOverlay}>
+                            <TouchableWithoutFeedback>
+                                <View style={styles.chipCard}>
+                                    {/* Close */}
+                                    <TouchableOpacity style={styles.chipClose} onPress={() => setHoveredEntry(null)}>
+                                        <X size={14} color="#9ca3af" />
+                                    </TouchableOpacity>
+
+                                    {/* Avatar large */}
+                                    <View style={[styles.chipAvatar, { backgroundColor: avatarColor(hoveredEntry.user_id) }]}>
+                                        <Text style={styles.chipAvatarText}>{initials(hoveredEntry.username)}</Text>
+                                    </View>
+
+                                    {/* Username & rank */}
+                                    <Text style={styles.chipUsername}>{hoveredEntry.username}</Text>
+                                    <View style={styles.chipRankBadge}>
+                                        <Text style={styles.chipRankText}>#{hoveredEntry.rank}</Text>
+                                    </View>
+
+                                    {/* Stats row */}
+                                    <View style={styles.chipStats}>
+                                        <View style={styles.chipStat}>
+                                            <Zap size={14} color="#bef264" />
+                                            <Text style={styles.chipStatValue}>{hoveredEntry.workout_xp.toLocaleString()}</Text>
+                                            <Text style={styles.chipStatLabel}>XP</Text>
+                                        </View>
+                                        <View style={styles.chipStatDivider} />
+                                        <View style={styles.chipStat}>
+                                            <Star size={14} color="#eab308" />
+                                            <Text style={styles.chipStatValue}>{hoveredEntry.workout_level}</Text>
+                                            <Text style={styles.chipStatLabel}>Level</Text>
+                                        </View>
+                                    </View>
+                                </View>
+                            </TouchableWithoutFeedback>
+                        </View>
+                    </TouchableWithoutFeedback>
+                </Modal>
+            )}
         </View>
     );
 };
@@ -185,7 +271,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     scopeBtnActive: {
-        backgroundColor: '#4ade80',
+        backgroundColor: '#bef264',
     },
     scopeText: {
         fontSize: 13,
@@ -198,18 +284,16 @@ const styles = StyleSheet.create({
     list: {
         marginTop: 4,
     },
-    listContent: {
-        paddingBottom: 8,
-    },
     entryRow: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 14,
         paddingHorizontal: 4,
         marginBottom: 2,
+        borderRadius: 10,
     },
     entryRowCurrent: {
-        backgroundColor: '#1a3a1a',
+        backgroundColor: 'rgba(190,242,100,0.08)',
         borderRadius: 12,
         paddingHorizontal: 12,
     },
@@ -229,7 +313,7 @@ const styles = StyleSheet.create({
         color: '#666',
     },
     textCurrent: {
-        color: '#4ade80',
+        color: '#bef264',
     },
     avatarContainer: {
         width: 40,
@@ -243,14 +327,17 @@ const styles = StyleSheet.create({
         width: 32,
         height: 32,
         borderRadius: 16,
-        backgroundColor: '#2A2A2A',
         justifyContent: 'center',
         alignItems: 'center',
     },
     avatarCurrent: {
-        backgroundColor: '#1a3a1a',
         borderWidth: 2,
-        borderColor: '#4ade80',
+        borderColor: '#bef264',
+    },
+    avatarInitials: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: '700',
     },
     userInfo: {
         flex: 1,
@@ -270,6 +357,86 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '700',
         color: '#FFF',
+    },
+
+    // Hover Chip Styles
+    chipOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    chipCard: {
+        backgroundColor: '#1f2937',
+        borderRadius: 24,
+        padding: 24,
+        width: 220,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#374151',
+        position: 'relative',
+    },
+    chipClose: {
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        padding: 4,
+    },
+    chipAvatar: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 12,
+        borderWidth: 3,
+        borderColor: '#bef264',
+    },
+    chipAvatarText: {
+        color: '#fff',
+        fontSize: 22,
+        fontWeight: '800',
+    },
+    chipUsername: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 6,
+    },
+    chipRankBadge: {
+        backgroundColor: 'rgba(190,242,100,0.12)',
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 20,
+        marginBottom: 16,
+    },
+    chipRankText: {
+        color: '#bef264',
+        fontWeight: '700',
+        fontSize: 13,
+    },
+    chipStats: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 16,
+    },
+    chipStat: {
+        alignItems: 'center',
+        gap: 2,
+    },
+    chipStatValue: {
+        color: '#fff',
+        fontWeight: '700',
+        fontSize: 16,
+    },
+    chipStatLabel: {
+        color: '#9ca3af',
+        fontSize: 11,
+    },
+    chipStatDivider: {
+        width: 1,
+        height: 32,
+        backgroundColor: '#374151',
     },
 });
 

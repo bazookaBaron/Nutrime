@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Switch, Alert, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Switch, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useUser } from '../../context/UserContext';
 import { useChallenges } from '../../context/ChallengesContext';
 import { useRouter } from 'expo-router';
 import { Settings, Edit2, Bell, ChevronRight, User, Moon, Lock, LogOut, Award, Star, Flame, Trophy, Zap, Crown } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import ConnectedDevicesPanel from '../../components/ConnectedDevicesPanel';
+import { usePostHog } from 'posthog-react-native';
 
 export default function ProfileScreen() {
     const { user, userProfile, logout } = useUser();
     const { userChallenges } = useChallenges();
     const router = useRouter();
+    const posthog = usePostHog();
     const [isDarkMode, setIsDarkMode] = useState(true);
 
     const handleLogout = async () => {
@@ -22,6 +26,12 @@ export default function ProfileScreen() {
                     text: "Log Out",
                     style: 'destructive',
                     onPress: async () => {
+                        posthog.capture('user_logged_out', {
+                            user_id: user?.id,
+                            workout_level: userProfile?.workout_level,
+                            total_xp: userProfile?.workout_xp,
+                        });
+                        posthog.reset();
                         await logout();
                     }
                 }
@@ -44,7 +54,7 @@ export default function ProfileScreen() {
     const displayXp = userProfile?.xp || userProfile?.workout_xp || 0;
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container} edges={['top']}>
             {/* Header */}
             <View style={styles.header}>
                 <View style={{ width: 40 }} />
@@ -114,6 +124,9 @@ export default function ProfileScreen() {
                     </View>
                 </View>
 
+                {/* Connected Devices */}
+                <ConnectedDevicesPanel />
+
                 {/* Account Section */}
                 <Text style={styles.sectionTitle}>ACCOUNT</Text>
                 <View style={styles.menuContainer}>
@@ -165,7 +178,7 @@ export default function ProfileScreen() {
 
                 <View style={{ height: 40 }} />
             </ScrollView>
-        </View>
+        </SafeAreaView>
     );
 }
 

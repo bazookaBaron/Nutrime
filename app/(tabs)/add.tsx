@@ -4,10 +4,12 @@ import { useFood } from '../../context/FoodContext';
 import { useUser } from '../../context/UserContext';
 import { Search, Plus, ScanLine, X } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { usePostHog } from 'posthog-react-native';
 
 export default function AddFood() {
     const { foodDatabase, addFoodToLog, getDailySummary } = useFood();
     const { nutritionTargets } = useUser();
+    const posthog = usePostHog();
     const [searchQuery, setSearchQuery] = useState('');
     const [filteredFood, setFilteredFood] = useState<any[]>([]);
     const router = useRouter();
@@ -65,6 +67,16 @@ export default function AddFood() {
 
     const handleAddFood = async (item: any, qty: number) => {
         await addFoodToLog(item, mealName || 'snack', qty);
+        // Track food logging event in PostHog
+        posthog.capture('food_logged', {
+            food_name: item.name,
+            meal_type: mealName || 'snack',
+            quantity: qty,
+            calories: (item.calories || 0) * qty,
+            protein: (item.protein || 0) * qty,
+            carbs: (item.carbs || 0) * qty,
+            fat: (item.fat || 0) * qty,
+        });
         // Don't navigate back, just toast or feedback
         // For now, minimal feedback, maybe vibration or small layout animation could be added later
     };

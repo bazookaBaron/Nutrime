@@ -4,12 +4,20 @@ import { useRouter } from 'expo-router';
 import { useUser } from '../../context/UserContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Check, ArrowRight } from 'lucide-react-native';
+import { usePostHog } from 'posthog-react-native';
 
 export default function Step4Result() {
     const { nutritionTargets, completeOnboarding, userProfile } = useUser();
     const router = useRouter();
+    const posthog = usePostHog();
 
     const handleFinish = async () => {
+        posthog.capture('onboarding_completed', {
+            goal: userProfile?.goal,
+            daily_calories_target: nutritionTargets.calories,
+            activity_level: userProfile?.activity_level,
+            target_duration_weeks: userProfile?.target_duration_weeks,
+        });
         await completeOnboarding();
         router.replace('/(tabs)');
     };

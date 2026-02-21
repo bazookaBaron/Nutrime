@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Dimensions, Modal, Image, Alert, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Modal, Image, Alert, RefreshControl } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { useUser } from '@/context/UserContext';
@@ -7,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AlertCircle, Flame, Dumbbell, Home as HomeIcon, X, RefreshCw } from 'lucide-react-native';
 import ExerciseCard from '@/components/Workout/ExerciseCard';
 import Leaderboard from '@/components/Workout/Leaderboard';
+import { usePostHog } from 'posthog-react-native';
 import AnimatedProgressBar from '@/components/AnimatedProgressBar';
 
 const { width } = Dimensions.get('window');
@@ -14,6 +16,7 @@ const { width } = Dimensions.get('window');
 export default function WorkoutScreen() {
     const router = useRouter();
     const { userProfile, workoutSchedule, completeExercise, regenerateFullSchedule, fetchLeaderboard } = useUser();
+    const posthog = usePostHog();
     const isFocused = useIsFocused();
     const [refreshing, setRefreshing] = useState(false);
 
@@ -32,8 +35,9 @@ export default function WorkoutScreen() {
     }, [isFocused]);
 
     // State
-    const [selectedDayIndex, setSelectedDayIndex] = useState(0); // 0-based index for UI
-    const [mode, setMode] = useState<'Gym' | 'Home'>('Gym'); // 'Gym' | 'Home'
+    const [selectedDayIndex, setSelectedDayIndex] = useState(0);
+    const [mode, setMode] = useState<'Gym' | 'Home'>('Gym');
+    const [lockedMode, setLockedMode] = useState<'Gym' | 'Home' | null>(null); // locked after first exercise
 
     // Replace Modal State
     const [replaceModalVisible, setReplaceModalVisible] = useState(false);
@@ -97,6 +101,9 @@ export default function WorkoutScreen() {
     // Update state when initialCompletions changes (e.g. day selection changes)
     useEffect(() => {
         setCompletedExerciseIds(initialCompletions);
+        // Reset lock when day changes
+        setLockedMode(null);
+        setMode('Gym');
     }, [initialCompletions]);
 
     const [regenerateloading, setRegenerateLoading] = useState(false);
@@ -115,6 +122,11 @@ export default function WorkoutScreen() {
 
     const handleRegenerate = async () => {
         setRegenerateLoading(true);
+        posthog.capture('workout_plan_regenerated', {
+            current_day_number: currentDay?.day_number,
+            workout_level: userProfile?.workout_level,
+            total_xp: userProfile?.workout_xp,
+        });
         await regenerateFullSchedule();
         setRegenerateLoading(false);
     };
@@ -122,6 +134,7 @@ export default function WorkoutScreen() {
     const handleComplete = (exercise: any) => {
         const newSet = new Set(completedExerciseIds);
         const id = exercise.instance_id || exercise.name;
+        const isCompleting = !newSet.has(id);
 
         if (newSet.has(id)) {
             newSet.delete(id);
@@ -131,6 +144,23 @@ export default function WorkoutScreen() {
 
         completeExercise(currentDay.day_number, id, mode);
         setCompletedExerciseIds(newSet);
+
+        // Lock the selected mode after first completion
+        if (isCompleting && !lockedMode) {
+            setLockedMode(mode);
+        }
+
+        // Only track when marking as complete (not uncomplete)
+        if (isCompleting) {
+            posthog.capture('exercise_completed', {
+                exercise_name: exercise.name,
+                mode,
+                body_area: exercise.bodyArea,
+                calories_burned: exercise.predicted_calories_burn || 0,
+                duration_minutes: exercise.duration_minutes || 0,
+                day_number: currentDay?.day_number,
+            });
+        }
     };
 
     const handleStart = (exercise: any) => {
@@ -255,7 +285,7 @@ export default function WorkoutScreen() {
                             disabled={regenerateloading}
                             style={styles.regenerateBtn}
                         >
-                            <RefreshCw size={20} color={regenerateloading ? "#666" : "#4ade80"} />
+                            <RefreshCw size={20} color={regenerateloading ? '#666' : '#bef264'} />
                         </TouchableOpacity>
                     </View>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dayScroll}>
@@ -316,16 +346,55 @@ export default function WorkoutScreen() {
                             {/* Toggle Mode */}
                             <View style={styles.toggleContainer}>
                                 <TouchableOpacity
-                                    style={[styles.toggleBtn, mode === 'Gym' && styles.toggleBtnActive]}
-                                    onPress={() => setMode('Gym')}
+                                    style={[
+                                        styles.toggleBtn,
+                                        mode === 'Gym' && styles.toggleBtnActive,
+                                        lockedMode === 'Home' && styles.toggleBtnLocked,
+                                    ]}
+                                    disabled={lockedMode === 'Home'}
+                                    onPress={() => {
+                                        if (lockedMode === 'Home') return;
+                                        setMode('Gym');
+                                    }}
                                 >
-                                    <Dumbbell size={16} color={mode === 'Gym' ? '#000' : '#888'} />
+                                    {lockedMode === 'Home' ? (
+                                        <Text style={{ fontSize: 14 }}>🔒</Text>
+                                    ) : (
+                                        <Dumbbell size={16} color={mode === 'Gym' ? '#000' : '#888'} />
+                                    )}
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    style={[styles.toggleBtn, mode === 'Home' && styles.toggleBtnActive]}
-                                    onPress={() => setMode('Home')}
+                                    style={[
+                                        styles.toggleBtn,
+                                        mode === 'Home' && styles.toggleBtnActive,
+                                        lockedMode === 'Gym' && styles.toggleBtnLocked,
+                                    ]}
+                                    disabled={lockedMode === 'Gym'}
+                                    onPress={() => {
+                                        if (lockedMode === 'Gym') return;
+                                        if (!lockedMode && mode === 'Gym') {
+                                            // First time switching to Home — confirm and lock
+                                            Alert.alert(
+                                                '🏠 Switch to Home Workout?',
+                                                'Choosing Home workout will block Gym exercises for today. You must complete your Home session.',
+                                                [
+                                                    { text: 'Stay Gym', style: 'cancel' },
+                                                    {
+                                                        text: 'Continue Home',
+                                                        onPress: () => setMode('Home'),
+                                                    },
+                                                ]
+                                            );
+                                        } else {
+                                            setMode('Home');
+                                        }
+                                    }}
                                 >
-                                    <HomeIcon size={16} color={mode === 'Home' ? '#000' : '#888'} />
+                                    {lockedMode === 'Gym' ? (
+                                        <Text style={{ fontSize: 14 }}>🔒</Text>
+                                    ) : (
+                                        <HomeIcon size={16} color={mode === 'Home' ? '#000' : '#888'} />
+                                    )}
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -399,7 +468,7 @@ export default function WorkoutScreen() {
                             </TouchableOpacity>
                         </View>
                         <Text style={styles.modalSubtitle}>
-                            Select a substitute for <Text style={{ fontWeight: 'bold', color: '#4ade80' }}>{exerciseToReplace?.name}</Text>
+                            Select a substitute for <Text style={{ fontWeight: 'bold', color: '#bef264' }}>{exerciseToReplace?.name}</Text>
                         </Text>
 
                         <ScrollView contentContainerStyle={styles.replacementList}>
@@ -457,7 +526,7 @@ const styles = StyleSheet.create({
     levelBadge: {
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#4ade80',
+        backgroundColor: '#bef264',
         width: 60,
         height: 60,
         borderRadius: 30,
@@ -483,7 +552,7 @@ const styles = StyleSheet.create({
     totalXpValue: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: '#4ade80',
+        color: '#bef264',
     },
     greeting: {
         fontSize: 20,
@@ -532,19 +601,19 @@ const styles = StyleSheet.create({
         minWidth: 90,
     },
     dayChipSelected: {
-        backgroundColor: '#4ade80',
-        borderColor: '#4ade80',
+        backgroundColor: '#bef264',
+        borderColor: '#bef264',
     },
     dayChipToday: {
-        borderColor: '#4ade80',
+        borderColor: '#bef264',
         borderWidth: 1.5,
     },
     dayChipDimmed: {
         opacity: 0.5,
     },
     dayChipCompleted: {
-        borderColor: '#4ade80',
-        backgroundColor: '#1a3a1a',
+        borderColor: '#bef264',
+        backgroundColor: 'rgba(190,242,100,0.08)',
     },
     dayHeader: {
         flexDirection: 'row',
@@ -554,7 +623,7 @@ const styles = StyleSheet.create({
         width: 6,
         height: 6,
         borderRadius: 3,
-        backgroundColor: '#4ade80',
+        backgroundColor: '#bef264',
         marginLeft: 4,
     },
     dayChipText: {
@@ -628,7 +697,10 @@ const styles = StyleSheet.create({
         borderRadius: 8,
     },
     toggleBtnActive: {
-        backgroundColor: '#4ade80',
+        backgroundColor: '#bef264',
+    },
+    toggleBtnLocked: {
+        opacity: 0.35,
     },
     exerciseListLabel: {
         fontSize: 16,
@@ -640,7 +712,7 @@ const styles = StyleSheet.create({
         paddingRight: 20,
     },
     startWorkoutBtn: {
-        backgroundColor: '#4ade80',
+        backgroundColor: '#bef264',
         padding: 16,
         borderRadius: 16,
         alignItems: 'center',
@@ -703,7 +775,7 @@ const styles = StyleSheet.create({
     xpInfoText: {
         fontSize: 13,
         fontWeight: '600',
-        color: '#4ade80',
+        color: '#bef264',
     },
     emptyState: {
         alignItems: 'center',
@@ -771,7 +843,7 @@ const styles = StyleSheet.create({
         borderRadius: 8,
     },
     repAddText: {
-        color: '#4ade80',
+        color: '#bef264',
         fontWeight: '600',
         fontSize: 12,
     },

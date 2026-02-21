@@ -9,9 +9,10 @@ const { width } = Dimensions.get('window');
 interface ChallengeCardProps {
     challenge: any;
     userChallenge?: any;
+    onPress?: (challenge: any, userChallenge?: any) => void;
 }
 
-export default function ChallengeCard({ challenge, userChallenge }: ChallengeCardProps) {
+export default function ChallengeCard({ challenge, userChallenge, onPress }: ChallengeCardProps) {
     const { joinChallenge } = useChallenges();
     const [joining, setJoining] = useState(false);
 
@@ -38,8 +39,14 @@ export default function ChallengeCard({ challenge, userChallenge }: ChallengeCar
         return `${hours}h left`;
     };
 
+    const CardComponent = onPress ? TouchableOpacity : View;
+
     return (
-        <View style={styles.card}>
+        <CardComponent
+            style={styles.card}
+            activeOpacity={0.8}
+            onPress={onPress ? () => onPress(challenge, userChallenge) : undefined}
+        >
             <View style={styles.leftSection}>
                 <View style={[styles.iconContainer, { backgroundColor: isJoined ? 'rgba(190, 242, 100, 0.1)' : 'rgba(107, 114, 128, 0.1)' }]}>
                     <Trophy size={20} color={isJoined ? "#bef264" : "#9ca3af"} />
@@ -47,22 +54,37 @@ export default function ChallengeCard({ challenge, userChallenge }: ChallengeCar
             </View>
 
             <View style={styles.infoSection}>
-                <Text style={styles.title} numberOfLines={1}>{challenge.title}</Text>
+                <View style={styles.titleRow}>
+                    <Text style={styles.title} numberOfLines={1}>{challenge.title}</Text>
+                </View>
+
+                <View style={styles.tagsRow}>
+                    <View style={styles.xpTag}>
+                        <Zap size={10} color="#ca8a04" />
+                        <Text style={styles.xpTagText}>{challenge.xp_reward} XP</Text>
+                    </View>
+                    {challenge.type && (
+                        <View style={styles.categoryTag}>
+                            <Text style={styles.categoryTagText}>{challenge.type.toUpperCase()}</Text>
+                        </View>
+                    )}
+                </View>
+
                 <View style={styles.metaRow}>
-                    <Text style={styles.xpText}>{challenge.xp_reward} XP</Text>
-                    <Text style={styles.dot}>•</Text>
+                    <Clock size={10} color="#9ca3af" />
                     <Text style={styles.metaText}>{getTimeRemaining()}</Text>
                     <Text style={styles.dot}>•</Text>
-                    <Users size={10} color="#6b7280" />
+                    <Users size={10} color="#9ca3af" />
                     <Text style={styles.metaText}>{challenge.participants_count || 0}</Text>
                 </View>
+
                 {isJoined && !isCompleted && (
                     <View style={styles.progressContainer}>
                         <AnimatedProgressBar
                             progress={0.1}
                             color="#bef264"
                             backgroundColor="#374151"
-                            height={3}
+                            height={4}
                         />
                     </View>
                 )}
@@ -87,7 +109,7 @@ export default function ChallengeCard({ challenge, userChallenge }: ChallengeCar
                     </TouchableOpacity>
                 )}
             </View>
-        </View>
+        </CardComponent>
     );
 }
 
@@ -116,25 +138,58 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
     },
+    titleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
     title: {
-        fontSize: 15,
+        fontSize: 16,
         fontWeight: 'bold',
         color: '#fff',
-        marginBottom: 2,
+        flex: 1,
+    },
+    tagsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 6,
+    },
+    xpTag: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(202, 138, 4, 0.15)',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+        gap: 4,
+    },
+    xpTagText: {
+        color: '#facc15',
+        fontSize: 10,
+        fontWeight: 'bold',
+    },
+    categoryTag: {
+        backgroundColor: '#374151',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+    },
+    categoryTagText: {
+        color: '#d1d5db',
+        fontSize: 10,
+        fontWeight: '600',
+        letterSpacing: 0.5,
     },
     metaRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
-    },
-    xpText: {
-        color: '#facc15',
-        fontSize: 11,
-        fontWeight: '600',
+        gap: 4,
     },
     dot: {
         color: '#4b5563',
         fontSize: 10,
+        marginHorizontal: 2,
     },
     metaText: {
         color: '#9ca3af',

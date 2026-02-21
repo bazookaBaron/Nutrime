@@ -4,18 +4,21 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, Keyb
 import { useRouter } from 'expo-router';
 import { useUser } from '../../context/UserContext';
 import { Mail, Lock, CheckCircle, User } from 'lucide-react-native';
+import { usePostHog } from 'posthog-react-native';
 
 export default function LoginScreen() {
     const router = useRouter();
     const { login, signUp, loading: contextLoading } = useUser();
+    const posthog = usePostHog();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [fullName, setFullName] = useState('');
+    const [username, setUsername] = useState('');
     const [isLogin, setIsLogin] = useState(true);
     const [localLoading, setLocalLoading] = useState(false);
 
     const handleAuth = async () => {
-        if (!email || !password || (!isLogin && !fullName)) {
+        if (!email || !password || (!isLogin && (!fullName || !username))) {
             Alert.alert('Error', 'Please fill in all fields');
             return;
         }
@@ -24,14 +27,41 @@ export default function LoginScreen() {
         try {
             if (isLogin) {
                 await login(email, password);
+                // Identify user on login
+                posthog.identify(email, {
+                    $set: { email },
+                });
+                posthog.capture('user_logged_in', {
+                    email,
+                });
             } else {
-                await signUp(email, password, fullName);
+                await signUp(email, password, fullName, username);
+                // Identify user on signup
+                posthog.identify(email, {
+                    $set: { email, full_name: fullName, username },
+                    $set_once: { signup_date: new Date().toISOString() },
+                });
+                posthog.capture('user_signed_up', {
+                    email,
+                    username,
+                });
                 Alert.alert('Success', 'Account created! Please check your email for verification.');
                 setIsLogin(true); // Switch to login after signup
             }
         } catch (error) {
             console.error(error);
             const message = (error as Error).message;
+            // Capture authentication errors
+            posthog.capture('$exception', {
+                $exception_list: [
+                    {
+                        type: 'AuthError',
+                        value: message,
+                    },
+                ],
+                $exception_source: 'login',
+                action: isLogin ? 'login' : 'signup',
+            });
             Alert.alert('Authentication Error', message);
         } finally {
             setLocalLoading(false);
@@ -66,6 +96,20 @@ export default function LoginScreen() {
                                 placeholderTextColor="#6b7280"
                                 value={fullName}
                                 onChangeText={setFullName}
+                            />
+                        </View>
+                    )}
+
+                    {!isLogin && (
+                        <View style={styles.inputContainer}>
+                            <User size={20} color="#9ca3af" style={styles.inputIcon} />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Username (e.g. fituser99)"
+                                placeholderTextColor="#6b7280"
+                                value={username}
+                                onChangeText={setUsername}
+                                autoCapitalize="none"
                             />
                         </View>
                     )}

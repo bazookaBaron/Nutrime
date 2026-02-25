@@ -12,7 +12,7 @@ export default function CreateChallengeScreen() {
     const [form, setForm] = useState({
         title: '',
         description: '',
-        type: '', // steps | calories | manual | sleep | water
+        type: '', // steps | calories | custom | sleep | water
         target_value: '',
         duration_days: '7',
         difficulty: 'medium' as 'easy' | 'medium' | 'hard'
@@ -25,12 +25,62 @@ export default function CreateChallengeScreen() {
     };
 
     const handleSubmit = async () => {
-        if (!form.title || !form.description || !form.target_value) {
-            Alert.alert('Error', 'Please fill in all required fields');
+        // Validation
+        if (!form.title.trim()) {
+            Alert.alert('Error', 'Please enter a challenge title');
             return;
         }
+        if (form.title.length > 50) {
+            Alert.alert('Error', 'Title must be 50 characters or less');
+            return;
+        }
+        if (!form.description.trim()) {
+            Alert.alert('Error', 'Please enter a description');
+            return;
+        }
+        if (form.description.length > 200) {
+            Alert.alert('Error', 'Description must be 200 characters or less');
+            return;
+        }
+
         if (!form.type) {
             Alert.alert('Error', 'Please select a challenge category');
+            return;
+        }
+
+        // Target value validation
+        let finalTarget = parseFloat(form.target_value);
+        if (form.type !== 'custom') {
+            if (isNaN(finalTarget) || finalTarget <= 0) {
+                Alert.alert('Error', 'Please enter a valid target value');
+                return;
+            }
+
+            // Category specific limits
+            if (form.type === 'steps' && finalTarget > 50000) {
+                Alert.alert('Error', 'Steps target cannot exceed 50,000');
+                return;
+            }
+            if (form.type === 'calories' && finalTarget > 10000) {
+                Alert.alert('Error', 'Calories target cannot exceed 10,000 kcal');
+                return;
+            }
+            if (form.type === 'sleep' && finalTarget > 12) {
+                Alert.alert('Error', 'Sleep target cannot exceed 12 hours');
+                return;
+            }
+            if (form.type === 'water' && finalTarget > 20) {
+                Alert.alert('Error', 'Water target cannot exceed 20 L');
+                return;
+            }
+        } else {
+            // For custom, target is the duration (number of manual checks needed)
+            finalTarget = parseInt(form.duration_days);
+        }
+
+        const duration = parseInt(form.duration_days);
+        if (isNaN(duration) || duration <= 0 || duration > 365) {
+            Alert.alert('Error', 'Duration must be between 1 and 365 days');
             return;
         }
 
@@ -38,14 +88,14 @@ export default function CreateChallengeScreen() {
         try {
             const now = new Date();
             const endDate = new Date(now);
-            endDate.setDate(now.getDate() + parseInt(form.duration_days));
+            endDate.setDate(now.getDate() + duration);
 
             await createChallenge({
-                title: form.title,
-                description: form.description,
+                title: form.title.trim(),
+                description: form.description.trim(),
                 type: form.type,
-                target_value: parseFloat(form.target_value),
-                duration_days: parseInt(form.duration_days),
+                target_value: finalTarget,
+                duration_days: duration,
                 xp_reward: difficultyXpMap[form.difficulty],
                 start_time: now.toISOString(),
                 end_time: endDate.toISOString(),
@@ -64,7 +114,7 @@ export default function CreateChallengeScreen() {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                <TouchableOpacity onPress={() => router.replace('/(tabs)/challenges')} style={styles.backButton}>
                     <ChevronLeft size={24} color="#fff" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Create Challenge</Text>
@@ -74,33 +124,41 @@ export default function CreateChallengeScreen() {
             <ScrollView contentContainerStyle={styles.content}>
 
                 <View style={styles.formGroup}>
-                    <Text style={styles.label}>Challenge Title</Text>
+                    <View style={styles.labelRow}>
+                        <Text style={styles.label}>Challenge Title</Text>
+                        <Text style={styles.charCounter}>{form.title.length}/50</Text>
+                    </View>
                     <TextInput
                         style={styles.input}
                         placeholder="e.g. 30 Minute Run"
                         placeholderTextColor="#6b7280"
                         value={form.title}
+                        maxLength={50}
                         onChangeText={t => setForm(prev => ({ ...prev, title: t }))}
                     />
                 </View>
 
                 <View style={styles.formGroup}>
-                    <Text style={styles.label}>Description</Text>
+                    <View style={styles.labelRow}>
+                        <Text style={styles.label}>Description</Text>
+                        <Text style={styles.charCounter}>{form.description.length}/200</Text>
+                    </View>
                     <TextInput
                         style={[styles.input, styles.textArea]}
                         placeholder="Explain the rules..."
                         placeholderTextColor="#6b7280"
                         multiline
                         numberOfLines={3}
+                        maxLength={200}
                         value={form.description}
                         onChangeText={t => setForm(prev => ({ ...prev, description: t }))}
                     />
                 </View>
 
                 <View style={[styles.formGroup]}>
-                    <Text style={styles.label}>Category</Text>
+                    <Text style={styles.label}>Category <Text style={{ color: '#ef4444' }}>*</Text></Text>
                     <View style={styles.typeSelector}>
-                        {['steps', 'calories', 'manual', 'sleep', 'water'].map(t => (
+                        {['steps', 'calories', 'custom', 'sleep', 'water'].map(t => (
                             <TouchableOpacity
                                 key={t}
                                 style={[styles.typeOption, form.type === t && styles.activeType]}
@@ -132,27 +190,29 @@ export default function CreateChallengeScreen() {
                 </View>
 
                 <View style={styles.row}>
-                    <View style={[styles.formGroup, { flex: 1, marginRight: 10 }]}>
-                        <Text style={styles.label}>Target Value</Text>
-                        <View style={styles.inputWithUnit}>
-                            <TextInput
-                                style={[styles.input, { flex: 1, marginBottom: 0 }]}
-                                placeholder={form.type === 'water' ? "e.g. 3.0" : "e.g. 10000"}
-                                placeholderTextColor="#6b7280"
-                                keyboardType="numeric"
-                                value={form.target_value}
-                                onChangeText={t => setForm(prev => ({ ...prev, target_value: t }))}
-                            />
-                            {form.type && (
-                                <Text style={styles.unitLabel}>
-                                    {form.type === 'water' ? 'L' :
-                                        form.type === 'calories' ? 'kcal' :
-                                            form.type === 'steps' ? 'steps' :
-                                                form.type === 'sleep' ? 'hrs' : ''}
-                                </Text>
-                            )}
+                    {form.type !== 'custom' && (
+                        <View style={[styles.formGroup, { flex: 1, marginRight: 10 }]}>
+                            <Text style={styles.label}>Target Value</Text>
+                            <View style={styles.inputWithUnit}>
+                                <TextInput
+                                    style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                                    placeholder={form.type === 'water' ? "e.g. 3.0" : "e.g. 10000"}
+                                    placeholderTextColor="#6b7280"
+                                    keyboardType="numeric"
+                                    value={form.target_value}
+                                    onChangeText={t => setForm(prev => ({ ...prev, target_value: t }))}
+                                />
+                                {form.type && (
+                                    <Text style={styles.unitLabel}>
+                                        {form.type === 'water' ? 'L' :
+                                            form.type === 'calories' ? 'kcal' :
+                                                form.type === 'steps' ? 'steps' :
+                                                    form.type === 'sleep' ? 'hrs' : ''}
+                                    </Text>
+                                )}
+                            </View>
                         </View>
-                    </View>
+                    )}
                     <View style={[styles.formGroup, { flex: 1 }]}>
                         <Text style={styles.label}>Duration (Days)</Text>
                         <TextInput
@@ -213,8 +273,17 @@ const styles = StyleSheet.create({
     },
     label: {
         color: '#d1d5db',
-        marginBottom: 8,
         fontWeight: '600',
+    },
+    labelRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    charCounter: {
+        color: '#6b7280',
+        fontSize: 12,
     },
     input: {
         backgroundColor: '#1f2937',

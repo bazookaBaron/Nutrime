@@ -6,7 +6,11 @@
     "Level": "Intermediate",
     "MET": 6,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=rT7DgCr-3pg"
+    "videoLink": "https://www.youtube.com/watch?v=EeE3f4VWFDo",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 4,
+    "recommendedReps": "8-12",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Incline Bench Press",
@@ -15,7 +19,11 @@
     "Level": "Intermediate",
     "MET": 6,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=SrqOu55lrYU"
+    "videoLink": "https://www.youtube.com/watch?v=lJ2o89kcnxY",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 4,
+    "recommendedReps": "8-12",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Dumbbell Bench Press",
@@ -24,7 +32,11 @@
     "Level": "Beginner",
     "MET": 5.5,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=VmB1G1K7v94"
+    "videoLink": "https://www.youtube.com/watch?v=YQ2s_Y7g5Qk",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "10-12",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Cable Chest Fly",
@@ -33,7 +45,11 @@
     "Level": "Intermediate",
     "MET": 6,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=Iwe6AmxVf7o"
+    "videoLink": "https://www.youtube.com/watch?v=4mfLHnFL0Uw",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "12-15",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Pull-up",
@@ -42,7 +58,11 @@
     "Level": "Intermediate",
     "MET": 6,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=eGo4IYlbE5g"
+    "videoLink": "https://www.youtube.com/watch?v=GRgWPT9XSQQ",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 4,
+    "recommendedReps": "6-10",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Chin-up",
@@ -51,7 +71,11 @@
     "Level": "Intermediate",
     "MET": 6,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=brhRXlOhsAM"
+    "videoLink": "https://www.youtube.com/shorts/Oi3bW9nQmGI",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 4,
+    "recommendedReps": "6-10",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Barbell Row",
@@ -60,7 +84,11 @@
     "Level": "Intermediate",
     "MET": 6,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=9efgcGunQ1o"
+    "videoLink": "https://www.youtube.com/watch?v=6FZHJGzMFEc",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 4,
+    "recommendedReps": "8-10",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Single-arm Dumbbell Row",
@@ -69,7 +97,11 @@
     "Level": "Beginner",
     "MET": 5.5,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=dFzUj7qa9k8"
+    "videoLink": "https://www.youtube.com/watch?v=DMo3HJoawrU",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "10-12",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Shoulder Press",
@@ -78,7 +110,11 @@
     "Level": "Beginner",
     "MET": 5.5,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=qEwK657kfZE"
+    "videoLink": "https://www.youtube.com/watch?v=HzIiNhHhhtA",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "8-12",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Barbell Overhead Press",
@@ -87,7 +123,11 @@
     "Level": "Intermediate",
     "MET": 6,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=2yjwXTZQDDI"
+    "videoLink": "https://www.youtube.com/watch?v=cGnhixvC8uA",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 4,
+    "recommendedReps": "6-8",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Arnold Press",
@@ -96,7 +136,11 @@
     "Level": "Intermediate",
     "MET": 6,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=3mlObhu8a2Q"
+    "videoLink": "https://www.youtube.com/watch?v=Tux8PGVa9wQ",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "8-12",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Lateral Raise",
@@ -105,7 +149,11 @@
     "Level": "Beginner",
     "MET": 5.5,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=3VcKaXpzqRo"
+    "videoLink": "https://www.youtube.com/watch?v=XPPfnSEATJA",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "12-15",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Cable Lateral Raise",
@@ -114,7 +162,11 @@
     "Level": "Intermediate",
     "MET": 6,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=PZmPfMkM6a0"
+    "videoLink": "https://www.youtube.com/watch?v=Z5FA9aq3L6A",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "12-15",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Front Raise",
@@ -123,7 +175,11 @@
     "Level": "Beginner",
     "MET": 5.5,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=-t7fuZ0KhDA"
+    "videoLink": "https://www.youtube.com/watch?v=hRJ6tR5-if0",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "12-15",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Face Pull",
@@ -132,7 +188,11 @@
     "Level": "Beginner",
     "MET": 5.5,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=rep-qVOkqgk"
+    "videoLink": "https://www.youtube.com/watch?v=0Po47vvj9g4",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "12-15",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Bicep Curl",
@@ -141,7 +201,11 @@
     "Level": "Beginner",
     "MET": 5.5,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=ykJmrZ5v0Oo"
+    "videoLink": "https://www.youtube.com/watch?v=XE_pHwbst04",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "12-15",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Barbell Curl",
@@ -150,7 +214,11 @@
     "Level": "Intermediate",
     "MET": 6,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=kwG2ipFRgfo"
+    "videoLink": "https://www.youtube.com/watch?v=RkjZTl_xd2o",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "8-12",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Hammer Curl",
@@ -159,7 +227,11 @@
     "Level": "Beginner",
     "MET": 5.5,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=TwD-YGVP4Bk"
+    "videoLink": "https://www.youtube.com/watch?v=BRVDS6HVR9Q",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "12-15",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Preacher Curl",
@@ -168,7 +240,11 @@
     "Level": "Intermediate",
     "MET": 6,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=vngli9UR6Hw"
+    "videoLink": "https://www.youtube.com/watch?v=fuK3nFvwgXk",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "10-12",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Tricep Pushdown",
@@ -177,7 +253,11 @@
     "Level": "Beginner",
     "MET": 5.5,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=2-LAMcpzODU"
+    "videoLink": "https://www.youtube.com/watch?v=LXkCrxn3caQ",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "12-15",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Overhead Tricep Extension",
@@ -186,7 +266,11 @@
     "Level": "Beginner",
     "MET": 5.5,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=_gsUck-7M74"
+    "videoLink": "https://www.youtube.com/watch?v=1u18yJELsh0",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "12-15",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Skull Crushers",
@@ -195,7 +279,11 @@
     "Level": "Intermediate",
     "MET": 6,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=d_KZxkY_0cM"
+    "videoLink": "https://www.youtube.com/watch?v=jO2Jl9eZpXk",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "8-12",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Barbell Back Squat",
@@ -204,7 +292,11 @@
     "Level": "Intermediate",
     "MET": 6.5,
     "Purpose": "Muscle gain / strength / weight control",
-    "videoLink": "https://www.youtube.com/watch?v=SW_C1A-rejs"
+    "videoLink": "https://www.youtube.com/watch?v=rrJIyZGlK8c",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 4,
+    "recommendedReps": "6-8",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Front Squat",
@@ -213,7 +305,11 @@
     "Level": "Intermediate",
     "MET": 6.5,
     "Purpose": "Muscle gain / strength / weight control",
-    "videoLink": "https://www.youtube.com/watch?v=hh5516HCu4k"
+    "videoLink": "https://www.youtube.com/watch?v=HHxNbhP16UE",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 4,
+    "recommendedReps": "6-8",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Goblet Squat",
@@ -222,7 +318,11 @@
     "Level": "Beginner",
     "MET": 6,
     "Purpose": "Muscle gain / strength / weight control",
-    "videoLink": "https://www.youtube.com/watch?v=MeIiIdhvXT4"
+    "videoLink": "https://www.youtube.com/watch?v=Xjo_fY9Hl9w",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "10-12",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Dumbbell Lunges",
@@ -231,7 +331,11 @@
     "Level": "Beginner",
     "MET": 6,
     "Purpose": "Muscle gain / strength / weight control",
-    "videoLink": "https://www.youtube.com/watch?v=eLwL641j3c"
+    "videoLink": "https://www.youtube.com/watch?v=BvnVtpQkrHE",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "10-12",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Bulgarian Split Squat",
@@ -240,7 +344,11 @@
     "Level": "Intermediate",
     "MET": 6.5,
     "Purpose": "Muscle gain / strength / weight control",
-    "videoLink": "https://www.youtube.com/watch?v=2C-uNgKwPLE"
+    "videoLink": "https://www.youtube.com/watch?v=Fmjj7wFJWRE",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "8-10",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Step-up",
@@ -249,7 +357,11 @@
     "Level": "Beginner",
     "MET": 6,
     "Purpose": "Muscle gain / strength / weight control",
-    "videoLink": "https://www.youtube.com/watch?v=1-JuCedjHko"
+    "videoLink": "https://www.youtube.com/watch?v=9ZknEYboBOQ",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "10-12",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Deadlift",
@@ -258,7 +370,11 @@
     "Level": "Pro",
     "MET": 7.5,
     "Purpose": "Muscle gain / strength / weight control",
-    "videoLink": "https://www.youtube.com/watch?v=op9kVnSso6Q"
+    "videoLink": "https://www.youtube.com/watch?v=AweC3UaM14o",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 4,
+    "recommendedReps": "5-6",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Romanian Deadlift",
@@ -267,7 +383,11 @@
     "Level": "Intermediate",
     "MET": 6.5,
     "Purpose": "Muscle gain / strength / weight control",
-    "videoLink": "https://www.youtube.com/watch?v=JCXUYuzwNrM"
+    "videoLink": "https://www.youtube.com/watch?v=7j-2w4-P14I",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 4,
+    "recommendedReps": "8-10",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Sumo Deadlift",
@@ -276,7 +396,11 @@
     "Level": "Intermediate",
     "MET": 6.5,
     "Purpose": "Muscle gain / strength / weight control",
-    "videoLink": "https://www.youtube.com/watch?v=wQKSylXH67Q"
+    "videoLink": "https://www.youtube.com/watch?v=pfSMst14EFk",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 4,
+    "recommendedReps": "6-8",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Hip Thrust",
@@ -285,7 +409,11 @@
     "Level": "Intermediate",
     "MET": 6.5,
     "Purpose": "Muscle gain / strength / weight control",
-    "videoLink": "https://www.youtube.com/watch?v=EF7jgr1seyE"
+    "videoLink": "https://www.youtube.com/watch?v=EF7jXP17DPE",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 4,
+    "recommendedReps": "8-10",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Cable Kickback",
@@ -294,7 +422,11 @@
     "Level": "Beginner",
     "MET": 6,
     "Purpose": "Muscle gain / strength / weight control",
-    "videoLink": "https://www.youtube.com/watch?v=bbE-_S_9kQ"
+    "videoLink": "https://www.youtube.com/watch?v=SqO-VUEak2M",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "12-15",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Cable Crunch",
@@ -303,7 +435,11 @@
     "Level": "Intermediate",
     "MET": 6,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=6GMkpQ08Tew"
+    "videoLink": "https://www.youtube.com/watch?v=ToJeyhydUxU",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "15-20",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Hanging Leg Raise",
@@ -312,7 +448,11 @@
     "Level": "Intermediate",
     "MET": 6,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=hdng3xm1xbs"
+    "videoLink": "https://www.youtube.com/watch?v=_jLskVdzS4o",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "15-20",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Decline Sit-up",
@@ -321,7 +461,11 @@
     "Level": "Intermediate",
     "MET": 6,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=XzWj2GgQ3M"
+    "videoLink": "https://www.youtube.com/watch?v=N7hf1_vcX5w",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 3,
+    "recommendedReps": "15-20",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Treadmill Running",
@@ -330,7 +474,11 @@
     "Level": "Beginner",
     "MET": 7.5,
     "Purpose": "Fat loss / cardiovascular endurance",
-    "videoLink": "https://www.youtube.com/watch?v=8iPWoQqS6g"
+    "videoLink": "https://www.youtube.com/watch?v=K6I24WgiiPw",
+    "exerciseType": "Duration",
+    "recommendedSets": null,
+    "recommendedReps": null,
+    "recommendedDuration": 30
   },
   {
     "Exercise": "Cycling",
@@ -339,7 +487,11 @@
     "Level": "Beginner",
     "MET": 7.5,
     "Purpose": "Fat loss / cardiovascular endurance",
-    "videoLink": "https://www.youtube.com/watch?v=rCydRz-8Zlg"
+    "videoLink": "https://www.youtube.com/shorts/dieOsJlsvpM",
+    "exerciseType": "Duration",
+    "recommendedSets": null,
+    "recommendedReps": null,
+    "recommendedDuration": 30
   },
   {
     "Exercise": "Jump Rope",
@@ -348,7 +500,11 @@
     "Level": "Beginner",
     "MET": 7.5,
     "Purpose": "Fat loss / cardiovascular endurance",
-    "videoLink": "https://www.youtube.com/watch?v=1BZM2Vre5oc"
+    "videoLink": "https://www.youtube.com/watch?v=u3zgHI8QnqE",
+    "exerciseType": "Duration",
+    "recommendedSets": null,
+    "recommendedReps": null,
+    "recommendedDuration": 20
   },
   {
     "Exercise": "Clean and Press",
@@ -357,7 +513,11 @@
     "Level": "Pro",
     "MET": 7,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=8k7y8g4g4kA"
+    "videoLink": "https://www.youtube.com/watch?v=Dt7Aqrxd-PA",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 4,
+    "recommendedReps": "4-6",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Snatch",
@@ -366,7 +526,11 @@
     "Level": "Pro",
     "MET": 7,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=9xQp2slD3yM"
+    "videoLink": "https://www.youtube.com/watch?v=xA_DpewzL7c",
+    "exerciseType": "Set/Rep",
+    "recommendedSets": 4,
+    "recommendedReps": "3-5",
+    "recommendedDuration": null
   },
   {
     "Exercise": "Farmer’s Carry",
@@ -375,6 +539,10 @@
     "Level": "Intermediate",
     "MET": 6,
     "Purpose": "Muscle gain / strength / toning",
-    "videoLink": "https://www.youtube.com/watch?v=RtXpC4y9kE"
+    "videoLink": "https://www.youtube.com/watch?v=8OtwXwrJizk",
+    "exerciseType": "Duration",
+    "recommendedSets": null,
+    "recommendedReps": null,
+    "recommendedDuration": 10
   }
 ]

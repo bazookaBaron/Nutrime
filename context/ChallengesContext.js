@@ -221,9 +221,13 @@ export const ChallengesProvider = ({ children }) => {
                 if (metSleepGoal) isCompleted = true;
             }
 
-            // --- Manual Challenge ---
-            else if (challenge.type === 'manual') {
-                // Manual completion handled elsewhere 
+            // --- Custom Challenge ---
+            else if (challenge.type === 'custom') {
+                // Progress is number of distinct days logged in daily_logs
+                const logs = uc.daily_logs || [];
+                if (logs.length >= challenge.target_value) {
+                    isCompleted = true;
+                }
             }
 
             if (isCompleted) {
@@ -355,6 +359,46 @@ export const ChallengesProvider = ({ children }) => {
         }
     };
 
+    const markDailyProgress = async (userChallengeId, date, completed) => {
+        if (isMock) return;
+
+        try {
+            let freshLogs = [];
+
+            // Use functional update to avoid stale closure issue
+            setUserChallenges(prev => {
+                const uc = prev.find(u => u.id === userChallengeId);
+                if (!uc) return prev;
+
+                let logs = Array.isArray(uc.daily_logs) ? [...uc.daily_logs] : [];
+                if (completed) {
+                    if (!logs.includes(date)) logs = [...logs, date];
+                } else {
+                    logs = logs.filter(d => d !== date);
+                }
+                freshLogs = logs;
+
+                return prev.map(u => u.id === userChallengeId ? { ...u, daily_logs: logs } : u);
+            });
+
+            // Small delay to let state settle before DB write
+            await new Promise(r => setTimeout(r, 50));
+
+            // Update DB
+            const { error } = await supabase
+                .from('user_challenges')
+                .update({ daily_logs: freshLogs })
+                .eq('id', userChallengeId);
+
+            if (error) throw error;
+
+            // Verify completion against target
+            setTimeout(() => verifyChallenges(), 300);
+        } catch (e) {
+            console.error("Error marking daily progress:", e);
+        }
+    };
+
     return (
         <ChallengesContext.Provider value={{
             challenges,
@@ -364,7 +408,8 @@ export const ChallengesProvider = ({ children }) => {
             joinChallenge,
             verifyChallenges,
             seedDefaultChallenges,
-            createChallenge
+            createChallenge,
+            markDailyProgress
         }}>
             {children}
         </ChallengesContext.Provider>

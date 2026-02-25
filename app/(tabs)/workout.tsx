@@ -37,23 +37,11 @@ export default function WorkoutScreen() {
     // State
     const [selectedDayIndex, setSelectedDayIndex] = useState(0);
     const [mode, setMode] = useState<'Gym' | 'Home'>('Gym');
-    const [lockedMode, setLockedMode] = useState<'Gym' | 'Home' | null>(null); // locked after first exercise
 
     // Replace Modal State
     const [replaceModalVisible, setReplaceModalVisible] = useState(false);
     const [exerciseToReplace, setExerciseToReplace] = useState<any>(null);
     const { replaceExercise, gymExercises, homeExercises } = useUser();
-
-    // Derived list of potential replacements
-    const replacementOptions = useMemo(() => {
-        if (!exerciseToReplace) return [];
-        const pool = mode === 'Gym' ? gymExercises : homeExercises;
-        // Filter by same body area, excluding current
-        return pool.filter((ex: any) =>
-            (ex.BodyArea === exerciseToReplace.bodyArea || ex['Body Area'] === exerciseToReplace.bodyArea || ex.bodyArea === exerciseToReplace.bodyArea) &&
-            ex.name !== exerciseToReplace.name
-        );
-    }, [exerciseToReplace, mode, gymExercises, homeExercises]);
 
     const today = useMemo(() => {
         const d = new Date();
@@ -85,6 +73,22 @@ export default function WorkoutScreen() {
     const dayPlan = currentDay ? (mode === 'Gym' ? currentDay.gym : currentDay.home) : null;
     const exercises = dayPlan ? dayPlan.exercises : [];
 
+    // Derived list of potential replacements
+    const replacementOptions = useMemo(() => {
+        if (!exerciseToReplace) return [];
+        const pool = mode === 'Gym' ? gymExercises : homeExercises;
+
+        // Get names of currently scheduled exercises for this mode
+        const currentExerciseNames = new Set(exercises.map((ex: any) => ex.name));
+
+        // Filter by same body area, excluding current scheduled exercises
+        return pool.filter((ex: any) => {
+            const exName = ex.Exercise || ex['Exercise Name'] || ex.name;
+            return (ex.BodyArea === exerciseToReplace.bodyArea || ex['Body Area'] === exerciseToReplace.bodyArea || ex.bodyArea === exerciseToReplace.bodyArea) &&
+                !currentExerciseNames.has(exName);
+        });
+    }, [exerciseToReplace, mode, gymExercises, homeExercises, exercises]);
+
     // Calculate burned calories (this is theoretical max for the plan)
     const targetCalories = currentDay ? currentDay.target_calories : 0;
     const plannedBurn = dayPlan ? dayPlan.total_calories : 0;
@@ -101,9 +105,6 @@ export default function WorkoutScreen() {
     // Update state when initialCompletions changes (e.g. day selection changes)
     useEffect(() => {
         setCompletedExerciseIds(initialCompletions);
-        // Reset lock when day changes
-        setLockedMode(null);
-        setMode('Gym');
     }, [initialCompletions]);
 
     const [regenerateloading, setRegenerateLoading] = useState(false);
@@ -111,9 +112,10 @@ export default function WorkoutScreen() {
     // Calculate actual burn from completed exercises
     const actualBurn = useMemo(() => {
         if (!exercises) return 0;
-        return exercises
+        const total = exercises
             .filter((ex: any) => completedExerciseIds.has(ex.instance_id || ex.name))
-            .reduce((sum: number, ex: any) => sum + (ex.predicted_calories_burn || 0), 0);
+            .reduce((sum: number, ex: any) => sum + (ex.actual_calories_burned || ex.predicted_calories_burn || 0), 0);
+        return Math.round(total * 10) / 10;
     }, [exercises, completedExerciseIds]);
 
     // Calculate max daily XP based on exercise count
@@ -145,11 +147,6 @@ export default function WorkoutScreen() {
         completeExercise(currentDay.day_number, id, mode);
         setCompletedExerciseIds(newSet);
 
-        // Lock the selected mode after first completion
-        if (isCompleting && !lockedMode) {
-            setLockedMode(mode);
-        }
-
         // Only track when marking as complete (not uncomplete)
         if (isCompleting) {
             posthog.capture('exercise_completed', {
@@ -174,7 +171,11 @@ export default function WorkoutScreen() {
                 equipment: exercise.equipment,
                 instance_id: exercise.instance_id,
                 day_number: currentDay?.day_number,
-                mode: mode // Pass mode
+                mode: mode, // Pass mode
+                exerciseType: exercise.exerciseType,
+                sets: exercise.predicted_sets,
+                completed_sets: exercise.completed_sets || 0,
+                reps: exercise.predicted_reps
             }
         });
     };
@@ -189,23 +190,27 @@ export default function WorkoutScreen() {
 
         // Use existing duration to keep the session length consistent
         const duration = exerciseToReplace.duration_minutes || 10;
-
-        // Normalize new exercise data structure
-        const newExercise = {
-            name: newExerciseRaw.Exercise || newExerciseRaw['Exercise Name'] || newExerciseRaw.name,
-            bodyArea: newExerciseRaw['Body Area'] || newExerciseRaw.bodyArea,
-            level: newExerciseRaw.Level || newExerciseRaw['Level (Beginner/Intermediate)'] || newExerciseRaw.level,
-            duration_minutes: duration,
-            equipment: newExerciseRaw.Equipment || newExerciseRaw['Equipment Needed'] || newExerciseRaw.equipment,
-        };
-
-        // Calculate burn based on the same duration
-        const met = newExerciseRaw.MET || newExerciseRaw['MET (Metabolic Equivalent)'] || 3;
+        const met = newExerciseRaw.MET || newExerciseRaw['MET (Metabolic Equivalent)'] || newExerciseRaw.met || 3;
         const weight = userProfile.weight || 70;
         const burn = Math.round(met * weight * (duration / 60));
 
-        // @ts-ignore
-        newExercise.predicted_calories_burn = burn;
+        // Map and clean the data
+        const newExercise = {
+            name: newExerciseRaw.Exercise || newExerciseRaw['Exercise Name'] || newExerciseRaw.name,
+            exerciseType: newExerciseRaw.ExerciseType || newExerciseRaw.exerciseType || 'Duration',
+            bodyArea: newExerciseRaw['Body Area'] || newExerciseRaw.bodyArea,
+            level: newExerciseRaw.Level || newExerciseRaw['Level (Beginner/Intermediate)'] || newExerciseRaw.level,
+            equipment: newExerciseRaw.Equipment || newExerciseRaw['Equipment Needed'] || newExerciseRaw.equipment,
+            videoLink: newExerciseRaw.videoLink || '',
+            met: met,
+            duration_minutes: duration,
+            predicted_sets: newExerciseRaw["Recommended Sets"] || 3,
+            predicted_reps: newExerciseRaw["Recommended Reps"] || "10-12",
+            predicted_calories_burn: burn,
+            actual_calories_burned: 0,
+            is_completed: 'no',
+            completed_sets: 0
+        };
 
         const oldId = exerciseToReplace.instance_id || exerciseToReplace.name;
         await replaceExercise(currentDay.day_number, oldId, newExercise, mode);
@@ -265,6 +270,14 @@ export default function WorkoutScreen() {
                     <View style={styles.xpInfo}>
                         <Text style={styles.xpInfoText}>Daily XP: {earnedXP} / {maxDailyXP}</Text>
                     </View>
+                </View>
+
+                {/* Mode Instructional Text */}
+                <View style={styles.instructionsContainer}>
+                    <Text style={styles.instructionsText}>
+                        You can follow either <Text style={{ fontWeight: 'bold', color: '#FFF' }}>Home</Text> or <Text style={{ fontWeight: 'bold', color: '#FFF' }}>Gym</Text> workouts, by clicking the toggle button above both are designed to help you reach your goal.{'\n'}
+                        <Text style={{ color: '#bef264', fontWeight: 'bold' }}>Complete any one workout schdule gym plan/home plan per day.</Text>
+                    </Text>
                 </View>
 
                 {/* Day Selector */}
@@ -349,52 +362,23 @@ export default function WorkoutScreen() {
                                     style={[
                                         styles.toggleBtn,
                                         mode === 'Gym' && styles.toggleBtnActive,
-                                        lockedMode === 'Home' && styles.toggleBtnLocked,
                                     ]}
-                                    disabled={lockedMode === 'Home'}
                                     onPress={() => {
-                                        if (lockedMode === 'Home') return;
                                         setMode('Gym');
                                     }}
                                 >
-                                    {lockedMode === 'Home' ? (
-                                        <Text style={{ fontSize: 14 }}>🔒</Text>
-                                    ) : (
-                                        <Dumbbell size={16} color={mode === 'Gym' ? '#000' : '#888'} />
-                                    )}
+                                    <Dumbbell size={16} color={mode === 'Gym' ? '#000' : '#888'} />
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={[
                                         styles.toggleBtn,
                                         mode === 'Home' && styles.toggleBtnActive,
-                                        lockedMode === 'Gym' && styles.toggleBtnLocked,
                                     ]}
-                                    disabled={lockedMode === 'Gym'}
                                     onPress={() => {
-                                        if (lockedMode === 'Gym') return;
-                                        if (!lockedMode && mode === 'Gym') {
-                                            // First time switching to Home — confirm and lock
-                                            Alert.alert(
-                                                '🏠 Switch to Home Workout?',
-                                                'Choosing Home workout will block Gym exercises for today. You must complete your Home session.',
-                                                [
-                                                    { text: 'Stay Gym', style: 'cancel' },
-                                                    {
-                                                        text: 'Continue Home',
-                                                        onPress: () => setMode('Home'),
-                                                    },
-                                                ]
-                                            );
-                                        } else {
-                                            setMode('Home');
-                                        }
+                                        setMode('Home');
                                     }}
                                 >
-                                    {lockedMode === 'Gym' ? (
-                                        <Text style={{ fontSize: 14 }}>🔒</Text>
-                                    ) : (
-                                        <HomeIcon size={16} color={mode === 'Home' ? '#000' : '#888'} />
-                                    )}
+                                    <HomeIcon size={16} color={mode === 'Home' ? '#000' : '#888'} />
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -579,6 +563,15 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 12,
         paddingRight: 10,
+    },
+    instructionsContainer: {
+        paddingHorizontal: 20,
+        marginBottom: 16,
+    },
+    instructionsText: {
+        fontSize: 12,
+        color: '#888',
+        lineHeight: 18,
     },
     regenerateBtn: {
         padding: 8,

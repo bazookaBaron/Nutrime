@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, RefreshControl, AppState } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { useFood } from '../../context/FoodContext';
 import { useUser } from '../../context/UserContext';
@@ -7,8 +7,8 @@ import { useChallenges } from '../../context/ChallengesContext';
 import { useRouter } from 'expo-router';
 import { usePostHog } from 'posthog-react-native';
 import {
-  Calendar, BarChart2, Flame, Utensils, Droplet, Plus, Minus,
-  Circle, AlertTriangle
+  Flame, Utensils, Droplet, Plus, Minus,
+  Circle, Zap
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { PieChart } from 'react-native-gifted-charts';
@@ -24,7 +24,8 @@ export default function Dashboard() {
 
   const isDataLoading = foodLoading || userLoading;
 
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [todayStr, setTodayStr] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(todayStr);
   const [summary, setSummary] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 });
   const [mtdSummary, setMtdSummary] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 });
   const [todayLog, setTodayLog] = useState<any[]>([]);
@@ -41,7 +42,7 @@ export default function Dashboard() {
       dates.push(date.toISOString().split('T')[0]);
     }
     return dates;
-  }, []);
+  }, [todayStr]);
 
   const pieData = useMemo(() => {
     return [
@@ -51,12 +52,18 @@ export default function Dashboard() {
     ];
   }, [summary]);
 
-  // Calculate Burned Calories from Workout Schedule for Selected Date
-  const burnedCalories = useMemo(() => {
-    if (!workoutSchedule) return 0;
+  // Calculate Burned Calories from actual completed exercises for selected date
+  const { burnedCalories, plannedBurn } = useMemo(() => {
+    if (!workoutSchedule) return { burnedCalories: 0, plannedBurn: 0 };
     const dayPlan = workoutSchedule.find((d: any) => d.date === selectedDate);
-    if (!dayPlan) return 0;
-    return dayPlan.target_calories || 0;
+    if (!dayPlan) return { burnedCalories: 0, plannedBurn: 0 };
+    const allExercises = [...(dayPlan.gym?.exercises || []), ...(dayPlan.home?.exercises || [])];
+    const burned = allExercises
+      .filter((ex: any) => ex.is_completed === 'true')
+      .reduce((sum: number, ex: any) => sum + (ex.actual_calories_burned || ex.predicted_calories_burn || 0), 0);
+    const planned = dayPlan.target_calories ||
+      Math.max(dayPlan.gym?.total_calories || 0, dayPlan.home?.total_calories || 0) || 1;
+    return { burnedCalories: Math.round(burned * 10) / 10, plannedBurn: planned };
   }, [workoutSchedule, selectedDate]);
 
   const updateDashboard = () => {
@@ -100,14 +107,38 @@ export default function Dashboard() {
     setRefreshing(false);
   }, [userProfile, selectedDate]);
 
+  // Check for date change when app comes to foreground
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'active') {
+        const actualToday = new Date().toISOString().split('T')[0];
+        if (todayStr !== actualToday) {
+          setTodayStr(actualToday);
+          setSelectedDate(actualToday);
+        }
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [todayStr]);
+
   useEffect(() => {
     if (isFocused) {
+      const actualToday = new Date().toISOString().split('T')[0];
+      if (todayStr !== actualToday) {
+        setTodayStr(actualToday);
+        setSelectedDate(actualToday);
+        return; // Let the next render cycle handle updates with the correct date
+      }
+
       updateDashboard();
       if (userProfile?.id) {
         fetchDailyStats(userProfile.id, selectedDate);
       }
     }
-  }, [isFocused, dailyLog, selectedDate, workoutSchedule, userProfile]);
+  }, [isFocused, dailyLog, selectedDate, workoutSchedule, userProfile, todayStr]);
 
   useEffect(() => {
     fetchRanking();
@@ -115,7 +146,7 @@ export default function Dashboard() {
 
   // Calculate progress
   const calProgress = summary.calories / (nutritionTargets.calories || 2000);
-  const isToday = selectedDate === new Date().toISOString().split('T')[0];
+  const isToday = selectedDate === todayStr;
 
   // Loading guard — placed AFTER all hooks
   if (isDataLoading) {
@@ -140,17 +171,12 @@ export default function Dashboard() {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Welcome back,</Text>
-            <Text style={styles.userName}>{userProfile?.full_name?.split(' ')[0] || userProfile?.username || 'User'}! 👋</Text>
+            <Text style={styles.greeting}>Hello, {userProfile?.full_name?.split(' ')[0] || 'Fitness Fan'}</Text>
+            <Text style={styles.dateText}>Ready for today's goals?</Text>
           </View>
-          <View style={styles.headerIcons}>
-            <TouchableOpacity style={styles.iconButton}>
-              <Calendar size={20} color="#FFF" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.iconButton}>
-              <View style={styles.notificationDot} />
-              <BarChart2 size={20} color="#FFF" />
-            </TouchableOpacity>
+          <View style={styles.xpBadge}>
+            <Zap size={14} color="#bef264" fill="#bef264" />
+            <Text style={styles.xpBadgeText}>{userProfile?.workout_xp || 0} XP</Text>
           </View>
         </View>
 
@@ -173,7 +199,7 @@ export default function Dashboard() {
           <View style={styles.rankCard}>
             <View style={styles.streakHeader}>
               <View style={styles.rankIconBg}>
-                <BarChart2 size={14} color="#ca8a04" />
+                <Zap size={14} color="#ca8a04" fill="#ca8a04" />
               </View>
               <View>
                 <Text style={[styles.streakLabel, { color: '#FFF' }]}>State Rank</Text>
@@ -197,15 +223,17 @@ export default function Dashboard() {
             <View style={styles.miniProgressSection}>
               <View style={styles.miniStatRow}>
                 <Text style={styles.miniLabel}>Burned</Text>
-                <Text style={styles.miniValue}>{Math.round(burnedCalories)} <Text style={styles.miniUnit}>kcal</Text></Text>
+                <Text style={styles.miniValue}>{burnedCalories} <Text style={styles.miniUnit}>kcal</Text></Text>
               </View>
-              <AnimatedProgressBar progress={0.45} color="#bef264" backgroundColor="#333" />
+              <AnimatedProgressBar progress={Math.min(burnedCalories / Math.max(plannedBurn, 1), 1)} color="#f97316" backgroundColor="#333" />
 
               <View style={[styles.miniStatRow, { marginTop: 15 }]}>
                 <Text style={styles.miniLabel}>Intake</Text>
-                <Text style={styles.miniValue}>{Math.round(summary.calories)} <Text style={styles.miniUnit}>kcal</Text></Text>
+                <Text style={[styles.miniValue, calProgress > 1 && { color: '#ef4444' }]}>
+                  {Math.round(summary.calories)}<Text style={styles.miniUnit}> / {nutritionTargets.calories || 2000} kcal</Text>
+                </Text>
               </View>
-              <AnimatedProgressBar progress={calProgress} color="#bef264" backgroundColor="#333" />
+              <AnimatedProgressBar progress={Math.min(calProgress, 1)} color={calProgress > 1 ? '#ef4444' : '#bef264'} backgroundColor="#333" />
             </View>
           </View>
 
@@ -229,7 +257,7 @@ export default function Dashboard() {
                 isAnimated
                 animationDuration={800}
               />
-              <View style={styles.legendContainer}>
+              <View style={[styles.legendContainer, { marginLeft: 14 }]}>
                 <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#bef264' }]} /><Text style={styles.legendText}>Pro - {Math.round(summary.protein)}g</Text></View>
                 <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#a3e635' }]} /><Text style={styles.legendText}>Carb - {Math.round(summary.carbs)}g</Text></View>
                 <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#65a30d' }]} /><Text style={styles.legendText}>Fat - {Math.round(summary.fat)}g</Text></View>
@@ -299,7 +327,7 @@ export default function Dashboard() {
               const dayName = d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
               const month = d.toLocaleDateString('en-US', { month: 'short' });
               const isSelected = date === selectedDate;
-              const isTodayDate = date === new Date().toISOString().split('T')[0];
+              const isTodayDate = date === todayStr;
               const cals = Math.round(getCaloriesForDate(date));
 
               return (
@@ -347,22 +375,17 @@ export default function Dashboard() {
               return (
                 <View key={meal} style={styles.mealCard}>
                   <View style={styles.mealHeader}>
+                    <Text style={styles.mealTitle}>{meal}</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Text style={styles.mealTitle}>{meal}</Text>
-                      {isOver && (
-                        <View style={styles.overGoalBadge}>
-                          <Text style={styles.overGoalBadgeText}>!</Text>
-                        </View>
+                      {isToday && (
+                        <TouchableOpacity
+                          style={styles.addButton}
+                          onPress={() => router.push({ pathname: '/(tabs)/add', params: { mealType: mealLower } })}
+                        >
+                          <Plus size={16} color="#000" />
+                        </TouchableOpacity>
                       )}
                     </View>
-                    {isToday && (
-                      <TouchableOpacity
-                        style={styles.addButton}
-                        onPress={() => router.push({ pathname: '/(tabs)/add', params: { mealType: mealLower } })}
-                      >
-                        <Plus size={16} color="#000" />
-                      </TouchableOpacity>
-                    )}
                   </View>
 
                   <View style={styles.mealCalsContainer}>
@@ -417,29 +440,21 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFF',
   },
-  headerIcons: {
+  xpBadge: {
     flexDirection: 'row',
-    gap: 12,
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    backgroundColor: '#1E1E1E',
-    borderRadius: 22,
-    justifyContent: 'center',
     alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#1E1E1E',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderWidth: 1,
     borderColor: '#333',
   },
-  notificationDot: {
-    position: 'absolute',
-    top: 10,
-    right: 12,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#bef264',
-    zIndex: 1,
+  xpBadgeText: {
+    color: '#bef264',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   dateSelectorContainer: {
     marginBottom: 24,
@@ -790,15 +805,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#bef264',
     borderRadius: 2,
   },
-  overGoalBadge: {
-    backgroundColor: '#fee2e2',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
+  dateText: {
+    fontSize: 14,
+    color: '#888',
+    marginBottom: 5,
   },
-  overGoalBadgeText: {
-    color: '#ef4444',
-    fontSize: 10,
-    fontWeight: 'bold',
+  syncButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#2A2A2A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
   },
 });

@@ -52,26 +52,33 @@ const normalizeExercises = (gymExercises, homeExercises) => {
         met: ex.MET,
         purpose: ex.Purpose,
         videoLink: ex.videoLink,
+        exerciseType: ex.exerciseType || 'Set/Rep',
+        recommendedSets: ex.recommendedSets || 3,
+        recommendedReps: typeof ex.recommendedReps === 'string' ? ex.recommendedReps : (ex.recommendedReps ? String(ex.recommendedReps) : '10-12'),
+        recommendedDuration: ex.recommendedDuration,
         type: 'Gym'
     }));
 
     const normalizedHome = homeExercises.map(ex => {
-        // Map home exercise "Works" to "Body Area"
         let area = 'Full Body';
-        const works = ex['Works (Upper/Lower/Cardio/Core/Full Body)'];
+        const works = ex['Body Area'] || '';
         if (works.includes('Upper')) area = 'Upper';
         else if (works.includes('Lower')) area = 'Lower';
         else if (works.includes('Core')) area = 'Core';
         else if (works.includes('Cardio')) area = 'Cardio';
 
         return {
-            name: ex['Exercise Name'],
+            name: ex.Exercise,
             bodyArea: area,
-            equipment: ex['Equipment Needed'],
-            level: ex['Level (Beginner/Intermediate)'],
-            met: ex['MET (Metabolic Equivalent)'],
-            purpose: ex['Primary Use (Weight Loss, Muscle Gain, Endurance, etc.)'],
+            equipment: ex.Equipment,
+            level: ex.Level,
+            met: ex.MET,
+            purpose: ex.Purpose,
             videoLink: ex.videoLink,
+            exerciseType: ex.exerciseType || 'Duration',
+            recommendedSets: ex.recommendedSets,
+            recommendedReps: typeof ex.recommendedReps === 'string' ? ex.recommendedReps : (ex.recommendedReps ? String(ex.recommendedReps) : null),
+            recommendedDuration: ex.recommendedDuration || 30,
             type: 'Home'
         };
     });
@@ -106,11 +113,14 @@ const filterExercises = (exercises, bodyArea, userLevel) => {
 const selectExercisesForSession = (availableExercises, targetBurn, userWeight) => {
     let currentBurn = 0;
     let selected = [];
-    let attempts = 0;
-    const maxAttempts = 1000;
+    const minExercises = 8;
+    const maxExercises = 15;
 
-    // Typical duration per exercise (minutes)
-    const exerciseDuration = 10; // Simple fixed duration per set/exercise for now
+    // Per-exercise target calculation
+    // E.g., if target stringency is 400 kcal and we select 8-12 exercises, 
+    // each might target ~30-50 kcals.
+    const averageExercises = 10;
+    let targetBurnPerExercise = targetBurn / averageExercises;
 
     // Copy to avoid modifying original
     let pool = [...availableExercises];
@@ -118,48 +128,117 @@ const selectExercisesForSession = (availableExercises, targetBurn, userWeight) =
     // Randomize pool
     pool.sort(() => Math.random() - 0.5);
 
+    const processExercise = (ex) => {
+        // We need 'targetBurnPerExercise' kcal from this exercise
+        let durationMinutesRequired = (targetBurnPerExercise * 60) / (ex.met * userWeight);
+
+        // Add some safety bounds (min 2 mins, max 20 mins per single exercise variation)
+        if (durationMinutesRequired < 2) durationMinutesRequired = 2;
+        if (durationMinutesRequired > 20) durationMinutesRequired = 20;
+
+        let duration_minutes = 0;
+        let sets = 3;
+        let repsString = "10";
+        let restSecs = 60; // default 60 sec rest
+        let repDurationSecs = 3; // default 3 sec per rep (TUT)
+
+        if (ex.exerciseType === 'Set/Rep' || ex.recommendedSets) {
+            // Extract baseline reps bounds
+            const repMatch = (ex.recommendedReps || "10").match(/(\d+)(?:-(\d+))?/);
+            let minR = 8, maxR = 12;
+            if (repMatch) {
+                minR = parseInt(repMatch[1]);
+                maxR = repMatch[2] ? parseInt(repMatch[2]) : minR;
+            }
+            const avgReps = Math.round((minR + maxR) / 2);
+            repsString = `${minR}-${maxR}`;
+
+            // Required time in seconds
+            const reqSec = durationMinutesRequired * 60;
+
+            // reqSec = (Sets * Reps * 3) + ((Sets - 1) * 60)
+            // reqSec + 60 = Sets * (Reps * 3 + 60)
+            // Sets = (reqSec + 60) / (Reps * 3 + 60)
+
+            const timePerSetBlock = (avgReps * repDurationSecs) + restSecs;
+            let calculatedSets = Math.round((reqSec + restSecs) / timePerSetBlock);
+
+            // Bounds for sets (keep them realistic, e.g. 2 to 5)
+            if (calculatedSets < 2) calculatedSets = 2;
+            if (calculatedSets > 5) calculatedSets = 5;
+
+            sets = calculatedSets;
+
+            // Recalculate true duration in mins for these bounded sets
+            const totalSecs = (sets * avgReps * repDurationSecs) + ((sets - 1) * restSecs);
+            duration_minutes = totalSecs / 60;
+        } else {
+            // Duration-based
+            // Prioritize recommendedDuration (mapped from assets, usually in seconds)
+            let baseDuration;
+            if (ex.recommendedDuration) {
+                baseDuration = ex.recommendedDuration / 60; // Seconds to Minutes
+            } else {
+                baseDuration = durationMinutesRequired;
+            }
+
+            // Safety cap for single exercise duration (e.g. no 7min planks)
+            if (baseDuration > 5) baseDuration = 5;
+            if (baseDuration < 0.5) baseDuration = 0.5;
+
+            duration_minutes = Math.round(baseDuration * 10) / 10;
+        }
+
+        const predicted_calories_burn = calculateCalories(ex.met, userWeight, duration_minutes);
+
+        return {
+            name: ex.name,
+            instance_id: `ex_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            exerciseType: ex.exerciseType,
+            bodyArea: ex.bodyArea,
+            level: ex.level,
+            equipment: ex.equipment,
+            videoLink: ex.videoLink,
+            met: ex.met,
+            duration_minutes: duration_minutes,
+            predicted_sets: sets,
+            predicted_reps: repsString,
+            predicted_calories_burn: predicted_calories_burn,
+            actual_calories_burned: 0,
+            is_completed: 'no',
+            completed_sets: 0
+        };
+    };
+
     for (const ex of pool) {
-        if (currentBurn >= targetBurn) break;
-        if (selected.length >= 15) break; // Max limit
+        if (currentBurn >= targetBurn && selected.length >= minExercises) break;
+        if (selected.length >= maxExercises) break;
 
-        const burn = calculateCalories(ex.met, userWeight, exerciseDuration);
-
-        selected.push({
-            ...ex,
-            duration_minutes: exerciseDuration,
-            predicted_calories_burn: burn,
-            instance_id: `ex_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-        });
-        currentBurn += burn;
+        const processed = processExercise(ex);
+        selected.push(processed);
+        currentBurn += processed.predicted_calories_burn;
     }
-
-    // If we have too few exercises (under 3) and haven't met target, duplicate or add more duration?
-    // User requested 8-15 exercises.
-    const minExercises = 8;
 
     // Fill to minimum count or target burn
-    while ((selected.length < minExercises || currentBurn < targetBurn) && selected.length < 15) {
-        // Pick from pool again (allowing duplicates)
-        // If pool is empty (shouldn't be), break
-        if (pool.length === 0) break;
+    let unusedPool = pool.filter(ex => !selected.some(s => s.name === ex.name));
 
-        const randomIndex = Math.floor(Math.random() * pool.length);
-        const ex = pool[randomIndex];
+    while ((selected.length < minExercises || currentBurn < targetBurn) && selected.length < maxExercises) {
+        if (unusedPool.length === 0) break;
 
-        // Add a suffix to name if it's a duplicate? Or just keep same name?
-        // For uniqueness in keys, we might need an ID.
-        const burn = calculateCalories(ex.met, userWeight, exerciseDuration);
-        selected.push({
-            ...ex,
-            duration_minutes: exerciseDuration,
-            predicted_calories_burn: burn,
-            // Add a unique ID for rendering lists
-            instance_id: `ex_fill_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-        });
-        currentBurn += burn;
+        const randomIndex = Math.floor(Math.random() * unusedPool.length);
+        const ex = unusedPool[randomIndex];
+        unusedPool.splice(randomIndex, 1); // remove the used exercise
+
+        const processed = processExercise(ex);
+        processed.instance_id = `ex_fill_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        selected.push(processed);
+        currentBurn += processed.predicted_calories_burn;
     }
 
-    return { exercises: selected, totalBurn: currentBurn, totalDuration: selected.length * exerciseDuration };
+    const totalDuration = selected.reduce((sum, item) => sum + item.duration_minutes, 0);
+
+    return { exercises: selected, totalBurn: Math.round(currentBurn), totalDuration: Math.round(totalDuration) };
 };
 
 const determineDifficulty = (profile) => {
@@ -243,10 +322,18 @@ export const generateWorkoutSchedule = (userProfile, gymExercises, homeExercises
 
         // Generate Home Session
         const homePool = filterExercises(home, focus, difficultyKey);
-        // Fallback to Full Body if specific body part pool is empty for Home
-        let effectiveHomePool = homePool;
-        if (homePool.length === 0 && focus !== 'Rest/Light') {
-            effectiveHomePool = filterExercises(home, 'Full Body', difficultyKey);
+        // If specific body part pool is small for Home, supplement with Full Body and Cardio
+        let effectiveHomePool = [...homePool];
+        if (effectiveHomePool.length < 8 && focus !== 'Rest/Light') {
+            const secondaryPool = filterExercises(home, 'Full Body', difficultyKey);
+            const cardioPool = filterExercises(home, 'Cardio', difficultyKey);
+
+            // Add unique exercises from secondary pools
+            [...secondaryPool, ...cardioPool].forEach(ex => {
+                if (effectiveHomePool.length < 15 && !effectiveHomePool.some(e => e.name === ex.name)) {
+                    effectiveHomePool.push(ex);
+                }
+            });
         }
 
         const homeSession = selectExercisesForSession(effectiveHomePool, targetDailyBurn, userProfile.weight);

@@ -11,6 +11,10 @@ interface Exercise {
     equipment: string;
     instance_id?: string;
     videoLink?: string;
+    completed_sets?: number;
+    predicted_sets?: number;
+    actual_calories_burned?: number;
+    is_completed?: string;
 }
 
 interface ExerciseCardProps {
@@ -33,6 +37,12 @@ const ExerciseCard = ({ exercise, onComplete, onReplace, onStart, isCompleted, d
     const videoId = getVideoId(exercise.videoLink);
     const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : null;
 
+    const completedSets = exercise.completed_sets || 0;
+    const totalSets = exercise.predicted_sets || 3;
+    const isDone = exercise.is_completed === 'true';
+    const isPartial = exercise.is_completed === 'partial';
+    const hasPartialProgress = isPartial || (completedSets > 0 && completedSets < totalSets);
+
     return (
         <View style={[styles.card, disabled && { opacity: 0.7 }]}>
             <View style={styles.header}>
@@ -47,8 +57,8 @@ const ExerciseCard = ({ exercise, onComplete, onReplace, onStart, isCompleted, d
                     style={styles.checkButton}
                     disabled={disabled}
                 >
-                    {isCompleted ? (
-                        <CheckCircle size={28} color="#4ade80" />
+                    {isDone ? (
+                        <CheckCircle size={28} color="#bef264" />
                     ) : (
                         <Circle size={28} color={disabled ? "#444" : "#666"} />
                     )}
@@ -58,6 +68,17 @@ const ExerciseCard = ({ exercise, onComplete, onReplace, onStart, isCompleted, d
             {thumbnailUrl && (
                 <View style={styles.thumbnailContainer}>
                     <Image source={{ uri: thumbnailUrl }} style={styles.thumbnail} />
+                    {hasPartialProgress && !isDone && (
+                        <View style={styles.progressOverlay}>
+                            <Text style={styles.progressText}>{completedSets} / {totalSets} Sets Done</Text>
+                        </View>
+                    )}
+                </View>
+            )}
+
+            {!thumbnailUrl && hasPartialProgress && !isDone && (
+                <View style={styles.textProgressRow}>
+                    <Text style={styles.textProgress}>{completedSets} / {totalSets} Sets Done. Complete rest of the sets!</Text>
                 </View>
             )}
 
@@ -68,10 +89,18 @@ const ExerciseCard = ({ exercise, onComplete, onReplace, onStart, isCompleted, d
                 </View>
                 <View style={styles.stat}>
                     <Text style={styles.statLabel}>Duration</Text>
-                    <Text style={styles.statValue}>{exercise.duration_minutes} min</Text>
+                    <Text style={styles.statValue}>
+                        {exercise.duration_minutes < 1
+                            ? `${(exercise.duration_minutes * 60).toFixed(0)}s`
+                            : `${exercise.duration_minutes.toFixed(1)} min`}
+                    </Text>
                 </View>
                 <View style={styles.stat}>
-                    <Text style={styles.statLabel}>Equipment</Text>
+                    <Text style={styles.statLabel}>Sets</Text>
+                    <Text style={styles.statValue}>{exercise.predicted_sets || 3}</Text>
+                </View>
+                <View style={styles.stat}>
+                    <Text style={styles.statLabel}>Equip</Text>
                     <Text style={styles.statValue} numberOfLines={1}>{exercise.equipment}</Text>
                 </View>
             </View>
@@ -79,21 +108,23 @@ const ExerciseCard = ({ exercise, onComplete, onReplace, onStart, isCompleted, d
             {/* Actions Row */}
             <View style={styles.actionsRow}>
                 <TouchableOpacity
-                    style={[styles.actionBtn, styles.replaceBtn, (disabled || isCompleted) && { opacity: 0.5 }]}
+                    style={[styles.actionBtn, styles.replaceBtn, (disabled || isDone) && { opacity: 0.5 }]}
                     onPress={onReplace}
-                    disabled={disabled || isCompleted}
+                    disabled={disabled || isDone}
                 >
                     <RefreshCw size={14} color="#FFF" />
                     <Text style={styles.actionBtnText}>Replace</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={[styles.actionBtn, styles.startBtn, (disabled || isCompleted) && { opacity: 0.5 }]}
-                    disabled={disabled || isCompleted}
+                    style={[styles.actionBtn, styles.startBtn, (disabled || isDone) && { opacity: 0.5 }]}
+                    disabled={disabled || isDone}
                     onPress={onStart}
                 >
                     <Play size={14} color="#000" fill="#000" />
-                    <Text style={[styles.actionBtnText, { color: '#000' }]}>Start</Text>
+                    <Text style={[styles.actionBtnText, { color: '#000' }]}>
+                        {hasPartialProgress ? 'Continue' : 'Start'}
+                    </Text>
                 </TouchableOpacity>
             </View>
         </View>
@@ -189,12 +220,37 @@ const styles = StyleSheet.create({
         backgroundColor: '#333',
     },
     startBtn: {
-        backgroundColor: '#4ade80',
+        backgroundColor: '#bef264',
     },
     actionBtnText: {
         fontSize: 12,
         fontWeight: '700',
         color: '#FFF',
+    },
+    progressOverlay: {
+        position: 'absolute',
+        bottom: 10,
+        right: 10,
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: '#bef264',
+    },
+    progressText: {
+        color: '#bef264',
+        fontSize: 10,
+        fontWeight: 'bold',
+    },
+    textProgressRow: {
+        marginBottom: 12,
+        paddingHorizontal: 4,
+    },
+    textProgress: {
+        color: '#bef264',
+        fontSize: 12,
+        fontWeight: '600',
     },
 });
 

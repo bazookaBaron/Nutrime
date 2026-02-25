@@ -71,6 +71,7 @@ export const UserProvider = ({ children }) => {
             password,
         });
         if (error) throw error;
+
         return data;
     };
 
@@ -446,7 +447,7 @@ export const UserProvider = ({ children }) => {
             }, { onConflict: 'user_id,date' });
     };
 
-    const completeExercise = async (dayNumber, exerciseId, mode = 'Gym') => {
+    const completeExercise = async (dayNumber, exerciseId, mode = 'Gym', actualCalories = null, completedSets = null) => {
         if (!user || !userProfile) return;
 
         let dayId = null;
@@ -456,26 +457,73 @@ export const UserProvider = ({ children }) => {
             if (day.day_number === dayNumber) {
                 dayId = day.id;
                 const completions = day.completed_exercises || [];
+                const modeKey = mode.toLowerCase();
+                const session = { ...day[modeKey] };
+
+                // Find exercise to check sets
+                const exIndex = session.exercises.findIndex(ex => (ex.instance_id || ex.name) === exerciseId);
+                const exerciseObj = session.exercises[exIndex];
+
+                const targetSets = exerciseObj?.predicted_sets || 3;
+
+                let updatedCompletions = [...completions];
                 const alreadyDone = completions.includes(exerciseId);
 
-                let updatedCompletions;
-                if (alreadyDone) {
-                    updatedCompletions = completions.filter(id => id !== exerciseId);
-                    newXp -= 10;
+                if (completedSets === null) {
+                    // Manual toggle from card checkmark
+                    const becomingDone = !alreadyDone;
+                    if (alreadyDone) {
+                        updatedCompletions = completions.filter(id => id !== exerciseId);
+                        newXp -= 10;
+                    } else {
+                        updatedCompletions = [...completions, exerciseId];
+                        newXp += 10;
+                    }
+
+                    session.exercises = session.exercises.map((ex, idx) => {
+                        if (idx === exIndex) {
+                            return {
+                                ...ex,
+                                is_completed: becomingDone ? 'true' : 'no',
+                                completed_sets: becomingDone ? targetSets : 0
+                            };
+                        }
+                        return ex;
+                    });
                 } else {
-                    updatedCompletions = [...completions, exerciseId];
-                    newXp += 10;
+                    const isFinalSet = completedSets >= targetSets;
+
+                    if (isFinalSet && !alreadyDone) {
+                        updatedCompletions = [...completions, exerciseId];
+                        newXp += 10;
+                    }
+
+                    session.exercises = session.exercises.map((ex, idx) => {
+                        if (idx === exIndex) {
+                            let status = 'no';
+                            if (completedSets >= targetSets) status = 'true';
+                            else if (completedSets > 0) status = 'partial';
+
+                            return {
+                                ...ex,
+                                actual_calories_burned: actualCalories ?? ex.actual_calories_burned,
+                                completed_sets: completedSets,
+                                is_completed: status
+                            };
+                        }
+                        return ex;
+                    });
                 }
 
                 // Check if ALL exercises for the current mode are completed
-                const targetExercises = mode === 'Home' ? day.home.exercises : day.gym.exercises;
-                const isAllDone = targetExercises.every(ex => {
+                const isAllDone = session.exercises.every(ex => {
                     const id = ex.instance_id || ex.name;
-                    return updatedCompletions.includes(id);
+                    return updatedCompletions.includes(id) || ex.is_completed === 'true';
                 });
 
                 return {
                     ...day,
+                    [modeKey]: session,
                     completed_exercises: updatedCompletions,
                     completed: isAllDone
                 };
@@ -509,7 +557,7 @@ export const UserProvider = ({ children }) => {
                 completed_exercises: dayToUpdate.completed_exercises
             };
 
-            const { error } = await supabase
+            const { error: planError } = await supabase
                 .from('workout_daily_plans')
                 .update({
                     plan_data: planDataToUpdate,
@@ -517,7 +565,30 @@ export const UserProvider = ({ children }) => {
                 })
                 .eq('id', dayId);
 
-            if (error) throw error;
+            if (planError) throw planError;
+
+            // Sync with daily_stats
+            let totalCaloriesBurned = 0;
+            const allExercises = [...(dayToUpdate.gym?.exercises || []), ...(dayToUpdate.home?.exercises || [])];
+
+            dayToUpdate.completed_exercises.forEach(id => {
+                const ex = allExercises.find(e => (e.instance_id || e.name) === id);
+                if (ex) {
+                    totalCaloriesBurned += (ex.actual_calories_burned || ex.predicted_calories_burn || 0);
+                }
+            });
+
+            const { error: statsError } = await supabase
+                .from('daily_stats')
+                .upsert({
+                    user_id: user.id,
+                    date: dayToUpdate.date,
+                    calories_burned: Math.round(totalCaloriesBurned),
+                    daily_exercise_completions: dayToUpdate.completed_exercises
+                }, { onConflict: 'user_id,date' });
+
+            if (statsError) throw statsError;
+
         } catch (err) {
             console.error("Failed to save exercise completion:", err);
         }
@@ -538,9 +609,21 @@ export const UserProvider = ({ children }) => {
             const currentId = ex.instance_id || ex.name;
             if (currentId === oldExerciseId) {
                 return {
-                    ...ex,
-                    ...newExercise,
-                    instance_id: ex.instance_id, // Keep same ID
+                    name: newExercise.name,
+                    instance_id: ex.instance_id,
+                    exerciseType: newExercise.exerciseType,
+                    bodyArea: newExercise.bodyArea,
+                    level: newExercise.level,
+                    equipment: newExercise.equipment,
+                    videoLink: newExercise.videoLink,
+                    met: newExercise.met,
+                    duration_minutes: newExercise.duration_minutes,
+                    predicted_sets: newExercise.predicted_sets,
+                    predicted_reps: newExercise.predicted_reps,
+                    predicted_calories_burn: newExercise.predicted_calories_burn,
+                    actual_calories_burned: 0,
+                    is_completed: 'no',
+                    completed_sets: 0
                 };
             }
             return ex;

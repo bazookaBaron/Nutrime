@@ -13,18 +13,18 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { PieChart } from 'react-native-gifted-charts';
 import AnimatedProgressBar from '../../components/AnimatedProgressBar';
+import { getTodayISODate } from '../../utils/DateUtils';
 
 const { width } = Dimensions.get('window');
 
 export default function Dashboard() {
   const { dailyLog, getDailySummary, getMTDSummary, loading: foodLoading } = useFood();
-  const { userProfile, nutritionTargets, waterIntake, streak, updateWaterIntake, workoutSchedule, fetchLeaderboard, fetchDailyStats, loading: userLoading } = useUser();
+  const { userProfile, nutritionTargets, waterIntake, streak, updateWaterIntake, workoutSchedule, fetchLeaderboard, fetchDailyStats, loading: userLoading, todayStr } = useUser();
   const { verifyChallenges } = useChallenges();
   const posthog = usePostHog();
 
   const isDataLoading = foodLoading || userLoading;
 
-  const [todayStr, setTodayStr] = useState(new Date().toISOString().split('T')[0]);
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [summary, setSummary] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 });
   const [mtdSummary, setMtdSummary] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 });
@@ -33,13 +33,20 @@ export default function Dashboard() {
 
   const router = useRouter();
 
+  // Update selectedDate if global todayStr changes (e.g. at midnight)
+  useEffect(() => {
+    setSelectedDate(todayStr);
+  }, [todayStr]);
+
   // Generate last 5 days for date selector
   const days = useMemo(() => {
     const dates = [];
+    const baseDate = new Date(todayStr);
     for (let i = 4; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      dates.push(date.toISOString().split('T')[0]);
+      const d = new Date(baseDate);
+      d.setDate(baseDate.getDate() - i);
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      dates.push(dateStr);
     }
     return dates;
   }, [todayStr]);
@@ -96,45 +103,19 @@ export default function Dashboard() {
   const isFocused = useIsFocused();
   const [refreshing, setRefreshing] = useState(false);
 
-  // ... (keeping existing summary setting logic)
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     if (userProfile?.id) {
-      await fetchDailyStats(userProfile.id, selectedDate);
+      await fetchDailyStats?.(userProfile.id, selectedDate);
     }
     updateDashboard();
     setRefreshing(false);
   }, [userProfile, selectedDate]);
 
-  // Check for date change when app comes to foreground
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', nextAppState => {
-      if (nextAppState === 'active') {
-        const actualToday = new Date().toISOString().split('T')[0];
-        if (todayStr !== actualToday) {
-          setTodayStr(actualToday);
-          setSelectedDate(actualToday);
-        }
-      }
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, [todayStr]);
-
   useEffect(() => {
     if (isFocused) {
-      const actualToday = new Date().toISOString().split('T')[0];
-      if (todayStr !== actualToday) {
-        setTodayStr(actualToday);
-        setSelectedDate(actualToday);
-        return; // Let the next render cycle handle updates with the correct date
-      }
-
       updateDashboard();
-      if (userProfile?.id) {
+      if (userProfile?.id && fetchDailyStats) {
         fetchDailyStats(userProfile.id, selectedDate);
       }
     }

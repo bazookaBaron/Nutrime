@@ -7,8 +7,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { usePostHog } from 'posthog-react-native';
 
 export default function AddFood() {
-    const { foodDatabase, addFoodToLog, getDailySummary } = useFood();
-    const { nutritionTargets } = useUser();
+    const { foodDatabase, addFoodToLog, dailyLog } = useFood();
+    const { nutritionTargets, todayStr } = useUser();
     const posthog = usePostHog();
     const [searchQuery, setSearchQuery] = useState('');
     const [filteredFood, setFilteredFood] = useState<any[]>([]);
@@ -19,27 +19,26 @@ export default function AddFood() {
     const mealName = Array.isArray(mealType) ? mealType[0] : (mealType || '');
 
     const fetchSummary = () => {
-        const today = new Date().toISOString().split('T')[0];
-        setSummary(getDailySummary(today));
+        const today = todayStr;
+        let logs = dailyLog.filter(item => item.date === today);
+
+        if (mealName) {
+            logs = logs.filter(item => item.meal_type?.toLowerCase() === mealName.toLowerCase());
+        }
+
+        const totals = logs.reduce((acc, item) => ({
+            calories: acc.calories + (Number(item.calories) || 0),
+            protein: acc.protein + (Number(item.protein) || 0),
+            carbs: acc.carbs + (Number(item.carbs) || 0),
+            fat: acc.fat + (Number(item.fat) || 0),
+        }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+
+        setSummary(totals);
     };
 
     useEffect(() => {
         fetchSummary();
-    }, [getDailySummary]); // Re-fetch when context updates (though getDailySummary is stable, we might need a trigger)
-
-    // Listen to focus to refresh summary if needed, or rely on context updates if possible
-    // For now, simpler: when we add food, we manually refresh summary after a short delay or rely on context refetch
-
-    // Better: useFood should probably expose the daily summary or we just re-calc it
-    // checks: getDailySummary reads from dailyLog which is in context state. 
-    // So if dailyLog updates, getDailySummary result changes.
-    // We need to useEffect on dailyLog from context? 
-    // Let's grab dailyLog from context to trigger updates 
-    const { dailyLog } = useFood();
-    useEffect(() => {
-        fetchSummary();
-    }, [dailyLog]);
-
+    }, [dailyLog, todayStr, mealName]);
 
     const handleSearch = (text) => {
         setSearchQuery(text);
@@ -67,7 +66,6 @@ export default function AddFood() {
 
     const handleAddFood = async (item: any, qty: number) => {
         await addFoodToLog(item, mealName || 'snack', qty);
-        // Track food logging event in PostHog
         posthog.capture('food_logged', {
             food_name: item.name,
             meal_type: mealName || 'snack',
@@ -77,14 +75,10 @@ export default function AddFood() {
             carbs: (item.carbs || 0) * qty,
             fat: (item.fat || 0) * qty,
         });
-        // Don't navigate back, just toast or feedback
-        // For now, minimal feedback, maybe vibration or small layout animation could be added later
     };
 
-    // Sub-component for list item with quantity state
     const FoodListItem = ({ item }) => {
         const [quantity, setQuantity] = useState(1);
-
         const increment = () => setQuantity(q => q + 1);
         const decrement = () => setQuantity(q => Math.max(1, q - 1));
 
@@ -116,20 +110,28 @@ export default function AddFood() {
         );
     };
 
-    // Calculate progress for summary card
-    const targetCals = nutritionTargets.calories || 2200;
+    const dailyTarget = nutritionTargets.calories || 2000;
+    const mealSplit = nutritionTargets.mealSplit || { breakfast: 0.25, lunch: 0.35, snack: 0.10, dinner: 0.30 };
+
+    let targetCals = dailyTarget;
+    let proteinTarget = nutritionTargets.protein || 150;
+    let carbsTarget = nutritionTargets.carbs || 200;
+    let fatTarget = nutritionTargets.fat || 65;
+
+    if (mealName) {
+        const factor = mealSplit[mealName.toLowerCase()] || 0.25;
+        targetCals = Math.round(dailyTarget * factor);
+        proteinTarget = Math.round(proteinTarget * factor);
+        carbsTarget = Math.round(carbsTarget * factor);
+        fatTarget = Math.round(fatTarget * factor);
+    }
+
     const remainingCals = targetCals - summary.calories;
     const isOverBudget = remainingCals < 0;
     const progressPercent = Math.min(summary.calories / targetCals, 1);
 
-    // Calculate macro percentages roughly or just show values
-    const proteinTarget = nutritionTargets.protein || 150;
-    const carbsTarget = nutritionTargets.carbs || 200;
-    const fatTarget = nutritionTargets.fat || 65;
-
     return (
         <View style={styles.container}>
-            {/* Search Bar Row */}
             <View style={styles.searchHeader}>
                 <View style={styles.searchBar}>
                     <Search size={20} color="#9ca3af" style={{ marginRight: 10 }} />
@@ -152,11 +154,10 @@ export default function AddFood() {
                 </TouchableOpacity>
             </View>
 
-            {/* Summary Card */}
             <View style={styles.summaryCard}>
                 <View style={styles.summaryRow}>
                     <View>
-                        <Text style={styles.summaryLabel}>LOGGED TODAY</Text>
+                        <Text style={styles.summaryLabel}>{mealName ? `${mealName.toUpperCase()} INTAKE` : 'LOGGED TODAY'}</Text>
                         <Text style={styles.summaryValue}>
                             {Math.round(summary.calories)} <Text style={styles.summaryTarget}>/ {targetCals} kcal</Text>
                         </Text>
@@ -183,12 +184,11 @@ export default function AddFood() {
                     <Text style={styles.macroText}>F: {Math.round(summary.fat)}/{fatTarget}g</Text>
 
                     <Text style={[styles.percentText, isOverBudget && { color: '#ef4444' }]}>
-                        {Math.round(progressPercent * 100)}% of Daily Goal
+                        {Math.round(progressPercent * 100)}% of {mealName ? `${mealName} Goal` : 'Daily Goal'}
                     </Text>
                 </View>
             </View>
 
-            {/* Scale / Scan Header */}
             <View style={styles.resultsHeader}>
                 <Text style={styles.resultsTitle}>SEARCH RESULTS</Text>
                 <TouchableOpacity style={styles.scanButton}>
@@ -217,205 +217,36 @@ export default function AddFood() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#f9fafb', // Light gray background
-        paddingTop: 50,
-        paddingHorizontal: 20,
-    },
-    searchHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 20,
-        gap: 15,
-    },
-    searchBar: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        paddingHorizontal: 15,
-        height: 50,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 5,
-        elevation: 2,
-    },
-    searchInput: {
-        flex: 1,
-        fontSize: 16,
-        color: '#1f2937',
-    },
-    cancelText: {
-        fontSize: 16,
-        color: '#4b5563',
-        fontWeight: '500',
-    },
-    summaryCard: {
-        backgroundColor: '#fff',
-        borderRadius: 20,
-        padding: 20,
-        marginBottom: 25,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 2,
-    },
-    summaryRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    summaryLabel: {
-        fontSize: 10,
-        color: '#9ca3af',
-        fontWeight: 'bold',
-        letterSpacing: 0.5,
-        marginBottom: 4,
-    },
-    summaryValue: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        color: '#1f2937',
-    },
-    summaryTarget: {
-        fontSize: 14,
-        color: '#9ca3af',
-        fontWeight: 'normal',
-    },
-    remainingValue: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#84cc16', // Green color from image
-    },
-    summaryProgressBarBg: {
-        height: 6,
-        backgroundColor: '#f3f4f6',
-        borderRadius: 3,
-        marginTop: 15,
-        marginBottom: 5,
-        overflow: 'hidden',
-    },
-    summaryProgressBarFill: {
-        height: '100%',
-        backgroundColor: '#84cc16', // Green color
-        borderRadius: 3,
-    },
-    macroText: {
-        fontSize: 11,
-        color: '#6b7280',
-        fontWeight: '500',
-    },
-    percentText: {
-        fontSize: 11,
-        color: '#84cc16',
-        fontWeight: 'bold',
-    },
-    resultsHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 15,
-    },
-    resultsTitle: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: '#9ca3af',
-        letterSpacing: 1,
-    },
-    scanButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: '#f3f4f6',
-    },
-    scanText: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: '#1f2937',
-    },
-    listContent: {
-        paddingBottom: 40,
-    },
-    resultCard: {
-        backgroundColor: '#fff',
-        borderRadius: 20,
-        padding: 15,
-        marginBottom: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 5,
-        elevation: 1,
-    },
-    resultInfo: {
-        flex: 1,
-    },
-    resultName: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#1f2937',
-        marginBottom: 4,
-    },
-    resultDetails: {
-        fontSize: 13,
-        color: '#9ca3af',
-    },
-    addButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#bef264',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    emptyContainer: {
-        alignItems: 'center',
-        marginTop: 40,
-    },
-    emptyText: {
-        fontSize: 16,
-        color: '#9ca3af',
-    },
-    actionContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    counterContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#f3f4f6',
-        borderRadius: 12,
-        paddingHorizontal: 4,
-        paddingVertical: 2,
-    },
-    counterBtn: {
-        width: 28,
-        height: 28,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    counterBtnText: {
-        fontSize: 18,
-        color: '#6b7280',
-        fontWeight: 'bold',
-    },
-    counterValue: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: '#1f2937',
-        width: 20,
-        textAlign: 'center',
-    },
+    container: { flex: 1, backgroundColor: '#f9fafb', paddingTop: 50, paddingHorizontal: 20 },
+    searchHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 15 },
+    searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 15, height: 50, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
+    searchInput: { flex: 1, fontSize: 16, color: '#1f2937' },
+    cancelText: { fontSize: 16, color: '#4b5563', fontWeight: '500' },
+    summaryCard: { backgroundColor: '#fff', borderRadius: 20, padding: 20, marginBottom: 25, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
+    summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    summaryLabel: { fontSize: 10, color: '#9ca3af', fontWeight: 'bold', letterSpacing: 0.5, marginBottom: 4 },
+    summaryValue: { fontSize: 22, fontWeight: 'bold', color: '#1f2937' },
+    summaryTarget: { fontSize: 14, color: '#9ca3af', fontWeight: 'normal' },
+    remainingValue: { fontSize: 18, fontWeight: 'bold', color: '#84cc16' },
+    summaryProgressBarBg: { height: 6, backgroundColor: '#f3f4f6', borderRadius: 3, marginTop: 15, marginBottom: 5, overflow: 'hidden' },
+    summaryProgressBarFill: { height: '100%', backgroundColor: '#84cc16', borderRadius: 3 },
+    macroText: { fontSize: 11, color: '#6b7280', fontWeight: '500' },
+    percentText: { fontSize: 11, color: '#84cc16', fontWeight: 'bold' },
+    resultsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+    resultsTitle: { fontSize: 12, fontWeight: 'bold', color: '#9ca3af', letterSpacing: 1 },
+    scanButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: '#f3f4f6' },
+    scanText: { fontSize: 12, fontWeight: 'bold', color: '#1f2937' },
+    listContent: { paddingBottom: 40 },
+    resultCard: { backgroundColor: '#fff', borderRadius: 20, padding: 15, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 1 },
+    resultInfo: { flex: 1 },
+    resultName: { fontSize: 16, fontWeight: '600', color: '#1f2937', marginBottom: 4 },
+    resultDetails: { fontSize: 13, color: '#9ca3af' },
+    addButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#bef264', justifyContent: 'center', alignItems: 'center' },
+    emptyContainer: { alignItems: 'center', marginTop: 40 },
+    emptyText: { fontSize: 16, color: '#9ca3af' },
+    actionContainer: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    counterContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f3f4f6', borderRadius: 12, paddingHorizontal: 4, paddingVertical: 2 },
+    counterBtn: { width: 28, height: 28, justifyContent: 'center', alignItems: 'center' },
+    counterBtnText: { fontSize: 18, color: '#6b7280', fontWeight: 'bold' },
+    counterValue: { fontSize: 14, fontWeight: 'bold', color: '#1f2937', width: 20, textAlign: 'center' },
 });

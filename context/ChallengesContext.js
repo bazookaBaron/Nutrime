@@ -1,86 +1,74 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { useConvex, useQuery } from 'convex/react';
+import { api } from '../convex/_generated/api';
 import { useUser } from './UserContext';
 import { useFood } from './FoodContext';
 import { wearableService } from '../services/WearableService';
 import { Alert } from 'react-native';
+import { getTodayISODate } from '../utils/DateUtils';
 
 const ChallengesContext = createContext();
 
 export const useChallenges = () => useContext(ChallengesContext);
 
 export const ChallengesProvider = ({ children }) => {
-    const { user, isMock, addXP: userAddXP, userProfile, waterIntake } = useUser();
+    const { user, isMock, addXP: userAddXP, userProfile, waterIntake, todayStr } = useUser();
+    const convex = useConvex();
     const { dailyLog, getDailySummary } = useFood();
-    const [challenges, setChallenges] = useState([]);
-    const [userChallenges, setUserChallenges] = useState([]);
+
+    // ---- Reactive Data Source (Convex) ----
+    const dbChallenges = useQuery(api.challenges.getActive, {});
+    const dbUserChallenges = useQuery(api.challenges.getUserChallenges, user ? { userId: user.id } : "skip");
+
+    // Local state for optimistic updates
+    const [localChallenges, setLocalChallenges] = useState([]);
+    const [localUserChallenges, setLocalUserChallenges] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    // Sync local state when DB data changes
     useEffect(() => {
-        if (user) {
-            fetchChallenges();
-            fetchUserChallenges();
-        } else {
-            setChallenges([]);
-            setUserChallenges([]);
+        if (dbChallenges) {
+            setLocalChallenges(dbChallenges.map(c => ({ ...c, id: c._id })));
+        }
+    }, [dbChallenges]);
+
+    useEffect(() => {
+        if (dbUserChallenges) {
+            setLocalUserChallenges(dbUserChallenges.map(u => ({ ...u, id: u._id })));
+            setLoading(false);
+        } else if (!user) {
+            setLocalUserChallenges([]);
             setLoading(false);
         }
-    }, [user]);
+    }, [dbUserChallenges, user]);
+
+    // Use local state as the source of truth for the UI
+    const challenges = isMock ? mockChallenges : localChallenges;
+    const userChallenges = isMock ? [] : localUserChallenges;
 
     // Automatic verification when relevant data changes
     useEffect(() => {
         if (user && !loading && challenges.length > 0) {
-            const today = new Date().toISOString().split('T')[0];
+            const today = todayStr;
             const summary = getDailySummary(today);
             verifyChallenges([], waterIntake, summary.calories);
         }
-    }, [waterIntake, dailyLog, challenges.length]);
+    }, [waterIntake, dailyLog, challenges.length, todayStr]);
 
     const fetchChallenges = async () => {
-        if (isMock) {
-            setChallenges(mockChallenges);
-            setLoading(false);
-            return;
-        }
-
-        try {
-            const { data, error } = await supabase
-                .from('challenges')
-                .select('*')
-                .eq('status', 'active')
-                .gt('end_time', new Date().toISOString())
-                .order('end_time', { ascending: true });
-
-            if (error) throw error;
-            setChallenges(data || []);
-        } catch (e) {
-            console.error("Error fetching challenges:", e);
-        } finally {
-            setLoading(false);
-        }
+        // No longer needed due to useQuery, but kept for interface compatibility if needed elsewhere
     };
 
     const fetchUserChallenges = async () => {
-        if (isMock || !user) return;
-
-        try {
-            const { data, error } = await supabase
-                .from('user_challenges')
-                .select('*')
-                .eq('user_id', user.id);
-
-            if (error) throw error;
-            setUserChallenges(data || []);
-        } catch (e) {
-            console.error("Error fetching user challenges:", e);
-        }
+        // No longer needed due to useQuery, but kept for interface compatibility if needed elsewhere
     };
 
     const joinChallenge = async (challengeId) => {
-        if (!user) return;
+        if (!user || !challengeId) return;
 
         // Optimistic update
         const newEntry = {
+            id: 'temp-' + Date.now(),
             user_id: user.id,
             challenge_id: challengeId,
             status: 'joined',
@@ -88,10 +76,10 @@ export const ChallengesProvider = ({ children }) => {
             joined_at: new Date().toISOString()
         };
 
-        setUserChallenges(prev => [...prev, newEntry]);
+        setLocalUserChallenges(prev => [...prev, newEntry]);
 
         // Update local challenge participant count optimistically
-        setChallenges(prev => prev.map(c =>
+        setLocalChallenges(prev => prev.map(c =>
             c.id === challengeId
                 ? { ...c, participants_count: (c.participants_count || 0) + 1 }
                 : c
@@ -100,29 +88,15 @@ export const ChallengesProvider = ({ children }) => {
         if (isMock) return;
 
         try {
-            const { error } = await supabase
-                .from('user_challenges')
-                .insert([{
-                    user_id: user.id,
-                    challenge_id: challengeId
-                }]);
-
-            if (error) throw error;
-
-            // Re-fetch to confirm sync
-            await fetchUserChallenges();
-
-            // Immediate verification after joining
-            setTimeout(() => verifyChallenges(), 500);
+            await convex.mutation(api.challenges.join, { userId: user.id, challengeId });
+            // Verification will trigger via useEffect when data syncs
         } catch (e) {
             console.error("Error joining challenge:", e);
             Alert.alert("Failed to join challenge");
-            // Revert optimistic
-            setUserChallenges(prev => prev.filter(uc => uc.challenge_id !== challengeId));
-            setChallenges(prev => prev.map(c =>
-                c.id === challengeId
-                    ? { ...c, participants_count: (c.participants_count || 0) - 1 }
-                    : c
+            // Rollback optimistic update
+            setLocalUserChallenges(prev => prev.filter(uc => uc.challenge_id !== challengeId));
+            setLocalChallenges(prev => prev.map(c =>
+                c.id === challengeId ? { ...c, participants_count: (c.participants_count || 0) - 1 } : c
             ));
         }
     };
@@ -136,7 +110,7 @@ export const ChallengesProvider = ({ children }) => {
         // Get today's calories if not provided
         let currentKcal = providedKcal;
         if (currentKcal === null) {
-            const today = new Date().toISOString().split('T')[0];
+            const today = todayStr;
             currentKcal = getDailySummary(today).calories;
         }
 
@@ -240,87 +214,24 @@ export const ChallengesProvider = ({ children }) => {
                     userAddXP(challenge.xp_reward);
                 }
 
+                // Optimistic update
+                setLocalUserChallenges(prev => prev.map(u =>
+                    u.id === uc.id ? { ...u, status: 'completed', completed_at: new Date().toISOString() } : u
+                ));
+
                 // Update DB
                 try {
-                    await supabase
-                        .from('user_challenges')
-                        .update({
-                            status: 'completed',
-                            completed_at: new Date().toISOString()
-                        })
-                        .eq('id', uc.id);
-
-                    // Optimistic update
-                    setUserChallenges(prev => prev.map(u =>
-                        u.id === uc.id ? { ...u, status: 'completed', completed_at: new Date().toISOString() } : u
-                    ));
+                    await convex.mutation(api.challenges.markCompleted, { id: uc._id || uc.id });
                 } catch (e) {
                     console.error("Failed to mark challenge complete in DB", e);
                 }
             }
         }
-
-        if (anyCompleted) {
-            fetchUserChallenges();
-        }
     };
 
     const seedDefaultChallenges = async () => {
-        if (isMock) return;
-
-        // check if any exist
-        const { count } = await supabase.from('challenges').select('*', { count: 'exact', head: true });
-        if (count > 0) return;
-
-        const now = new Date();
-        const end3Days = new Date(now); end3Days.setDate(now.getDate() + 3);
-        const end7Days = new Date(now); end7Days.setDate(now.getDate() + 7);
-
-        const defaults = [
-            {
-                title: '10K Steps Daily',
-                description: 'Walk 10,000 steps every day to stay active.',
-                xp_reward: 500,
-                start_time: now.toISOString(),
-                end_time: end7Days.toISOString(),
-                type: 'steps',
-                target_value: 10000,
-                participants_count: 2314
-            },
-            {
-                title: 'Hydration Master',
-                description: 'Drink 3 Litres of water today.',
-                xp_reward: 150,
-                start_time: now.toISOString(),
-                end_time: end3Days.toISOString(),
-                type: 'water',
-                target_value: 3,
-                participants_count: 1542
-            },
-            {
-                title: 'Eat Healthy',
-                description: 'Keep your daily calorie intake under your goal.',
-                xp_reward: 300,
-                start_time: now.toISOString(),
-                end_time: end3Days.toISOString(),
-                type: 'calories',
-                target_value: 2000,
-                participants_count: 3421
-            },
-            {
-                title: 'Early Sleep',
-                description: 'Get at least 7 hours of sleep tonight.',
-                xp_reward: 400,
-                start_time: now.toISOString(),
-                end_time: end3Days.toISOString(),
-                type: 'sleep',
-                target_value: 420, // minutes
-                participants_count: 1890
-            }
-        ];
-
-        await supabase.from('challenges').insert(defaults);
-        fetchChallenges();
+        // Disabled per user request: "donot add any list on database on your own"
+        return;
     };
 
     const createChallenge = async (challengeData) => {
@@ -331,18 +242,9 @@ export const ChallengesProvider = ({ children }) => {
         }
 
         try {
-            const { data, error } = await supabase
-                .from('challenges')
-                .insert([{
-                    ...challengeData,
-                    status: 'active',
-                    participants_count: 0,
-                    creator_id: user.id
-                }])
-                .select()
-                .single();
-
-            if (error) throw error;
+            const newId = await convex.mutation(api.challenges.create, { ...challengeData, creator_id: user.id });
+            const data = { ...challengeData, _id: newId, id: newId };
+            const error = null;
 
             setChallenges(prev => [...prev, data]);
 
@@ -365,8 +267,8 @@ export const ChallengesProvider = ({ children }) => {
         try {
             let freshLogs = [];
 
-            // Use functional update to avoid stale closure issue
-            setUserChallenges(prev => {
+            // 1. Optimistic local state update (Immediate result for UI)
+            setLocalUserChallenges(prev => {
                 const uc = prev.find(u => u.id === userChallengeId);
                 if (!uc) return prev;
 
@@ -381,21 +283,15 @@ export const ChallengesProvider = ({ children }) => {
                 return prev.map(u => u.id === userChallengeId ? { ...u, daily_logs: logs } : u);
             });
 
-            // Small delay to let state settle before DB write
-            await new Promise(r => setTimeout(r, 50));
-
-            // Update DB
-            const { error } = await supabase
-                .from('user_challenges')
-                .update({ daily_logs: freshLogs })
-                .eq('id', userChallengeId);
-
-            if (error) throw error;
-
-            // Verify completion against target
-            setTimeout(() => verifyChallenges(), 300);
+            // 2. Trigger mutation in background
+            await convex.mutation(api.challenges.updateProgress, {
+                id: userChallengeId,
+                dailyLogs: freshLogs
+            });
+            // Verification will trigger via useEffect when data syncs
         } catch (e) {
             console.error("Error marking daily progress:", e);
+            // Optional: rollback on failure if needed
         }
     };
 

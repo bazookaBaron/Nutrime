@@ -111,16 +111,18 @@ const filterExercises = (exercises, bodyArea, userLevel) => {
 };
 
 const selectExercisesForSession = (availableExercises, targetBurn, userWeight) => {
+    // Safety check for weight and target to avoid NaN
+    const weightKg = (userWeight && userWeight > 0) ? userWeight : 70; // 70kg default
+    const burnTarget = (targetBurn && targetBurn > 0) ? targetBurn : 300; // 300kcal default
+
     let currentBurn = 0;
     let selected = [];
     const minExercises = 8;
     const maxExercises = 15;
 
     // Per-exercise target calculation
-    // E.g., if target stringency is 400 kcal and we select 8-12 exercises, 
-    // each might target ~30-50 kcals.
     const averageExercises = 10;
-    let targetBurnPerExercise = targetBurn / averageExercises;
+    let targetBurnPerExercise = burnTarget / averageExercises;
 
     // Copy to avoid modifying original
     let pool = [...availableExercises];
@@ -129,8 +131,16 @@ const selectExercisesForSession = (availableExercises, targetBurn, userWeight) =
     pool.sort(() => Math.random() - 0.5);
 
     const processExercise = (ex) => {
+        // Ensure MET is a valid number
+        const metValue = (ex.met && ex.met > 0) ? ex.met : 5;
+
         // We need 'targetBurnPerExercise' kcal from this exercise
-        let durationMinutesRequired = (targetBurnPerExercise * 60) / (ex.met * userWeight);
+        let durationMinutesRequired = (targetBurnPerExercise * 60) / (metValue * weightKg);
+
+        // Safety for calculation failure
+        if (isNaN(durationMinutesRequired) || !isFinite(durationMinutesRequired)) {
+            durationMinutesRequired = 10;
+        }
 
         // Add some safety bounds (min 2 mins, max 20 mins per single exercise variation)
         if (durationMinutesRequired < 2) durationMinutesRequired = 2;
@@ -238,7 +248,10 @@ const selectExercisesForSession = (availableExercises, targetBurn, userWeight) =
 
     const totalDuration = selected.reduce((sum, item) => sum + item.duration_minutes, 0);
 
-    return { exercises: selected, totalBurn: Math.round(currentBurn), totalDuration: Math.round(totalDuration) };
+    const finalBurn = isNaN(currentBurn) ? 0 : Math.round(currentBurn);
+    const finalDuration = isNaN(totalDuration) ? 0 : Math.round(totalDuration);
+
+    return { exercises: selected, totalBurn: finalBurn, totalDuration: finalDuration };
 };
 
 const determineDifficulty = (profile) => {

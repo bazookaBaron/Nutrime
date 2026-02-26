@@ -13,6 +13,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePostHog } from 'posthog-react-native';
 import { useRouter } from 'expo-router';
+import { useUser } from '../../context/UserContext';
 
 const { width } = Dimensions.get('window');
 
@@ -35,6 +36,7 @@ function ChallengeListCard({
 }: {
     challenge: any; userChallenge?: any; onPress: () => void; markDailyProgress?: any;
 }) {
+    const { todayStr } = useUser();
     const theme = getCategoryTheme(challenge.type);
     const Icon = theme.icon;
     const isJoined = !!userChallenge;
@@ -61,9 +63,9 @@ function ChallengeListCard({
                 {Array.from({ length: duration }).map((_, i) => {
                     const d = new Date(startDate);
                     d.setDate(startDate.getDate() + i);
-                    const dateStr = d.toISOString().split('T')[0];
+                    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                     const isDone = logs.includes(dateStr);
-                    const isFuture = d > new Date();
+                    const isFuture = dateStr > todayStr;
                     return (
                         <TouchableOpacity
                             key={i}
@@ -147,7 +149,7 @@ export default function ChallengesScreen() {
     const [xpRange, setXpRange] = useState<[number, number]>([0, 1000]);
 
     useEffect(() => {
-        if (isFocused) { fetchChallenges(); seedDefaultChallenges(); }
+        if (isFocused) { fetchChallenges(); }
     }, [isFocused]);
 
     const onRefresh = useCallback(async () => {
@@ -306,7 +308,7 @@ export default function ChallengesScreen() {
         <SafeAreaView style={styles.container} edges={['top']}>
             <FlatList
                 data={selectedTab === 'ongoing' ? ongoingChallenges : discoverChallenges}
-                keyExtractor={(item) => item.id.toString()}
+                keyExtractor={(item, index) => item?.id?.toString() || index.toString()}
                 renderItem={renderItem}
                 ListHeaderComponent={<>{renderHeader()}{renderTabs()}</>}
                 ListEmptyComponent={

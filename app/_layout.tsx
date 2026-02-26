@@ -1,5 +1,15 @@
-import 'react-native-url-polyfill/auto';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import * as Notifications from 'expo-notifications';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
@@ -73,24 +83,34 @@ function RootLayoutNav() {
   );
 }
 
+import { ClerkProvider, useAuth } from '@clerk/clerk-expo';
+import { ConvexProviderWithClerk } from 'convex/react-clerk';
+import { ConvexReactClient } from 'convex/react';
+
+const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL as string);
+
 export default function RootLayout() {
   return (
-    <PostHogProvider
-      client={posthog}
-      autocapture={{
-        captureScreens: false, // Manual tracking with Expo Router
-        captureTouches: true,
-        propsToCapture: ['testID'],
-        maxElementsCaptured: 20,
-      }}
-    >
-      <UserProvider>
-        <FoodProvider>
-          <ChallengesProvider>
-            <RootLayoutNav />
-          </ChallengesProvider>
-        </FoodProvider>
-      </UserProvider>
-    </PostHogProvider>
+    <ClerkProvider publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY as string}>
+      <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+        <PostHogProvider
+          client={posthog}
+          autocapture={{
+            captureScreens: false, // Manual tracking with Expo Router
+            captureTouches: true,
+            propsToCapture: ['testID'],
+            maxElementsCaptured: 20,
+          }}
+        >
+          <UserProvider>
+            <FoodProvider>
+              <ChallengesProvider>
+                <RootLayoutNav />
+              </ChallengesProvider>
+            </FoodProvider>
+          </UserProvider>
+        </PostHogProvider>
+      </ConvexProviderWithClerk>
+    </ClerkProvider>
   );
 }

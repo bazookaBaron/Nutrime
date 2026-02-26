@@ -57,21 +57,27 @@ export const NUTRIENT_META: NutrientMeta[] = [
 // ─── Date Range Helpers ──────────────────────────────────────────────────────
 
 /** Return ISO date string "YYYY-MM-DD" for today. */
-export function today(): string {
-    return new Date().toISOString().split('T')[0];
+export function today(baseDateStr?: string): string {
+    if (baseDateStr) return baseDateStr;
+    // Fallback to local device time (not UTC toISOString)
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 /** Compute a start/end DateRange from a named filter. */
-export function getDateRangeForFilter(filter: DateFilter, custom?: DateRange): DateRange {
+export function getDateRangeForFilter(filter: DateFilter, baseDateStr: string, custom?: DateRange): DateRange {
     if (filter === 'Custom' && custom) return custom;
-    const end = new Date();
-    const start = new Date();
+
+    const end = new Date(baseDateStr);
+    const start = new Date(baseDateStr);
+
     if (filter === '7 Days') {
         start.setDate(end.getDate() - 6);
     } else if (filter === '30 Days') {
         start.setDate(end.getDate() - 29);
     }
     // 'Today' → same day
+
     return {
         start: start.toISOString().split('T')[0],
         end: end.toISOString().split('T')[0],

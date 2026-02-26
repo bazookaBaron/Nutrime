@@ -9,6 +9,7 @@ import { useUser } from '../../context/UserContext';
 import { ChevronLeft, Calendar as CalendarIcon } from 'lucide-react-native';
 import { Calendar } from 'react-native-calendars';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { getTodayISODate } from '../../utils/DateUtils';
 
 import { wearableService, DailyWearableData } from '../../services/WearableService';
 import {
@@ -33,7 +34,7 @@ const DATE_FILTERS: DateFilter[] = ['Today', '7 Days', '30 Days', 'Custom'];
 
 export default function Analytics() {
     const { dailyLog, loading: foodLoading } = useFood();
-    const { nutritionTargets, userProfile, loading: userLoading } = useUser();
+    const { nutritionTargets, userProfile, loading: userLoading, todayStr } = useUser();
     const router = useRouter();
 
     // ── State ──────────────────────────────────────────────────────────────────
@@ -80,8 +81,8 @@ export default function Analytics() {
     // ── Date Range ─────────────────────────────────────────────────────────────
     const dateRange = useMemo<DateRange>(() => {
         if (selectedFilter === 'Custom' && customRange) return customRange;
-        return getDateRangeForFilter(selectedFilter);
-    }, [selectedFilter, customRange]);
+        return getDateRangeForFilter(selectedFilter, todayStr);
+    }, [selectedFilter, customRange, todayStr]);
 
     // ── Aggregated Data ────────────────────────────────────────────────────────
     const dailyKcalData = useMemo(
@@ -101,7 +102,6 @@ export default function Analytics() {
     );
 
     // For donut: always use today's intake
-    const todayStr = new Date().toISOString().split('T')[0];
     const todayKcal = useMemo(
         () => dailyLog
             .filter((item: any) => item.date === todayStr)

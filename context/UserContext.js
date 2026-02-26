@@ -1,10 +1,14 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
-import { Alert, Platform } from 'react-native';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { useUser as useClerkUser, useAuth, useSignIn, useSignUp } from '@clerk/clerk-expo';
+import { useConvex, useQuery } from 'convex/react';
+import { api } from '../convex/_generated/api';
+import { Alert, Platform, AppState } from 'react-native';
 import Constants from 'expo-constants';
 import gymExercises from '../assets/gym_exercises.json';
 import homeExercises from '../assets/home_exercises.json';
 import { generateWorkoutSchedule, recalculateTargets } from '../utils/WorkoutGenerator';
+import { usePushNotifications } from '../hooks/usePushNotifications';
+import { getTodayISODate, getYesterdayISODate } from '../utils/DateUtils';
 
 const UserContext = createContext();
 
@@ -12,302 +16,229 @@ export const useUser = () => useContext(UserContext);
 
 export const UserProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [userProfile, setUserProfile] = useState(null);
-    const [workoutSchedule, setWorkoutSchedule] = useState([]); // Now sources from workout_daily_plans
     const [isMock, setIsMock] = useState(false);
+    const [mockProfile, setMockProfile] = useState(null);
     const [nutritionTargets, setNutritionTargets] = useState({
-        calories: 2000,
-        protein: 150,
-        carbs: 200,
-        fat: 65,
+        calories: 2000, protein: 150, carbs: 200, fat: 65,
         mealSplit: { breakfast: 0.25, lunch: 0.35, snack: 0.10, dinner: 0.30 }
     });
     const [waterIntake, setWaterIntake] = useState(0);
     const [streak, setStreak] = useState(0);
     const [loading, setLoading] = useState(true);
 
-    // Derived state for auth flow
+    // Push Notifications
+    const { expoPushToken, timezone: deviceTimezone } = usePushNotifications();
+    const { user: clerkUser, isLoaded: isClerkLoaded } = useClerkUser();
+    const { signOut } = useAuth();
+    const { signIn, setActive: setSignInActive, isLoaded: isSignInLoaded } = useSignIn();
+    const { signUp: clerkSignUp, setActive: setSignUpActive, isLoaded: isSignUpLoaded } = useSignUp();
+    const convex = useConvex();
+
+    // ---- Timezone & Date State Management ----
+    const [todayStr, setTodayStr] = useState(getTodayISODate());
+
+    // Refresh todayStr when app comes to foreground or at intervals
+    useEffect(() => {
+        const checkDate = () => {
+            const current = getTodayISODate(userProfile?.timezone || deviceTimezone);
+            if (current !== todayStr) {
+                setTodayStr(current);
+            }
+        };
+
+        const subscription = AppState.addEventListener('change', nextAppState => {
+            if (nextAppState === 'active') checkDate();
+        });
+
+        const interval = setInterval(checkDate, 60000);
+
+        // Sync timezone to profile if missing or different
+        const activeTz = userProfile?.timezone || deviceTimezone;
+        if (user && userProfile && activeTz && userProfile.timezone !== activeTz) {
+            updateProfile({ timezone: activeTz });
+        }
+
+        return () => {
+            subscription.remove();
+            clearInterval(interval);
+        };
+    }, [todayStr, userProfile?.timezone, deviceTimezone, user]);
+
+    // ---- Reactive Data Source (Convex) ----
+    const dbProfile = useQuery(api.users.getProfile, user ? { userId: user.id } : "skip");
+    const dbScheduleRaw = useQuery(api.workouts.getDailyPlans, user ? { userId: user.id } : "skip");
+    const dbDailyStats = useQuery(api.users.getDailyStats, user ? { userId: user.id, date: todayStr } : "skip");
+
+    // Derived state
+    const userProfile = isMock ? mockProfile : dbProfile;
+    // Local state for optimistic updates
+    const [localWorkoutSchedule, setLocalWorkoutSchedule] = useState([]);
+
+    // Sync local state when DB data changes
+    useEffect(() => {
+        if (dbScheduleRaw) {
+            const normalized = dbScheduleRaw.slice().sort((a, b) => a.day_number - b.day_number).map(row => ({
+                ...row.plan_data,
+                id: row._id,
+                day_number: row.day_number,
+                date: row.date,
+                completed: row.is_completed,
+                calories_burned: row.calories_burned,
+                completed_exercises: row.plan_data.completed_exercises || []
+            }));
+            setLocalWorkoutSchedule(normalized);
+        }
+    }, [dbScheduleRaw]);
+
+    const workoutSchedule = isMock ? [] : localWorkoutSchedule;
+
     const isAuthenticated = !!user;
-    // If user has a profile with goal/weight etc, they have completed onboarding
     const hasCompletedOnboarding = !!(userProfile?.goal && userProfile?.weight && userProfile?.daily_calories);
 
     useEffect(() => {
-        // Check active sessions and subscribe to auth changes
-        supabase.auth.getSession().then(({ data: { session }, error }) => {
-            if (isMock) return; // Don't overwrite mock session
-            if (error) {
-                // Likely an invalid refresh token — treat as logged out
-                console.warn('Session restore error (stale token?):', error.message);
+        if (isMock) return;
+        if (isClerkLoaded) {
+            if (clerkUser) {
+                setUser({ id: clerkUser.id, email: clerkUser.primaryEmailAddress?.emailAddress });
+            } else {
                 setUser(null);
                 setLoading(false);
-                return;
             }
-            setUser(session?.user ?? null);
-            if (session?.user) {
-                fetchProfile(session.user.id);
-            } else {
-                setLoading(false);
-            }
-        });
+        }
+    }, [isMock, isClerkLoaded, clerkUser]);
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            if (isMock) return; // Don't overwrite mock session
-            setUser(session?.user ?? null);
-            if (session?.user) {
-                fetchProfile(session.user.id);
-            } else {
-                // Handles SIGNED_OUT and token expiry — clear state cleanly
-                setUserProfile(null);
-                setLoading(false);
-            }
-        });
+    // Side effects for profile changes (streak, targets, push token)
+    useEffect(() => {
+        if (!userProfile || isMock) return;
 
-        return () => subscription.unsubscribe();
-    }, [isMock]);
+        // 1. Calculate targets
+        calculateTargets(userProfile);
+
+        // 2. Update Streak
+        const runStreakCheck = async () => {
+            const today = todayStr;
+            if (userProfile.last_active_date === today) {
+                setStreak(userProfile.streak || 0);
+            } else {
+                let newStreak = 1;
+                const yesterdayStr = getYesterdayISODate();
+                if (userProfile.last_active_date === yesterdayStr) {
+                    newStreak = (userProfile.streak || 0) + 1;
+                }
+                setStreak(newStreak);
+                await convex.mutation(api.users.updateProfile, {
+                    userId: user.id,
+                    updates: { streak: newStreak, last_active_date: today }
+                });
+            }
+        };
+        runStreakCheck();
+
+        // 3. Push Token Sync (Independent timezone sync now handled above)
+        if (expoPushToken?.data && userProfile.push_token !== expoPushToken.data) {
+            updateProfile({ push_token: expoPushToken.data });
+        }
+
+        if (!loading) setLoading(false);
+    }, [userProfile, expoPushToken?.data]);
+
+    // Side effects for Daily Stats
+    useEffect(() => {
+        if (dbDailyStats) {
+            setWaterIntake(parseFloat(dbDailyStats.water_glasses || 0));
+        } else {
+            setWaterIntake(0);
+        }
+    }, [dbDailyStats]);
+
+    // Side effects for Workout Schedule Management
+    useEffect(() => {
+        if (workoutSchedule && userProfile && !isMock) {
+            manageWorkoutSchedule(user.id, workoutSchedule, userProfile);
+        }
+    }, [workoutSchedule]);
 
     const login = async (email, password) => {
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
-        if (error) throw error;
-
-        return data;
+        if (!isSignInLoaded) return;
+        try {
+            const completeSignIn = await signIn.create({ identifier: email, password });
+            await setSignInActive({ session: completeSignIn.createdSessionId });
+        } catch (err) { throw err; }
     };
 
     const signUp = async (email, password, fullName, username) => {
-        const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-                data: {
-                    full_name: fullName,
-                    username: username,
-                }
+        if (!isSignUpLoaded) return;
+        try {
+            await clerkSignUp.create({ emailAddress: email, password });
+            await clerkSignUp.prepareEmailAddressVerification({ strategy: "email_code" });
+        } catch (err) { throw err; }
+    };
+
+    const verifySignUp = async (code, fullName, username) => {
+        if (!isSignUpLoaded) return;
+        try {
+            if (clerkSignUp.status === 'complete') {
+                await setSignUpActive({ session: clerkSignUp.createdSessionId });
+                return;
             }
-        });
-        if (error) throw error;
-
-        // If sign up is successful and we have a user, create an initial profile
-        if (data.user) {
-            const { error: profileError } = await supabase
-                .from('profiles')
-                .upsert({
-                    id: data.user.id,
-                    full_name: fullName,
-                    username: username || null,
-                    updated_at: new Date(),
+            const completeSignUp = await clerkSignUp.attemptEmailAddressVerification({ code });
+            if (completeSignUp.status === 'complete') {
+                await setSignUpActive({ session: completeSignUp.createdSessionId });
+                await convex.mutation(api.users.updateProfile, {
+                    userId: completeSignUp.createdUserId,
+                    updates: { full_name: fullName, username: username }
                 });
-            if (profileError) console.error('Error creating profile:', profileError);
-        }
-
-        return data;
+            }
+        } catch (err) { throw err; }
     };
 
     const mockLogin = () => {
         setIsMock(true);
-        const mockUser = { id: 'mock-user-id', email: 'username' };
-        setUser(mockUser);
-
-        // Set a mock profile
-        const mockProfile = {
-            id: 'mock-user-id',
-            full_name: 'Mock User',
-            username: 'mockuser',
-            goal: 'lose_weight',
-            activity_level: 'moderately_active',
-            gender: 'male',
-            weight: 80, // Current weight
-            height: 180,
-            age: 25,
-            target_weight: 75,
-            target_duration_weeks: 12,
-            daily_calories: 2200,
+        const mockUID = 'mock-user-id';
+        setUser({ id: mockUID, email: 'mock@example.com' });
+        const p = {
+            id: mockUID, full_name: 'Mock User', username: 'mockuser',
+            goal: 'lose_weight', activity_level: 'moderately_active',
+            gender: 'male', weight: 80, height: 180, age: 25,
+            target_weight: 75, target_duration_weeks: 12, daily_calories: 2200,
             meal_split: { breakfast: 0.25, lunch: 0.35, snack: 0.10, dinner: 0.30 }
         };
-        setUserProfile(mockProfile);
-
-        // Calculate and set targets
-        calculateTargets(mockProfile);
-
+        setMockProfile(p);
+        calculateTargets(p);
         setLoading(false);
     };
 
-    const fetchProfile = async (userId) => {
-        try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', userId)
-                .single();
-
-            if (error && error.code !== 'PGRST116') {
-                console.error('Error fetching profile:', error);
-            }
-
-            if (data) {
-                setUserProfile(data);
-                // Await all sub-fetches to ensure "all data is get"
-                await updateStreak(userId, data.streak || 0, data.last_active_date);
-                await fetchDailyStats(userId);
-                await fetchWorkoutSchedule(userId, data);
-
-                // Always recalculate based on latest stats to ensure consistency
-                calculateTargets(data);
-            }
-        } catch (e) {
-            console.error('Exception fetching profile', e);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const updateStreak = async (userId, currentStreak, lastActiveDate) => {
-        if (isMock) return;
-
-        const today = new Date().toISOString().split('T')[0];
-
-        if (lastActiveDate === today) {
-            setStreak(currentStreak);
-            return;
-        }
-
-        let newStreak = 1;
-        if (lastActiveDate) {
-            const yesterday = new Date();
-            yesterday.setDate(yesterday.getDate() - 1);
-            const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-            if (lastActiveDate === yesterdayStr) {
-                newStreak = currentStreak + 1;
-            }
-        }
-
-        setStreak(newStreak);
-
-        await supabase
-            .from('profiles')
-            .update({
-                streak: newStreak,
-                last_active_date: today
-            })
-            .eq('id', userId);
-    };
-
-    const fetchDailyStats = async (userId, date = null) => {
-        if (isMock) return;
-
-        const targetDate = date || new Date().toISOString().split('T')[0];
-        const { data, error } = await supabase
-            .from('daily_stats')
-            .select('water_glasses')
-            .eq('user_id', userId)
-            .eq('date', targetDate)
-            .single();
-
-        if (data) {
-            setWaterIntake(parseFloat(data.water_glasses || 0));
-        } else {
-            setWaterIntake(0);
-            // Only create record if it's today? Or just let it be 0 until updated?
-            // If we are viewing past, we probably don't want to auto-create rows just by viewing.
-            // But if we are viewing today, we might.
-            // Let's just set 0 and wait for update.
-            // Actually, existing logic created a row. Let's keep it consistent for 'today', but maybe not for history to save DB space?
-            // Simplified: just set 0. The update function handles upsert.
-        }
-    };
-
-    const fetchWorkoutSchedule = async (userId, profile) => {
-        if (isMock) return;
-
-        try {
-            // Fetch active days from workout_daily_plans
-            const { data, error } = await supabase
-                .from('workout_daily_plans')
-                .select('*')
-                .eq('user_id', userId)
-                .order('day_number', { ascending: true });
-
-            if (error) {
-                console.error('Error fetching workout schedule:', error);
-                return;
-            }
-
-            // Transform for UI: blend table cols with json plan_data
-            const formattedSchedule = data.map(row => ({
-                ...row.plan_data, // gym, home, focus, etc.
-                id: row.id,
-                day_number: row.day_number,
-                date: row.date,
-                completed: row.is_completed,
-                calories_burned: row.calories_burned
-            }));
-
-            setWorkoutSchedule(formattedSchedule);
-
-            if (profile) {
-                manageWorkoutSchedule(userId, formattedSchedule, profile);
-            }
-        } catch (err) {
-            console.error("Fetch schedule error:", err);
-        }
-    };
-
-
     const addXP = async (amount) => {
         if (isMock) {
-            setUserProfile(prev => {
+            setMockProfile(prev => {
                 const newXp = (prev.workout_xp || 0) + amount;
                 let newLevel = 1;
                 if (newXp >= 5001) newLevel = 5;
                 else if (newXp >= 5000) newLevel = 4;
                 else if (newXp >= 3500) newLevel = 3;
                 else if (newXp >= 2000) newLevel = 2;
-
                 return { ...prev, workout_xp: newXp, workout_level: newLevel };
             });
             return;
         }
         try {
-            // Optimistic update
-            setUserProfile(prev => {
-                const newXp = (prev.workout_xp || 0) + amount;
-                let newLevel = 1;
-                if (newXp >= 5001) newLevel = 5;
-                else if (newXp >= 5000) newLevel = 4;
-                else if (newXp >= 3500) newLevel = 3;
-                else if (newXp >= 2000) newLevel = 2;
-
-                return { ...prev, workout_xp: newXp, workout_level: newLevel };
-            });
-
-            const { error } = await supabase.rpc('increment_xp', { amount });
-            if (error) throw error;
+            await convex.mutation(api.users.incrementXP, { userId: user.id, amount });
         } catch (e) {
             console.error("Error adding XP:", e);
-            // Re-fetch to ensure sync after failure
-            if (user) fetchProfile(user.id);
         }
     };
 
     const manageWorkoutSchedule = async (userId, currentSchedule, profile) => {
         if (!currentSchedule || !profile) return;
-
-        const d = new Date();
-        const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-        // 1. Archive Past Days (strictly older than today)
+        const today = todayStr;
         const pastDays = currentSchedule.filter(d => d.date < today);
 
         if (pastDays.length > 0) {
-            console.log("Archiving past days...", pastDays.length);
             const historyEntries = pastDays.map(d => ({
                 user_id: userId,
                 date: d.date,
                 summary_data: {
-                    day_number: d.day_number,
-                    focus: d.focus,
+                    day_number: d.day_number, focus: d.focus,
                     calories_target: d.target_calories,
                     calories_burned: d.calories_burned || 0,
                     completed: d.completed
@@ -315,696 +246,326 @@ export const UserProvider = ({ children }) => {
                 original_plan_snapshot: d
             }));
 
-            const { error: histError } = await supabase.from('workout_history').insert(historyEntries);
-            if (!histError) {
-                const idsToDelete = pastDays.map(d => d.id);
-                await supabase.from('workout_daily_plans').delete().in('id', idsToDelete);
-
-                // Refresh local state excluding archived
-                const active = currentSchedule.filter(d => d.date >= today);
-                setWorkoutSchedule(active);
-                currentSchedule = active; // Update ref for next step
-            } else {
-                console.error("Failed to archive:", histError);
-            }
+            try {
+                await convex.mutation(api.workouts.insertHistory, { entries: historyEntries });
+                await convex.mutation(api.workouts.deleteDailyPlans, { ids: pastDays.map(d => d.id) });
+            } catch (e) { console.error("Failed to archive:", e); }
         }
 
-        // 2. Check & Generate Next Block
         const activeDays = currentSchedule.filter(d => d.date >= today);
-
         if (activeDays.length < 3) {
-            console.log("Low on workout days, triggering generation...");
-
             let lastDayDate = new Date();
             let lastDayNumber = 0;
-
             if (activeDays.length > 0) {
                 const lastDay = activeDays[activeDays.length - 1];
                 lastDayDate = new Date(lastDay.date);
                 lastDayNumber = lastDay.day_number;
             }
-
-            // Start from Next Day
             const nextBlockStartDate = new Date(lastDayDate);
-            if (activeDays.length > 0) {
-                nextBlockStartDate.setDate(lastDayDate.getDate() + 1);
-            }
+            if (activeDays.length > 0) nextBlockStartDate.setDate(lastDayDate.getDate() + 1);
 
-            // Recalibrate Targets
-            // Calculate remaining duration based on goal
             const totalDurationDays = (profile.target_duration_weeks || 4) * 7;
-            const completedDaysCount = lastDayNumber;
-            const remainingDays = totalDurationDays - completedDaysCount;
+            const remainingDays = totalDurationDays - lastDayNumber;
+            const newDailyBurn = recalculateTargets(profile.weight, profile.target_weight || profile.weight, remainingDays > 0 ? remainingDays : 30);
 
-            // Recalulate daily burn
-            const newDailyBurn = recalculateTargets(
-                profile.weight,
-                profile.target_weight || profile.weight,
-                remainingDays > 0 ? remainingDays : 30
-            );
-
-            // Generate 5 Days
-            const newBlock = generateWorkoutSchedule(
-                { ...profile, recalculatedDailyBurn: newDailyBurn },
-                gymExercises,
-                homeExercises,
-                nextBlockStartDate,
-                lastDayNumber + 1,
-                5
-            );
-
-            // Save to DB
+            const newBlock = generateWorkoutSchedule({ ...profile, recalculatedDailyBurn: newDailyBurn }, gymExercises, homeExercises, nextBlockStartDate, lastDayNumber + 1, 5);
             const dbRows = newBlock.map(day => ({
-                user_id: userId,
-                date: day.date,
-                day_number: day.day_number,
-                plan_data: {
-                    gym: day.gym,
-                    home: day.home,
-                    focus: day.focus,
-                    target_calories: day.target_calories
-                },
+                user_id: userId, date: day.date, day_number: day.day_number,
+                plan_data: { gym: day.gym, home: day.home, focus: day.focus, target_calories: isNaN(day.target_calories) ? 0 : day.target_calories },
                 is_completed: false
             }));
 
-            const { error: insError } = await supabase.from('workout_daily_plans').upsert(dbRows, { onConflict: 'user_id,date' });
-            if (!insError) {
-                console.log("Generated new block successfully.");
-
-                // Add to job queue for record keeping (as requested)
-                await supabase.from('workout_job_queue').insert({
-                    user_id: userId,
-                    status: 'completed',
-                    error_message: 'Generated client-side via rolling logic'
-                });
-
-                // Update UI state
-                // We could re-fetch, but let's just append locally for speed if simple
-                // Actually safer to re-fetch to get IDs
-                fetchWorkoutSchedule(userId);
-            } else {
-                console.error("Generation save failed:", insError);
-            }
+            try {
+                await convex.mutation(api.workouts.upsertDailyPlans, { userId, plans: dbRows });
+                await convex.mutation(api.workouts.insertJobQueue, { user_id: userId, status: 'completed', error_message: 'Rolling Generation' });
+            } catch (e) { console.error("Generation failed:", e); }
         }
     };
 
     const updateWaterIntake = async (litres, date = null) => {
         if (!user) return;
-
-        const targetDate = date || new Date().toISOString().split('T')[0];
+        const targetDate = date || todayStr;
         const newTotal = parseFloat(litres.toFixed(2));
-
-        // Only update state if we are modifying the currently viewed date (or today if implied)
         setWaterIntake(newTotal);
 
-        // Notifications only for today
-        const today = new Date().toISOString().split('T')[0];
-        if (targetDate === today && newTotal >= 3.5) { // 3.5L goal as seen in UI
-            if (Constants.appOwnership === 'expo') {
-                Alert.alert("Goal Reached! 💧", "You've reached your 3.5L daily water goal. Great job staying hydrated!");
-            } else {
-                try {
-                    const Notifications = require('expo-notifications');
-                    await Notifications.scheduleNotificationAsync({
-                        content: { title: "Goal Reached! 💧", body: "You've reached your 3.5L daily water goal. Great job staying hydrated!" },
-                        trigger: null,
-                    });
-                } catch (e) {
-                    console.log("Notification failed", e);
-                    Alert.alert("Goal Reached! 💧", "You've reached your 3.5L daily water goal. Great job staying hydrated!");
-                }
-            }
+        if (targetDate === todayStr && newTotal >= 3.5) {
+            Alert.alert("Goal Reached! 💧", "You've reached your 3.5L daily water goal.");
         }
 
         if (isMock) return;
-
-        await supabase
-            .from('daily_stats')
-            .upsert({
-                user_id: user.id,
-                date: targetDate,
-                water_glasses: newTotal // We use the same column name but store Litres
-            }, { onConflict: 'user_id,date' });
+        await convex.mutation(api.users.updateDailyStats, {
+            userId: user.id, date: targetDate,
+            updates: { water_glasses: newTotal }
+        });
     };
 
     const completeExercise = async (dayNumber, exerciseId, mode = 'Gym', actualCalories = null, completedSets = null) => {
         if (!user || !userProfile) return;
 
         let dayId = null;
-        let newXp = (userProfile.workout_xp || 0);
-
+        let dayToUpdate = null;
         const newSchedule = workoutSchedule.map(day => {
             if (day.day_number === dayNumber) {
                 dayId = day.id;
                 const completions = day.completed_exercises || [];
                 const modeKey = mode.toLowerCase();
                 const session = { ...day[modeKey] };
-
-                // Find exercise to check sets
                 const exIndex = session.exercises.findIndex(ex => (ex.instance_id || ex.name) === exerciseId);
                 const exerciseObj = session.exercises[exIndex];
-
                 const targetSets = exerciseObj?.predicted_sets || 3;
 
                 let updatedCompletions = [...completions];
                 const alreadyDone = completions.includes(exerciseId);
 
                 if (completedSets === null) {
-                    // Manual toggle from card checkmark
                     const becomingDone = !alreadyDone;
-                    if (alreadyDone) {
-                        updatedCompletions = completions.filter(id => id !== exerciseId);
-                        newXp -= 10;
-                    } else {
-                        updatedCompletions = [...completions, exerciseId];
-                        newXp += 10;
-                    }
+                    if (alreadyDone) updatedCompletions = completions.filter(id => id !== exerciseId);
+                    else updatedCompletions = [...completions, exerciseId];
 
                     session.exercises = session.exercises.map((ex, idx) => {
-                        if (idx === exIndex) {
-                            return {
-                                ...ex,
-                                is_completed: becomingDone ? 'true' : 'no',
-                                completed_sets: becomingDone ? targetSets : 0
-                            };
-                        }
+                        if (idx === exIndex) return { ...ex, is_completed: becomingDone ? 'true' : 'no', completed_sets: becomingDone ? targetSets : 0 };
                         return ex;
                     });
                 } else {
                     const isFinalSet = completedSets >= targetSets;
-
-                    if (isFinalSet && !alreadyDone) {
-                        updatedCompletions = [...completions, exerciseId];
-                        newXp += 10;
-                    }
+                    if (isFinalSet && !alreadyDone) updatedCompletions = [...completions, exerciseId];
 
                     session.exercises = session.exercises.map((ex, idx) => {
                         if (idx === exIndex) {
                             let status = 'no';
                             if (completedSets >= targetSets) status = 'true';
                             else if (completedSets > 0) status = 'partial';
-
-                            return {
-                                ...ex,
-                                actual_calories_burned: actualCalories ?? ex.actual_calories_burned,
-                                completed_sets: completedSets,
-                                is_completed: status
-                            };
+                            return { ...ex, actual_calories_burned: actualCalories ?? ex.actual_calories_burned, completed_sets: completedSets, is_completed: status };
                         }
                         return ex;
                     });
                 }
 
-                // Check if ALL exercises for the current mode are completed
                 const isAllDone = session.exercises.every(ex => {
                     const id = ex.instance_id || ex.name;
                     return updatedCompletions.includes(id) || ex.is_completed === 'true';
                 });
 
-                return {
-                    ...day,
-                    [modeKey]: session,
-                    completed_exercises: updatedCompletions,
-                    completed: isAllDone
-                };
+                dayToUpdate = { ...day, [modeKey]: session, completed_exercises: updatedCompletions, completed: isAllDone };
+                return dayToUpdate;
             }
             return day;
         });
 
-        setWorkoutSchedule(newSchedule);
-
-        let newLevel = userProfile.workout_level || 1;
-        if (newXp >= 5001) newLevel = 5;
-        else if (newXp >= 5000) newLevel = 4;
-        else if (newXp >= 3500) newLevel = 3;
-        else if (newXp >= 2000) newLevel = 2;
-        else newLevel = 1;
-
-        await updateProfile({
-            workout_xp: Math.max(0, newXp),
-            workout_level: newLevel
-        });
+        // 1. Optimistic Update
+        setLocalWorkoutSchedule(newSchedule);
 
         if (isMock || !dayId) return;
 
         try {
-            const dayToUpdate = newSchedule.find(d => d.id === dayId);
-            const planDataToUpdate = {
-                gym: dayToUpdate.gym,
-                home: dayToUpdate.home,
-                focus: dayToUpdate.focus,
-                target_calories: dayToUpdate.target_calories,
-                completed_exercises: dayToUpdate.completed_exercises
-            };
-
-            const { error: planError } = await supabase
-                .from('workout_daily_plans')
-                .update({
-                    plan_data: planDataToUpdate,
+            await convex.mutation(api.workouts.updatePlan, {
+                id: dayId,
+                updates: {
+                    plan_data: {
+                        gym: dayToUpdate.gym, home: dayToUpdate.home, focus: dayToUpdate.focus,
+                        target_calories: dayToUpdate.target_calories, completed_exercises: dayToUpdate.completed_exercises
+                    },
                     is_completed: dayToUpdate.completed
-                })
-                .eq('id', dayId);
-
-            if (planError) throw planError;
-
-            // Sync with daily_stats
-            let totalCaloriesBurned = 0;
-            const allExercises = [...(dayToUpdate.gym?.exercises || []), ...(dayToUpdate.home?.exercises || [])];
-
-            dayToUpdate.completed_exercises.forEach(id => {
-                const ex = allExercises.find(e => (e.instance_id || e.name) === id);
-                if (ex) {
-                    totalCaloriesBurned += (ex.actual_calories_burned || ex.predicted_calories_burn || 0);
                 }
             });
 
-            const { error: statsError } = await supabase
-                .from('daily_stats')
-                .upsert({
-                    user_id: user.id,
-                    date: dayToUpdate.date,
-                    calories_burned: Math.round(totalCaloriesBurned),
-                    daily_exercise_completions: dayToUpdate.completed_exercises
-                }, { onConflict: 'user_id,date' });
+            let totalCaloriesBurned = 0;
+            const allExercises = [...(dayToUpdate.gym?.exercises || []), ...(dayToUpdate.home?.exercises || [])];
+            dayToUpdate.completed_exercises.forEach(id => {
+                const ex = allExercises.find(e => (e.instance_id || e.name) === id);
+                if (ex) totalCaloriesBurned += (ex.actual_calories_burned || ex.predicted_calories_burn || 0);
+            });
 
-            if (statsError) throw statsError;
-
-        } catch (err) {
-            console.error("Failed to save exercise completion:", err);
-        }
+            await convex.mutation(api.users.updateDailyStats, {
+                userId: user.id, date: dayToUpdate.date,
+                updates: { calories_burned: Math.round(totalCaloriesBurned), daily_exercise_completions: dayToUpdate.completed_exercises }
+            });
+            await addXP(10);
+        } catch (err) { console.error("Failed to save exercise:", err); }
     };
 
-    const replaceExercise = async (dayNumber, oldExerciseId, newExercise, mode) => {
-        if (!user || 0 === workoutSchedule.length) return;
+    const replaceExercise = async (dayNumber, oldId, newExercise, mode = 'Gym') => {
+        if (!user || isMock) return;
+        const dayPlan = workoutSchedule.find(d => d.day_number === dayNumber);
+        if (!dayPlan) return;
 
-        // 1. Find the day to update
-        const dayIndex = workoutSchedule.findIndex(d => d.day_number === dayNumber);
-        if (dayIndex === -1) return;
-
-        const day = workoutSchedule[dayIndex];
-        const targetPlan = mode === 'Gym' ? day.gym : day.home;
-
-        // 2. Find and replace the exercise in the list
-        const updatedExercises = targetPlan.exercises.map(ex => {
-            const currentId = ex.instance_id || ex.name;
-            if (currentId === oldExerciseId) {
-                return {
-                    name: newExercise.name,
-                    instance_id: ex.instance_id,
-                    exerciseType: newExercise.exerciseType,
-                    bodyArea: newExercise.bodyArea,
-                    level: newExercise.level,
-                    equipment: newExercise.equipment,
-                    videoLink: newExercise.videoLink,
-                    met: newExercise.met,
-                    duration_minutes: newExercise.duration_minutes,
-                    predicted_sets: newExercise.predicted_sets,
-                    predicted_reps: newExercise.predicted_reps,
-                    predicted_calories_burn: newExercise.predicted_calories_burn,
-                    actual_calories_burned: 0,
-                    is_completed: 'no',
-                    completed_sets: 0
-                };
+        const key = mode.toLowerCase(); // 'gym' or 'home'
+        const updatedExercises = dayPlan[key].exercises.map(ex => {
+            const exId = ex.instance_id || ex.name;
+            if (exId === oldId) {
+                return { ...newExercise, instance_id: oldId };
             }
             return ex;
         });
 
-        // 3. Recalculate totals for that session (Gym or Home)
-        const newTotalBurn = updatedExercises.reduce((sum, ex) => sum + (ex.predicted_calories_burn || 0), 0);
-        const newTotalDuration = updatedExercises.reduce((sum, ex) => sum + (ex.duration_minutes || 0), 0);
-
-        // 4. Construct updated day object
-        const updatedDay = {
-            ...day,
-            [mode.toLowerCase()]: {
-                ...targetPlan,
-                exercises: updatedExercises,
-                total_calories: newTotalBurn,
-                duration_minutes: newTotalDuration
+        const newPlanData = {
+            ...dayPlan,
+            [key]: {
+                ...dayPlan[key],
+                exercises: updatedExercises
             }
         };
 
-        // 5. Update Local State immediately
-        const newSchedule = [...workoutSchedule];
-        newSchedule[dayIndex] = updatedDay;
-        setWorkoutSchedule(newSchedule);
+        // We only want to send the exercises and metadata, not the top level id/date/etc if they are separate
+        // But dayPlan was normalized from row.plan_data + extras.
+        // Let's just be precise:
+        const payload = {
+            gym: key === 'gym' ? { ...dayPlan.gym, exercises: updatedExercises } : dayPlan.gym,
+            home: key === 'home' ? { ...dayPlan.home, exercises: updatedExercises } : dayPlan.home,
+            focus: dayPlan.focus,
+            target_calories: dayPlan.target_calories,
+            completed_exercises: dayPlan.completed_exercises
+        };
 
-        if (isMock) return;
-
-        // 6. Update Database
         try {
-            // We need to fetch the current row first to merge correctly if we only have partial data? 
-            // Actually we have the full 'plan_data' structure constructed above in 'updatedDay'.
-            // But wait, 'workoutSchedule' in state is flattened (id, date, day_number, gym, home...).
-            // The DB column 'plan_data' expects { gym: ..., home: ..., focus: ..., target_calories: ... }
+            await convex.mutation(api.workouts.updatePlan, {
+                id: dayPlan.id,
+                updates: { plan_data: payload }
+            });
 
-            const planDataToSave = {
-                gym: updatedDay.gym,
-                home: updatedDay.home,
-                focus: updatedDay.focus,
-                target_calories: updatedDay.target_calories,
-                completed_exercises: updatedDay.completed_exercises || []
-            };
-
-            const { error } = await supabase
-                .from('workout_daily_plans')
-                .update({ plan_data: planDataToSave })
-                .eq('id', day.id);
-
-            if (error) throw error;
-
-        } catch (err) {
-            console.error("Failed to replace exercise:", err);
-            Alert.alert("Error", "Could not save changes.");
+            // Optimistic update
+            setLocalWorkoutSchedule(prev => prev.map(d =>
+                d.day_number === dayNumber ? { ...d, [key]: payload[key], plan_data: payload } : d
+            ));
+        } catch (e) {
+            console.error("Replace failed:", e);
         }
     };
 
+    const regenerateFullSchedule = async () => {
+        if (!user || isMock) return;
+        setLoading(true);
+        try {
+            if (workoutSchedule.length > 0) {
+                const ids = workoutSchedule.map(d => d.id);
+                await convex.mutation(api.workouts.deleteDailyPlans, { ids });
+            }
+
+            // Generate starting from today
+            const startDate = new Date(todayStr);
+            const schedule = generateWorkoutSchedule(userProfile, gymExercises, homeExercises, startDate, 1, 5);
+            const dbRows = schedule.map(day => ({
+                user_id: user.id, date: day.date, day_number: day.day_number,
+                plan_data: { gym: day.gym, home: day.home, focus: day.focus, target_calories: isNaN(day.target_calories) ? 0 : day.target_calories },
+                is_completed: false
+            }));
+            await convex.mutation(api.workouts.upsertDailyPlans, { userId: user.id, plans: dbRows });
+            await convex.mutation(api.workouts.insertJobQueue, { user_id: user.id, status: 'completed', error_message: 'Manual Regeneration' });
+        } catch (e) {
+            console.error("Regeneration failed:", e);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const logout = async () => {
-        if (isMock) {
-            setIsMock(false);
-            setUser(null);
-            setUserProfile(null);
-        }
-        await supabase.auth.signOut();
+        if (isMock) { setIsMock(false); setUser(null); setMockProfile(null); return; }
+        await signOut();
     };
 
     const updateProfile = async (updates) => {
         if (!user) return;
+        if (isMock) { setMockProfile(prev => ({ ...prev, ...updates })); return; }
 
-        // Check if we need to regenerate schedule
-        // Triggers: weight, target_weight, target_duration_weeks
-        const needsRegeneration = (
-            (updates.weight && updates.weight !== userProfile.weight) ||
-            (updates.target_weight && updates.target_weight !== userProfile.target_weight) ||
-            (updates.target_duration_weeks && updates.target_duration_weeks !== userProfile.target_duration_weeks) ||
-            (updates.workout_level && updates.workout_level !== userProfile.workout_level)
-        );
+        const allowedFields = [
+            'full_name', 'username', 'goal', 'activity_level', 'gender', 'weight', 'height', 'age',
+            'target_weight', 'target_duration_weeks', 'daily_calories', 'meal_split', 'streak',
+            'last_active_date', 'workout_xp', 'workout_level', 'push_token', 'timezone', 'country', 'state'
+        ];
+        const numericFields = ['weight', 'height', 'age', 'target_weight', 'target_duration_weeks', 'daily_calories', 'streak', 'workout_xp', 'workout_level'];
 
-        // Optimistic update
-        const newProfile = { ...userProfile, ...updates };
-        setUserProfile(newProfile);
-
-        // If we have enough info, calculate targets locally and optimistic update them too
-        calculateTargets(newProfile);
-
-        if (needsRegeneration) {
-            // For rolling schedule, we just let the next manage cycle handle it,
-            // OR if user wants immediate update, we could clear future days.
-            // But for now, let's just log.
-            console.log("Profile updated. Rolling generation will use new stats.");
-        }
-
-        if (isMock) return;
+        const coercedUpdates = {};
+        Object.keys(updates).forEach(key => {
+            if (allowedFields.includes(key)) {
+                let val = updates[key];
+                if (numericFields.includes(key) && val !== undefined && val !== null) {
+                    const parsed = parseFloat(val);
+                    if (!isNaN(parsed)) val = parsed;
+                }
+                coercedUpdates[key] = val;
+            }
+        });
 
         try {
-            const { error } = await supabase
-                .from('profiles')
-                .upsert({
-                    id: user.id,
-                    updated_at: new Date(),
-                    ...updates,
-                });
-
-            if (error) throw error;
-        } catch (error) {
-            Alert.alert('Error updating profile', error.message);
-        }
+            await convex.mutation(api.users.updateProfile, { userId: user.id, updates: coercedUpdates });
+        } catch (error) { Alert.alert('Error updating profile', error.message); }
     };
 
-    const completeOnboarding = async () => {
-        // Calculate final targets and save to various fields
-        if (!userProfile) return;
-
-        const { targetCalories, mealSplit } = calculateTargetsInternal(userProfile);
-
-        const updates = {
-            daily_calories: targetCalories,
-            meal_split: mealSplit,
-            // userProfile already has weight, height, goal etc from previous steps used in calculateTargetsInternal
-        };
-
-        await updateProfile(updates);
-
-        // Generate initial workout schedule
-        // Note: updateProfile might handle regeneration, but for initial onboarding we might need fresh generation if none exists.
-        // Actually updateProfile only regenerates if workoutSchedule has length > 0.
-        // So we explicitly generate here.
-        if (!workoutSchedule || workoutSchedule.length === 0) {
-            const schedule = generateWorkoutSchedule(
-                { ...userProfile, ...updates },
-                gymExercises,
-                homeExercises,
-                new Date(),
-                1,
-                5
-            );
-
-            const dbRows = schedule.map(day => ({
-                user_id: user.id,
-                date: day.date,
-                day_number: day.day_number,
-                plan_data: {
-                    gym: day.gym,
-                    home: day.home,
-                    focus: day.focus,
-                    target_calories: day.target_calories
-                },
-                is_completed: false
-            }));
-
-            const { error } = await supabase.from('workout_daily_plans').upsert(dbRows, { onConflict: 'user_id,date' });
-            if (!error) {
-                fetchWorkoutSchedule(user.id, { ...userProfile, ...updates });
-                // Log queue completion
-                await supabase.from('workout_job_queue').insert({
-                    user_id: user.id,
-                    status: 'completed',
-                    error_message: 'Initial Onboarding Generation'
-                });
-            }
-        }
-    };
     const calculateTargetsInternal = (profile) => {
         if (!profile || !profile.weight || !profile.height || !profile.age || !profile.gender) {
-            return {
-                tdee: 2000,
-                targetCalories: 2000,
-                mealSplit: nutritionTargets.mealSplit || { breakfast: 0.25, lunch: 0.35, snack: 0.10, dinner: 0.30 }
-            };
+            return { tdee: 2000, targetCalories: 2000, mealSplit: { breakfast: 0.25, lunch: 0.35, snack: 0.10, dinner: 0.30 } };
         }
-
-        // Mifflin-St Jeor Equation
-        let bmr = 10 * Number(profile.weight) + 6.25 * Number(profile.height) - 5 * Number(profile.age);
-        bmr += (profile.gender === 'male' ? 5 : -161);
-
-        // Activity Multiplier
-        const multipliers = {
-            sedentary: 1.2,
-            lightly_active: 1.375,
-            moderately_active: 1.55,
-            very_active: 1.725,
-            extra_active: 1.9,
-        };
-
-        // Ensure we handle inconsistent key names (activity vs activity_level) if they occur
-        const activityLvl = profile.activity_level || profile.activity || 'sedentary';
-        let tdee = bmr * (multipliers[activityLvl] || 1.2);
+        let bmr = 10 * Number(profile.weight) + 6.25 * Number(profile.height) - 5 * Number(profile.age) + (profile.gender === 'male' ? 5 : -161);
+        const multis = { sedentary: 1.2, lightly_active: 1.375, moderately_active: 1.55, very_active: 1.725, extra_active: 1.9 };
+        let tdee = bmr * (multis[profile.activity_level] || 1.2);
         let targetCalories = Math.round(tdee);
 
-        // Custom Calculation based on Target Weight & Duration
         if (profile.target_weight && profile.target_duration_weeks) {
-            const currentWeight = Number(profile.weight);
-            const targetWeight = Number(profile.target_weight);
-            const durationWeeks = Number(profile.target_duration_weeks);
-
-            // 1kg of fat ≈ 7700 kcal
-            const totalDiffKg = currentWeight - targetWeight;
-            const totalDiffKcal = totalDiffKg * 7700;
-            const weeklyDeficit = totalDiffKcal / durationWeeks;
-            const dailyDeficit = weeklyDeficit / 7;
-
-            // Apply deficit (Note: if losing weight, totalDiff is positive, so we subtract dailyDeficit)
-            targetCalories = Math.round(tdee - dailyDeficit);
-
-            // Safety Limits: Don't go below BMR or 1200 kcal loosely
-            // For safety, let's clamp strictly at 1200 for women / 1500 for men? 
-            // Or just simple 1000 minimum for now.
-            if (targetCalories < 1000) targetCalories = 1000;
-            // Don't recommend crazy surplus either
-            if (targetCalories > 4000) targetCalories = 4000;
-
+            const deficit = ((Number(profile.weight) - Number(profile.target_weight)) * 7700) / (Number(profile.target_duration_weeks) * 7);
+            targetCalories = Math.max(1000, Math.min(4000, Math.round(tdee - deficit)));
         } else {
-            // Fallback to simple goal adjustment if no target weight set
-            const goalAdjustments = {
-                lose_weight: -500,
-                maintain: 0,
-                build_muscle: 300,
-                improve_perf: 0
-            };
-            targetCalories = Math.round(tdee + (goalAdjustments[profile.goal] || 0));
+            const adjust = { lose_weight: -500, maintain: 0, build_muscle: 300, improve_perf: 0 };
+            targetCalories = Math.round(tdee + (adjust[profile.goal] || 0));
         }
-
-        const mealSplit = { breakfast: 0.25, lunch: 0.35, snack: 0.10, dinner: 0.30 };
-
-        return { tdee: Math.round(tdee), targetCalories, mealSplit };
-    };
-
-    const regenerateFullSchedule = async () => {
-        if (!user || !userProfile) return;
-
-        try {
-            // Clear existing *future* plans? Or just clear all active ones?
-            // "Regenerate Plan" usually implies starting fresh.
-            // Let's delete all from workout_daily_plans and start over.
-            await supabase.from('workout_daily_plans').delete().eq('user_id', user.id);
-
-            const schedule = generateWorkoutSchedule(
-                userProfile,
-                gymExercises,
-                homeExercises,
-                new Date(),
-                1,
-                5
-            );
-
-            const dbRows = schedule.map(day => ({
-                user_id: user.id,
-                date: day.date,
-                day_number: day.day_number,
-                plan_data: {
-                    gym: day.gym,
-                    home: day.home,
-                    focus: day.focus,
-                    target_calories: day.target_calories
-                },
-                is_completed: false
-            }));
-
-            await supabase.from('workout_daily_plans').upsert(dbRows, { onConflict: 'user_id,date' });
-            fetchWorkoutSchedule(user.id);
-            Alert.alert("Success", "Rolling workout plan generated successfully!");
-        } catch (error) {
-            console.error("Error regenerating schedule:", error);
-            Alert.alert("Error", "Failed to generate workout plan.");
-        }
+        return {
+            tdee: Math.round(tdee),
+            targetCalories,
+            mealSplit: profile.meal_split || { breakfast: 0.25, lunch: 0.35, snack: 0.10, dinner: 0.30 }
+        };
     };
 
     const calculateTargets = (profile) => {
         const { targetCalories, mealSplit, tdee } = calculateTargetsInternal(profile);
-
-        const protein = Math.round((targetCalories * 0.3) / 4);
-        const carbs = Math.round((targetCalories * 0.4) / 4);
-        const fat = Math.round((targetCalories * 0.3) / 9);
-
-        setNutritionTargets(prev => ({
-            ...prev,
-            calories: targetCalories,
-            tdee,
-            protein,
-            carbs,
-            fat,
-            mealSplit
-        }));
+        setNutritionTargets({
+            calories: targetCalories, tdee, mealSplit,
+            protein: Math.round((targetCalories * 0.3) / 4),
+            carbs: Math.round((targetCalories * 0.4) / 4),
+            fat: Math.round((targetCalories * 0.3) / 9)
+        });
     };
 
-    const fetchLeaderboard = async (scope, filter) => {
-        if (isMock) {
-            return [
-                { rank: 1, user_id: 'user1', username: 'FitnessPro', workout_xp: 5000, workout_level: 5 },
-                { rank: 2, user_id: 'mock-user-id', username: 'mockuser', workout_xp: 3500, workout_level: 3 },
-                { rank: 3, user_id: 'user3', username: 'GymWarrior', workout_xp: 3000, workout_level: 3 },
-            ];
-        }
+    const completeOnboarding = async () => {
+        if (!userProfile) return;
+        const { targetCalories, mealSplit } = calculateTargetsInternal(userProfile);
+        const updates = { daily_calories: targetCalories, meal_split: mealSplit };
+        await updateProfile(updates);
 
-        try {
-            // First, fetch the top 10 for the scope
-            let topQuery = supabase
-                .from('profiles')
-                .select('id, full_name, username, workout_xp, workout_level, country, state')
-                .not('workout_xp', 'is', null)
-                .gt('workout_xp', 0);
-
-            if (scope === 'country' && filter) {
-                topQuery = topQuery.eq('country', filter);
-            } else if (scope === 'state' && filter) {
-                topQuery = topQuery.eq('state', filter);
-            }
-
-            topQuery = topQuery.order('workout_xp', { ascending: false }).limit(10);
-            const { data: topData, error: topError } = await topQuery;
-
-            if (topError) throw topError;
-
-            const top10 = topData.map((entry, index) => ({
-                rank: index + 1,
-                user_id: entry.id,
-                username: entry.username || entry.full_name || 'Anonymous',
-                workout_xp: entry.workout_xp || 0,
-                workout_level: entry.workout_level || 1
+        if (!workoutSchedule || workoutSchedule.length === 0) {
+            // Use a date object created from today's local date string to ensure start alignment
+            const startDate = new Date(todayStr);
+            const schedule = generateWorkoutSchedule({ ...userProfile, ...updates }, gymExercises, homeExercises, startDate, 1, 5);
+            const dbRows = schedule.map(day => ({
+                user_id: user.id, date: day.date, day_number: day.day_number,
+                plan_data: { gym: day.gym, home: day.home, focus: day.focus, target_calories: isNaN(day.target_calories) ? 0 : day.target_calories },
+                is_completed: false
             }));
-
-            // Next, find exactly where the current user stands in that scope
-            let myRank = null;
-            let myEntry = null;
-
-            if (userProfile && userProfile.workout_xp > 0) {
-                let rankQuery = supabase
-                    .from('profiles')
-                    .select('id', { count: 'exact', head: true })
-                    .gt('workout_xp', userProfile.workout_xp);
-
-                if (scope === 'country' && filter) rankQuery = rankQuery.eq('country', filter);
-                else if (scope === 'state' && filter) rankQuery = rankQuery.eq('state', filter);
-
-                const { count, error: countError } = await rankQuery;
-                if (!countError) {
-                    myRank = (count || 0) + 1;
-                    myEntry = {
-                        rank: myRank,
-                        user_id: userProfile.id,
-                        username: userProfile.username || userProfile.full_name || 'Anonymous',
-                        workout_xp: userProfile.workout_xp,
-                        workout_level: userProfile.workout_level
-                    };
-                }
-            }
-
-            return { top10, currentUserEntry: myEntry };
-        } catch (error) {
-            console.error('Error fetching leaderboard:', error);
-            return { top10: [], currentUserEntry: null };
+            await convex.mutation(api.workouts.upsertDailyPlans, { userId: user.id, plans: dbRows });
+            await convex.mutation(api.workouts.insertJobQueue, { user_id: user.id, status: 'completed', error_message: 'Initial Onboarding' });
         }
     };
 
+    const fetchLeaderboard = async () => {
+        try {
+            const top10 = await convex.query(api.users.getLeaderboard, {});
+            const myEntry = user ? top10.find(u => u.user_id === user.id) : null;
+            return { top10, currentUserEntry: myEntry };
+        } catch (e) { return { top10: [], currentUserEntry: null }; }
+    };
+
+    const fetchDailyStats = async (userId, date) => {
+        if (!userId || !date) return null;
+        try {
+            return await convex.query(api.users.getDailyStats, { userId, date });
+        } catch (e) { return null; }
+    };
 
     return (
         <UserContext.Provider value={{
-            user,
-            userProfile,
-            workoutSchedule,
-            nutritionTargets,
-            waterIntake,
-            streak,
-            isAuthenticated,
-            hasCompletedOnboarding,
-            logout,
-            updateProfile,
-            updateWaterIntake,
-            completeExercise,
-            completeOnboarding,
-            regenerateFullSchedule,
-            fetchLeaderboard,
-            login,
-            isMock,
-            signUp,
-            loading,
-            replaceExercise,
-            replaceExercise,
-            gymExercises,
-            homeExercises,
-            fetchDailyStats,
-            addXP
+            user, userProfile, workoutSchedule, nutritionTargets, waterIntake, streak, loading, todayStr,
+            isAuthenticated, hasCompletedOnboarding, isMock,
+            login, signUp, verifySignUp, mockLogin, logout, updateProfile, completeOnboarding,
+            updateWaterIntake, completeExercise, addXP, fetchLeaderboard, fetchDailyStats,
+            regenerateFullSchedule, replaceExercise, gymExercises, homeExercises
         }}>
             {children}
         </UserContext.Provider>

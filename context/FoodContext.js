@@ -1,16 +1,18 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { useConvex } from 'convex/react';
+import { api } from '../convex/_generated/api';
 import { useUser } from './UserContext';
 import { Alert } from 'react-native';
-
 import foodDatabase from '../assets/food_data.json';
+import { getTodayISODate } from '../utils/DateUtils';
 
 const FoodContext = createContext();
 
 export const useFood = () => useContext(FoodContext);
 
 export const FoodProvider = ({ children }) => {
-    const { user, isMock } = useUser();
+    const { user, isMock, todayStr } = useUser();
+    const convex = useConvex();
     const [dailyLog, setDailyLog] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -29,14 +31,10 @@ export const FoodProvider = ({ children }) => {
             return;
         }
         try {
-            const { data, error } = await supabase
-                .from('food_logs')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false }); // Latest first
-
-            if (error) throw error;
-            if (data) setDailyLog(data);
+            const data = await convex.query(api.food.getLogs, { userId: user.id });
+            if (data) {
+                setDailyLog(data.map(item => ({ ...item, id: item._id })));
+            }
         } catch (e) {
             console.error("Error fetching food logs", e);
         } finally {
@@ -44,89 +42,58 @@ export const FoodProvider = ({ children }) => {
         }
     };
 
-    const addFoodToLog = async (food, mealType = 'snack', quantity = 1, servingUnit = 'serving') => {
+    const addFoodToLog = async (food, mealType = 'snack', quantity = 1) => {
         if (!user) {
-            Alert.alert("Please sign in to save your data");
+            Alert.alert("Please sign in to save data");
             return;
         }
 
-        if (isMock) {
-            // Just update local state for mock users
-            const multiplier = quantity;
-            const mockEntry = {
-                id: 'mock-' + Date.now(),
-                user_id: user.id,
-                date: new Date().toISOString().split('T')[0],
-                food_name: quantity > 1 ? `${food.name || food.food_name || food.item_name} (x${quantity})` : (food.name || food.food_name || food.item_name),
-                calories: (food.calories || food.nf_calories) * multiplier,
-                protein: (food.protein || food.nf_protein) * multiplier,
-                carbs: (food.carbs || food.nf_total_carbohydrate) * multiplier,
-                fat: (food.fat || food.nf_total_fat) * multiplier,
-                meal_type: mealType,
-            };
-            setDailyLog(prev => [mockEntry, ...prev]);
-            return;
-        }
-
-
+        const today = todayStr;
         const multiplier = quantity;
+        const baseName = food.name || food.food_name || food.item_name;
 
         const newEntry = {
             user_id: user.id,
-            date: new Date().toISOString().split('T')[0],
-            food_name: quantity > 1 ? `${food.name || food.food_name || food.item_name} (x${quantity})` : (food.name || food.food_name || food.item_name),
+            date: today,
+            food_name: quantity > 1 ? `${baseName} (x${quantity})` : baseName,
             calories: (food.calories || food.nf_calories) * multiplier,
             protein: (food.protein || food.nf_protein) * multiplier,
             carbs: (food.carbs || food.nf_total_carbohydrate) * multiplier,
             fat: (food.fat || food.nf_total_fat) * multiplier,
             meal_type: mealType,
-            // created_at is default in DB
         };
+
+        if (isMock) {
+            setDailyLog(prev => [{ ...newEntry, id: 'mock-' + Date.now() }, ...prev]);
+            return;
+        }
 
         // Optimistic UI update
         const optimisticEntry = { ...newEntry, id: 'temp-' + Date.now() };
         setDailyLog(prev => [optimisticEntry, ...prev]);
 
         try {
-            const { data, error } = await supabase
-                .from('food_logs')
-                .insert([newEntry])
-                .select()
-                .single();
-
-            if (error) throw error;
-
-            // Replace optimistic entry with real one
-            setDailyLog(prev => prev.map(item => item.id === optimisticEntry.id ? data : item));
-
+            const insertedId = await convex.mutation(api.food.addLog, newEntry);
+            const realEntry = { ...newEntry, _id: insertedId, id: insertedId };
+            setDailyLog(prev => prev.map(item => item.id === optimisticEntry.id ? realEntry : item));
         } catch (e) {
             console.error("Error adding food log", e);
-            Alert.alert("Failed to save food entry");
-            // Revert optimistic update
             setDailyLog(prev => prev.filter(item => item.id !== optimisticEntry.id));
+            Alert.alert("Failed to save entry");
         }
     };
 
     const removeFoodFromLog = async (id) => {
-        // Optimistic UI update
         const prevLog = [...dailyLog];
         setDailyLog(prev => prev.filter(item => item.id !== id));
 
         try {
-            if (isMock) {
-                setDailyLog(prev => prev.filter(item => item.id !== id));
-                return;
-            }
-            const { error } = await supabase
-                .from('food_logs')
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
+            if (isMock) return;
+            await convex.mutation(api.food.removeLog, { id });
         } catch (e) {
             console.error("Error deleting food log", e);
+            setDailyLog(prevLog);
             Alert.alert("Failed to delete entry");
-            setDailyLog(prevLog); // Revert
         }
     };
 
@@ -141,9 +108,9 @@ export const FoodProvider = ({ children }) => {
     };
 
     const getMTDSummary = () => {
-        const now = new Date();
-        const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-        const today = now.toISOString().split('T')[0];
+        const baseDate = new Date(todayStr);
+        const firstDayOfMonth = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1).toISOString().split('T')[0];
+        const today = todayStr;
 
         const logs = dailyLog.filter(item => item.date >= firstDayOfMonth && item.date <= today);
         return logs.reduce((acc, item) => ({
@@ -156,19 +123,13 @@ export const FoodProvider = ({ children }) => {
 
     const getLast7DaysCalories = () => {
         const result = [];
+        const baseDate = new Date(todayStr);
         for (let i = 6; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
-            const dateStr = d.toISOString().split('T')[0];
-
+            const d = new Date(baseDate);
+            d.setDate(baseDate.getDate() - i);
+            const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             const summary = getDailySummary(dateStr);
-            const dayLabel = d.toLocaleDateString('en-US', { day: '2-digit' }); // e.g. "12"
-
-            result.push({
-                value: summary.calories,
-                label: dayLabel,
-                frontColor: '#bef264', // Lime green
-            });
+            result.push({ value: summary.calories, label: d.toLocaleDateString('en-US', { day: '2-digit' }), frontColor: '#bef264' });
         }
         return result;
     };

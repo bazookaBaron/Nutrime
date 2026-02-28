@@ -2,19 +2,18 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useUser } from '../../context/UserContext';
-import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, ArrowRight, Target, TrendingUp, Heart, Zap } from 'lucide-react-native';
 import { usePostHog } from 'posthog-react-native';
 
 const goals = [
-    { id: 'lose_weight', title: 'Lose Weight', description: 'Get leaner and fitter', icon: Target, color: '#fee2e2' },
-    { id: 'build_muscle', title: 'Build Muscle', description: 'Gain strength & mass', icon: TrendingUp, color: '#f3e8ff' },
-    { id: 'maintain', title: 'Maintain Health', description: 'Stay active & healthy', icon: Heart, color: '#e0f2fe' },
-    { id: 'improve_perf', title: 'Improve Performance', description: 'Enhance athletic ability', icon: Zap, color: '#fef3c7' },
+    { id: 'lose_weight', title: 'Lose Weight', description: 'Get leaner and fitter', icon: Target, color: '#ffb3b3' },
+    { id: 'build_muscle', title: 'Build Muscle', description: 'Gain strength & mass', icon: TrendingUp, color: '#eabfff' },
+    { id: 'maintain', title: 'Maintain Health', description: 'Stay active & healthy', icon: Heart, color: '#bae6fd' },
+    { id: 'improve_perf', title: 'Improve Performance', description: 'Enhance athletic ability', icon: Zap, color: '#fde68a' },
 ];
 
 export default function Step1Goal() {
-    const [selectedGoal, setSelectedGoal] = useState(null);
+    const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
     const { updateProfile } = useUser();
     const router = useRouter();
     const posthog = usePostHog();
@@ -34,7 +33,7 @@ export default function Step1Goal() {
         <View style={styles.container}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <ArrowLeft size={24} color="#1f2937" />
+                    <ArrowLeft size={24} color="#fff" />
                 </TouchableOpacity>
                 <Text style={styles.stepText}>Step 1 of 4</Text>
                 <TouchableOpacity onPress={() => router.replace('/(tabs)')}>
@@ -64,7 +63,7 @@ export default function Step1Goal() {
                                 onPress={() => setSelectedGoal(goal.id)}
                             >
                                 <View style={[styles.iconContainer, { backgroundColor: goal.color }]}>
-                                    <Icon size={24} color="#1f2937" opacity={0.8} />
+                                    <Icon size={24} color="#0a0a0a" opacity={0.9} />
                                 </View>
                                 <View style={styles.textContainer}>
                                     <Text style={styles.optionTitle}>{goal.title}</Text>
@@ -85,8 +84,8 @@ export default function Step1Goal() {
                     onPress={handleNext}
                     disabled={!selectedGoal}
                 >
-                    <Text style={styles.buttonText}>Continue</Text>
-                    <ArrowRight size={20} color="#fff" />
+                    <Text style={[styles.buttonText, !selectedGoal && { color: '#6b7280' }]}>Continue</Text>
+                    <ArrowRight size={20} color={!selectedGoal ? '#6b7280' : '#000'} />
                 </TouchableOpacity>
             </View>
         </View>
@@ -96,7 +95,7 @@ export default function Step1Goal() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: '#0a0a0a',
         paddingTop: 50,
     },
     header: {
@@ -120,14 +119,14 @@ const styles = StyleSheet.create({
     },
     progressBar: {
         height: 4,
-        backgroundColor: '#f3f4f6',
+        backgroundColor: '#1a1a1a',
         marginHorizontal: 20,
         borderRadius: 2,
         marginBottom: 30,
     },
     progressFill: {
         height: '100%',
-        backgroundColor: '#bef264', // Lime green
+        backgroundColor: '#bef264',
         borderRadius: 2,
     },
     content: {
@@ -137,7 +136,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 28,
         fontWeight: 'bold',
-        color: '#1f2937',
+        color: '#fff',
         marginBottom: 10,
     },
     subtitle: {
@@ -153,19 +152,14 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         padding: 16,
-        backgroundColor: '#fff',
+        backgroundColor: '#1a1a1a',
         borderRadius: 20,
         borderWidth: 1,
-        borderColor: '#f3f4f6',
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
+        borderColor: '#2a2a2a',
     },
     optionCardSelected: {
-        borderColor: '#bef264', // Lime green
-        backgroundColor: '#f7fee7',
+        borderColor: '#bef264',
+        backgroundColor: 'rgba(190, 242, 100, 0.05)',
     },
     iconContainer: {
         width: 48,
@@ -181,19 +175,19 @@ const styles = StyleSheet.create({
     optionTitle: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: '#1f2937',
+        color: '#fff',
         marginBottom: 4,
     },
     optionDesc: {
         fontSize: 14,
-        color: '#6b7280',
+        color: '#9ca3af',
     },
     radio: {
         width: 24,
         height: 24,
         borderRadius: 12,
         borderWidth: 2,
-        borderColor: '#d1d5db',
+        borderColor: '#374151',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -212,12 +206,12 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         padding: 20,
-        backgroundColor: '#fff',
+        backgroundColor: '#0a0a0a',
         borderTopWidth: 1,
-        borderTopColor: '#f3f4f6',
+        borderTopColor: '#1a1a1a',
     },
     button: {
-        backgroundColor: '#1f2937', // Dark/Black button
+        backgroundColor: '#bef264',
         borderRadius: 16,
         padding: 18,
         flexDirection: 'row',
@@ -226,10 +220,10 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     buttonDisabled: {
-        backgroundColor: '#d1d5db',
+        backgroundColor: '#1a1a1a',
     },
     buttonText: {
-        color: '#fff',
+        color: '#000',
         fontSize: 18,
         fontWeight: 'bold',
     },

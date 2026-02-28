@@ -2,7 +2,6 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useUser } from '../../context/UserContext';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Check, ArrowRight } from 'lucide-react-native';
 import { usePostHog } from 'posthog-react-native';
 
@@ -10,16 +9,24 @@ export default function Step4Result() {
     const { nutritionTargets, completeOnboarding, userProfile } = useUser();
     const router = useRouter();
     const posthog = usePostHog();
+    const [isFinishing, setIsFinishing] = React.useState(false);
 
     const handleFinish = async () => {
+        setIsFinishing(true);
         posthog.capture('onboarding_completed', {
             goal: userProfile?.goal,
             daily_calories_target: nutritionTargets.calories,
             activity_level: userProfile?.activity_level,
             target_duration_weeks: userProfile?.target_duration_weeks,
         });
-        await completeOnboarding();
-        router.replace('/(tabs)');
+        try {
+            await completeOnboarding();
+            // We intentionally do not call router.replace() here.
+            // _layout.tsx will detect that hasCompletedOnboarding is true and auto-route to /(tabs)
+        } catch (e) {
+            console.error(e);
+            setIsFinishing(false);
+        }
     };
 
     const { calories, mealSplit } = nutritionTargets;
@@ -44,15 +51,11 @@ export default function Step4Result() {
 
     return (
         <View style={styles.container}>
-            <LinearGradient
-                colors={['#f7fee7', '#fff']}
-                style={styles.background}
-            />
 
             <ScrollView contentContainerStyle={styles.content}>
                 <View style={styles.header}>
                     <View style={styles.successIcon}>
-                        <Check size={40} color="#fff" />
+                        <Check size={40} color="#0a0a0a" />
                     </View>
                     <Text style={styles.title}>Your Plan is Ready!</Text>
                     <Text style={styles.subtitle}>Based on your goals and stats, here are your daily targets.</Text>
@@ -65,7 +68,7 @@ export default function Step4Result() {
                         <Text style={styles.cardUnit}>kcal</Text>
                     </View>
 
-                    <View style={[styles.targetCard, { flex: 1, marginLeft: 8, backgroundColor: '#fef3c7' }]}>
+                    <View style={[styles.targetCard, { flex: 1, marginLeft: 8, borderColor: '#3f3f46' }]}>
                         <Text style={styles.cardLabel}>Daily Burn</Text>
                         <Text style={[styles.cardValue, { color: '#f59e0b' }]}>{dailyBurnTarget}</Text>
                         <Text style={styles.cardUnit}>kcal</Text>
@@ -77,25 +80,25 @@ export default function Step4Result() {
                     <MealRow
                         label="Breakfast"
                         calories={Math.round(calories * mealSplit.breakfast)}
-                        color="#e0f2fe"
+                        color="#0369a1"
                         percent="25%"
                     />
                     <MealRow
                         label="Lunch"
                         calories={Math.round(calories * mealSplit.lunch)}
-                        color="#fef3c7"
+                        color="#b45309"
                         percent="35%"
                     />
                     <MealRow
                         label="Snacks"
                         calories={Math.round(calories * mealSplit.snack)}
-                        color="#fce7f3"
+                        color="#be185d"
                         percent="10%"
                     />
                     <MealRow
                         label="Dinner"
                         calories={Math.round(calories * mealSplit.dinner)}
-                        color="#dcfce7"
+                        color="#15803d"
                         percent="30%"
                     />
                 </View>
@@ -103,9 +106,15 @@ export default function Step4Result() {
             </ScrollView>
 
             <View style={styles.footer}>
-                <TouchableOpacity style={styles.button} onPress={handleFinish}>
-                    <Text style={styles.buttonText}>Start Tracking</Text>
-                    <ArrowRight size={20} color="#fff" />
+                <TouchableOpacity
+                    style={[styles.button, isFinishing && { opacity: 0.7 }]}
+                    onPress={handleFinish}
+                    disabled={isFinishing}
+                >
+                    <Text style={styles.buttonText}>
+                        {isFinishing ? 'Preparing your plan...' : 'Start Tracking'}
+                    </Text>
+                    {!isFinishing && <ArrowRight size={20} color="#000" />}
                 </TouchableOpacity>
             </View>
         </View>
@@ -115,7 +124,7 @@ export default function Step4Result() {
 const MealRow = ({ label, calories, color, percent }) => (
     <View style={styles.mealRow}>
         <View style={[styles.mealIcon, { backgroundColor: color }]}>
-            <Text style={styles.mealPercent}>{percent}</Text>
+            <Text style={[styles.mealPercent, { color: '#fff' }]}>{percent}</Text>
         </View>
         <View style={styles.mealInfo}>
             <Text style={styles.mealLabel}>{label}</Text>
@@ -127,14 +136,7 @@ const MealRow = ({ label, calories, color, percent }) => (
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
-    },
-    background: {
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        top: 0,
-        height: '40%',
+        backgroundColor: '#0a0a0a',
     },
     content: {
         padding: 24,
@@ -144,7 +146,7 @@ const styles = StyleSheet.create({
     },
     header: {
         alignItems: 'center',
-        marginBottom: 30,
+        marginBottom: 20,
     },
     successIcon: {
         width: 80,
@@ -153,7 +155,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#bef264',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 16,
         shadowColor: '#bef264',
         shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.3,
@@ -162,7 +164,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 28,
         fontWeight: 'bold',
-        color: '#1f2937',
+        color: '#fff',
         marginBottom: 10,
         textAlign: 'center',
     },
@@ -176,22 +178,16 @@ const styles = StyleSheet.create({
     targetsRow: {
         flexDirection: 'row',
         width: '100%',
-        marginBottom: 30,
+        marginBottom: 20,
     },
     targetCard: {
-        backgroundColor: '#fff',
+        backgroundColor: '#1a1a1a',
         width: '100%',
-        padding: 30,
+        padding: 20,
         borderRadius: 24,
         alignItems: 'center',
-        marginBottom: 30,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.05,
-        shadowRadius: 20,
-        elevation: 5,
         borderWidth: 1,
-        borderColor: '#f3f4f6',
+        borderColor: '#2a2a2a',
     },
     cardLabel: {
         fontSize: 16,
@@ -202,10 +198,10 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
     },
     cardValue: {
-        fontSize: 56,
+        fontSize: 32,
         fontWeight: '800',
-        color: '#1f2937',
-        marginBottom: 5,
+        color: '#fff',
+        marginBottom: 4,
     },
     cardUnit: {
         fontSize: 16,
@@ -216,7 +212,7 @@ const styles = StyleSheet.create({
         width: '100%',
         fontSize: 20,
         fontWeight: 'bold',
-        color: '#1f2937',
+        color: '#fff',
         marginBottom: 20,
         paddingLeft: 5,
     },
@@ -227,7 +223,7 @@ const styles = StyleSheet.create({
     mealRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#f9fafb',
+        backgroundColor: '#1a1a1a',
         padding: 15,
         borderRadius: 16,
     },
@@ -250,7 +246,7 @@ const styles = StyleSheet.create({
     mealLabel: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: '#1f2937',
+        color: '#fff',
         marginBottom: 4,
     },
     mealCalories: {
@@ -263,10 +259,10 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         padding: 20,
-        backgroundColor: '#fff',
+        backgroundColor: '#0a0a0a',
     },
     button: {
-        backgroundColor: '#1f2937',
+        backgroundColor: '#bef264',
         borderRadius: 16,
         padding: 18,
         flexDirection: 'row',
@@ -275,7 +271,7 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     buttonText: {
-        color: '#fff',
+        color: '#000',
         fontSize: 18,
         fontWeight: 'bold',
     },

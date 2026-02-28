@@ -73,7 +73,7 @@ export default defineSchema({
     food_logs: defineTable({
         user_id: v.string(),
         date: v.string(),
-        food_name: v.string(),
+        food_name: v.union(v.string(), v.array(v.string())),
         calories: v.number(),
         protein: v.number(),
         carbs: v.number(),

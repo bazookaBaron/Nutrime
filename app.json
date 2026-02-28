@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "nutrienttracker",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
@@ -82,11 +82,17 @@
         "android.permission.health.READ_DISTANCE",
         "android.permission.health.READ_TOTAL_CALORIES_BURNED"
       ],
-      "package": "com.harvardpark.NutrientTracker"
+      "package": "com.harvardpark.NutrientTracker",
+      "googleServicesFile": "./google-services.json"
     },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "eb7eb61e-69e9-4392-9487-ed1db1f870bd"
+      }
     }
   }
 }

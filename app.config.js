@@ -1,6 +1,5 @@
 // app.config.js - Extends app.json with dynamic configuration
 // PostHog keys are loaded from .env at build time
-
 const appJson = require('./app.json');
 
 export default {

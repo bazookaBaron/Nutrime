@@ -5,14 +5,14 @@ import { useUser } from '../../context/UserContext';
 import { ArrowLeft, ArrowRight, Battery, BatteryCharging, BatteryFull, Zap } from 'lucide-react-native';
 
 const activities = [
-    { id: 'sedentary', title: 'Sedentary', description: 'Little or no exercise', icon: Battery, color: '#fee2e2' },
-    { id: 'lightly_active', title: 'Lightly Active', description: 'Exercise 1-3 times/week', icon: BatteryCharging, color: '#fef3c7' },
-    { id: 'moderately_active', title: 'Moderately Active', description: 'Exercise 4-5 times/week', icon: BatteryFull, color: '#e0f2fe' },
-    { id: 'very_active', title: 'Very Active', description: 'Daily exercise or intense job', icon: Zap, color: '#dcfce7' },
+    { id: 'sedentary', title: 'Sedentary', description: 'Little or no exercise', icon: Battery, color: '#ffb3b3' },
+    { id: 'lightly_active', title: 'Lightly Active', description: 'Exercise 1-3 times/week', icon: BatteryCharging, color: '#fde68a' },
+    { id: 'moderately_active', title: 'Moderately Active', description: 'Exercise 4-5 times/week', icon: BatteryFull, color: '#bae6fd' },
+    { id: 'very_active', title: 'Very Active', description: 'Daily exercise or intense job', icon: Zap, color: '#bbf7d0' },
 ];
 
 export default function Step3Activity() {
-    const [selectedActivity, setSelectedActivity] = useState(null);
+    const [selectedActivity, setSelectedActivity] = useState<string | null>(null);
     const { updateProfile } = useUser();
     const router = useRouter();
 
@@ -27,7 +27,7 @@ export default function Step3Activity() {
         <View style={styles.container}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <ArrowLeft size={24} color="#1f2937" />
+                    <ArrowLeft size={24} color="#fff" />
                 </TouchableOpacity>
                 <Text style={styles.stepText}>Step 3 of 4</Text>
                 <Text style={styles.skipText}>    </Text>
@@ -55,7 +55,7 @@ export default function Step3Activity() {
                                 onPress={() => setSelectedActivity(activity.id)}
                             >
                                 <View style={[styles.iconContainer, { backgroundColor: activity.color }]}>
-                                    <Icon size={24} color="#1f2937" opacity={0.8} />
+                                    <Icon size={24} color="#0a0a0a" opacity={0.9} />
                                 </View>
                                 <View style={styles.textContainer}>
                                     <Text style={styles.optionTitle}>{activity.title}</Text>
@@ -76,8 +76,8 @@ export default function Step3Activity() {
                     onPress={handleNext}
                     disabled={!selectedActivity}
                 >
-                    <Text style={styles.buttonText}>Continue</Text>
-                    <ArrowRight size={20} color="#fff" />
+                    <Text style={[styles.buttonText, !selectedActivity && { color: '#6b7280' }]}>Continue</Text>
+                    <ArrowRight size={20} color={!selectedActivity ? '#6b7280' : '#000'} />
                 </TouchableOpacity>
             </View>
         </View>
@@ -87,7 +87,7 @@ export default function Step3Activity() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: '#0a0a0a',
         paddingTop: 50,
     },
     header: {
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     },
     progressBar: {
         height: 4,
-        backgroundColor: '#f3f4f6',
+        backgroundColor: '#1a1a1a',
         marginHorizontal: 20,
         borderRadius: 2,
         marginBottom: 30,
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 28,
         fontWeight: 'bold',
-        color: '#1f2937',
+        color: '#fff',
         marginBottom: 10,
     },
     subtitle: {
@@ -144,19 +144,14 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         padding: 16,
-        backgroundColor: '#fff',
+        backgroundColor: '#1a1a1a',
         borderRadius: 20,
         borderWidth: 1,
-        borderColor: '#f3f4f6',
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
+        borderColor: '#2a2a2a',
     },
     optionCardSelected: {
-        borderColor: '#bef264', // Lime green
-        backgroundColor: '#f7fee7',
+        borderColor: '#bef264',
+        backgroundColor: 'rgba(190, 242, 100, 0.05)',
     },
     iconContainer: {
         width: 48,
@@ -172,19 +167,19 @@ const styles = StyleSheet.create({
     optionTitle: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: '#1f2937',
+        color: '#fff',
         marginBottom: 4,
     },
     optionDesc: {
         fontSize: 14,
-        color: '#6b7280',
+        color: '#9ca3af',
     },
     radio: {
         width: 24,
         height: 24,
         borderRadius: 12,
         borderWidth: 2,
-        borderColor: '#d1d5db',
+        borderColor: '#374151',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -203,12 +198,12 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         padding: 20,
-        backgroundColor: '#fff',
+        backgroundColor: '#0a0a0a',
         borderTopWidth: 1,
-        borderTopColor: '#f3f4f6',
+        borderTopColor: '#1a1a1a',
     },
     button: {
-        backgroundColor: '#1f2937',
+        backgroundColor: '#bef264',
         borderRadius: 16,
         padding: 18,
         flexDirection: 'row',
@@ -217,10 +212,10 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     buttonDisabled: {
-        backgroundColor: '#d1d5db',
+        backgroundColor: '#1a1a1a',
     },
     buttonText: {
-        color: '#fff',
+        color: '#000',
         fontSize: 18,
         fontWeight: 'bold',
     },

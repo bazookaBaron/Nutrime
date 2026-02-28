@@ -110,7 +110,7 @@ const filterExercises = (exercises, bodyArea, userLevel) => {
     });
 };
 
-const selectExercisesForSession = (availableExercises, targetBurn, userWeight) => {
+const selectExercisesForSession = (availableExercises, targetBurn, userWeight, goal = null) => {
     // Safety check for weight and target to avoid NaN
     const weightKg = (userWeight && userWeight > 0) ? userWeight : 70; // 70kg default
     const burnTarget = (targetBurn && targetBurn > 0) ? targetBurn : 300; // 300kcal default
@@ -160,6 +160,14 @@ const selectExercisesForSession = (availableExercises, targetBurn, userWeight) =
                 minR = parseInt(repMatch[1]);
                 maxR = repMatch[2] ? parseInt(repMatch[2]) : minR;
             }
+
+            // Adjust for bulking
+            if (goal === 'build_muscle') {
+                // Focus on hypertrophy/strength: slightly lower reps, higher weight emphasis
+                minR = Math.max(1, minR - 2);
+                maxR = Math.max(minR + 2, maxR - 2);
+            }
+
             const avgReps = Math.round((minR + maxR) / 2);
             repsString = `${minR}-${maxR}`;
 
@@ -331,7 +339,7 @@ export const generateWorkoutSchedule = (userProfile, gymExercises, homeExercises
 
         // Generate Gym Session
         const gymPool = filterExercises(gym, focus, difficultyKey);
-        const gymSession = selectExercisesForSession(gymPool, targetDailyBurn, userProfile.weight);
+        const gymSession = selectExercisesForSession(gymPool, targetDailyBurn, userProfile.weight, userProfile.goal);
 
         // Generate Home Session
         const homePool = filterExercises(home, focus, difficultyKey);
@@ -349,7 +357,7 @@ export const generateWorkoutSchedule = (userProfile, gymExercises, homeExercises
             });
         }
 
-        const homeSession = selectExercisesForSession(effectiveHomePool, targetDailyBurn, userProfile.weight);
+        const homeSession = selectExercisesForSession(effectiveHomePool, targetDailyBurn, userProfile.weight, userProfile.goal);
 
         // Construct Day Object
         const dayPlan = {

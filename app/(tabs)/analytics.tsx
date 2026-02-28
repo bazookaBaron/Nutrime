@@ -58,11 +58,16 @@ export default function Analytics() {
         useCallback(() => {
             let active = true;
             const fetchWearable = async () => {
-                setWearableLoading(true);
-                const data = await wearableService.getHistory(30);
-                if (active) {
-                    setWearableData(data);
-                    setWearableLoading(false);
+                try {
+                    setWearableLoading(true);
+                    const data = await wearableService.getHistory(30);
+                    if (active) {
+                        setWearableData(data);
+                    }
+                } catch (e) {
+                    console.error("Analytics: Failed to fetch wearable data", e);
+                } finally {
+                    if (active) setWearableLoading(false);
                 }
             };
             fetchWearable();

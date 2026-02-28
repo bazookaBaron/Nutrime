@@ -1,13 +1,42 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
+// ---------------------------------------------------------------------------
+// Idempotently creates a profile row for a newly authenticated user.
+// Safe to call on every login/signup — it's a no-op if the row already exists.
+// ---------------------------------------------------------------------------
+export const ensureProfile = mutation({
+    args: {
+        userId: v.string(),
+        email: v.optional(v.string()),
+        full_name: v.optional(v.string()),
+        username: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const existing = await ctx.db
+            .query("profiles")
+            .withIndex("by_user_id", (q) => q.eq("user_id", args.userId))
+            .unique();
+
+        if (!existing) {
+            await ctx.db.insert("profiles", {
+                user_id: args.userId,
+                full_name: args.full_name,
+                username: args.username,
+                updated_at: new Date().toISOString(),
+            });
+        }
+        return existing?._id ?? null;
+    },
+});
+
 export const getProfile = query({
     args: { userId: v.optional(v.string()) },
     handler: async (ctx, args) => {
         if (!args.userId) return null;
         return await ctx.db
             .query("profiles")
-            .withIndex("by_user_id", (q) => q.eq("user_id", args.userId))
+            .withIndex("by_user_id", (q) => q.eq("user_id", args.userId!))
             .unique();
     },
 });
@@ -15,7 +44,7 @@ export const getProfile = query({
 export const updateProfile = mutation({
     args: {
         userId: v.string(),
-        updates: v.any(), // Allowing partial updates easily
+        updates: v.any(),
     },
     handler: async (ctx, args) => {
         const existing = await ctx.db
@@ -39,6 +68,34 @@ export const updateProfile = mutation({
     },
 });
 
+// ---------------------------------------------------------------------------
+// Saves the device's Expo push token and timezone to the user profile.
+// Called from _layout.tsx after every sign-in so the cron job can reach them.
+// ---------------------------------------------------------------------------
+export const updatePushToken = mutation({
+    args: {
+        userId: v.string(),
+        pushToken: v.string(),
+        timezone: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const existing = await ctx.db
+            .query("profiles")
+            .withIndex("by_user_id", (q) => q.eq("user_id", args.userId))
+            .unique();
+
+        if (existing) {
+            await ctx.db.patch(existing._id, {
+                push_token: args.pushToken,
+                timezone: args.timezone,
+                updated_at: new Date().toISOString(),
+            });
+        }
+        // If no profile yet (race condition on first sign-in), ensureProfile will
+        // create it, and the next app relaunch will sync the token.
+    },
+});
+
 export const getDailyStats = query({
     args: { userId: v.optional(v.string()), date: v.string() },
     handler: async (ctx, args) => {
@@ -46,7 +103,7 @@ export const getDailyStats = query({
         return await ctx.db
             .query("daily_stats")
             .withIndex("by_user_id_and_date", (q) =>
-                q.eq("user_id", args.userId).eq("date", args.date)
+                q.eq("user_id", args.userId!).eq("date", args.date)
             )
             .unique();
     },
@@ -121,7 +178,7 @@ export const getLeaderboard = query({
         return sorted.map((p, index) => ({
             rank: index + 1,
             user_id: p.user_id,
-            username: p.username || p.full_name || 'Anonymous',
+            username: p.username || p.full_name || "Anonymous",
             workout_xp: p.workout_xp || 0,
             workout_level: p.workout_level || 1,
         }));

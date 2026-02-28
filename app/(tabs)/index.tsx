@@ -379,9 +379,12 @@ export default function Dashboard() {
 
                   {/* List items briefly */}
                   <View style={{ marginTop: 10 }}>
-                    {logs.map((log: any, idx: number) => (
-                      <Text key={idx} numberOfLines={1} style={{ color: '#888', fontSize: 10 }}>• {log.food_name}</Text>
-                    ))}
+                    {logs.map((log: any, idx: number) => {
+                      const names = Array.isArray(log.food_name) ? log.food_name : [log.food_name].filter(Boolean);
+                      return names.map((name: string, i: number) => (
+                        <Text key={`${idx}-${i}`} numberOfLines={1} style={{ color: '#888', fontSize: 10 }}>• {name}</Text>
+                      ));
+                    })}
                     {logs.length === 0 && <Text style={{ color: '#444', fontSize: 10, fontStyle: 'italic' }}>No food logged</Text>}
                   </View>
                 </View>

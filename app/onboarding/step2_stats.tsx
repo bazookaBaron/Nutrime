@@ -3,8 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 
 import { useRouter } from 'expo-router';
 import { useUser } from '../../context/UserContext';
 import { ArrowLeft, ArrowRight } from 'lucide-react-native';
-import LocationPicker from '../../components/LocationPicker';
 import { COUNTRIES, LocationEntry } from '../../data/locations';
+import LocationPicker from '../../components/LocationPicker';
 
 export default function Step2Stats() {
     const [weight, setWeight] = useState('');
@@ -44,7 +44,7 @@ export default function Step2Stats() {
         <View style={styles.container}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <ArrowLeft size={24} color="#1f2937" />
+                    <ArrowLeft size={24} color="#fff" />
                 </TouchableOpacity>
                 <Text style={styles.stepText}>Step 2 of 4</Text>
                 <Text style={styles.skipText}>    </Text>
@@ -81,6 +81,7 @@ export default function Step2Stats() {
                     <TextInput
                         style={styles.input}
                         placeholder="70"
+                        placeholderTextColor="#6b7280"
                         keyboardType="numeric"
                         value={weight}
                         onChangeText={setWeight}
@@ -92,6 +93,7 @@ export default function Step2Stats() {
                     <TextInput
                         style={styles.input}
                         placeholder="175"
+                        placeholderTextColor="#6b7280"
                         keyboardType="numeric"
                         value={height}
                         onChangeText={setHeight}
@@ -103,6 +105,7 @@ export default function Step2Stats() {
                     <TextInput
                         style={styles.input}
                         placeholder="25"
+                        placeholderTextColor="#6b7280"
                         keyboardType="numeric"
                         value={age}
                         onChangeText={setAge}
@@ -146,8 +149,8 @@ export default function Step2Stats() {
                     onPress={handleNext}
                     disabled={!isFormValid}
                 >
-                    <Text style={styles.buttonText}>Continue</Text>
-                    <ArrowRight size={20} color="#fff" />
+                    <Text style={[styles.buttonText, !isFormValid && { color: '#6b7280' }]}>Continue</Text>
+                    <ArrowRight size={20} color={!isFormValid ? '#6b7280' : '#000'} />
                 </TouchableOpacity>
             </View>
         </View>
@@ -157,7 +160,7 @@ export default function Step2Stats() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: '#0a0a0a',
         paddingTop: 50,
     },
     header: {
@@ -181,7 +184,7 @@ const styles = StyleSheet.create({
     },
     progressBar: {
         height: 4,
-        backgroundColor: '#f3f4f6',
+        backgroundColor: '#1a1a1a',
         marginHorizontal: 20,
         borderRadius: 2,
         marginBottom: 30,
@@ -198,7 +201,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 28,
         fontWeight: 'bold',
-        color: '#1f2937',
+        color: '#fff',
         marginBottom: 10,
     },
     subtitle: {
@@ -212,17 +215,17 @@ const styles = StyleSheet.create({
     label: {
         fontSize: 16,
         fontWeight: '600',
-        color: '#374151',
+        color: '#fff',
         marginBottom: 8,
     },
     input: {
-        backgroundColor: '#f9fafb',
+        backgroundColor: '#1a1a1a',
         borderWidth: 1,
-        borderColor: '#e5e7eb',
+        borderColor: '#2a2a2a',
         borderRadius: 12,
         padding: 16,
         fontSize: 16,
-        color: '#1f2937',
+        color: '#fff',
     },
     genderContainer: {
         flexDirection: 'row',
@@ -233,21 +236,21 @@ const styles = StyleSheet.create({
         padding: 16,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#e5e7eb',
+        borderColor: '#2a2a2a',
         alignItems: 'center',
-        backgroundColor: '#f9fafb',
+        backgroundColor: '#1a1a1a',
     },
     genderButtonSelected: {
         borderColor: '#bef264',
-        backgroundColor: '#f7fee7',
+        backgroundColor: 'rgba(190, 242, 100, 0.05)',
     },
     genderText: {
         fontSize: 16,
         fontWeight: '500',
-        color: '#6b7280',
+        color: '#9ca3af',
     },
     genderTextSelected: {
-        color: '#1f2937',
+        color: '#fff',
         fontWeight: '700',
     },
     footer: {
@@ -256,12 +259,12 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         padding: 20,
-        backgroundColor: '#fff',
+        backgroundColor: '#0a0a0a',
         borderTopWidth: 1,
-        borderTopColor: '#f3f4f6',
+        borderTopColor: '#1a1a1a',
     },
     button: {
-        backgroundColor: '#1f2937',
+        backgroundColor: '#bef264',
         borderRadius: 16,
         padding: 18,
         flexDirection: 'row',
@@ -270,10 +273,10 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     buttonDisabled: {
-        backgroundColor: '#d1d5db',
+        backgroundColor: '#1a1a1a',
     },
     buttonText: {
-        color: '#fff',
+        color: '#000',
         fontSize: 18,
         fontWeight: 'bold',
     },

@@ -1,0 +1,340 @@
+﻿env: load .env.local .env
+env: export POSTHOG_API_KEY POSTHOG_HOST CONVEX_DEPLOYMENT EXPO_PUBLIC_CONVEX_URL EXPO_PUBLIC_CONVEX_SITE_URL EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY
+ΓÇ║ Using --device I2202
+ΓÇ║ Building app...
+Configuration on demand is an incubating feature.
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gradle-plugin:shared:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gradle-plugin:settings-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gradle-plugin:settings-plugin:pluginDescriptors UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:pluginDescriptors UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:processResources UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:processResources UP-TO-DATE
+> Task :gradle-plugin:shared:compileKotlin UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:compileKotlin UP-TO-DATE
+> Task :gradle-plugin:shared:compileJava NO-SOURCE
+> Task :gradle-plugin:shared:processResources NO-SOURCE
+> Task :gradle-plugin:shared:classes UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:compileJava NO-SOURCE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:processResources NO-SOURCE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:classes UP-TO-DATE
+> Task :gradle-plugin:shared:jar UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:jar UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:compileKotlin UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:compileJava NO-SOURCE
+> Task :gradle-plugin:settings-plugin:classes UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:jar UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:compileKotlin UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:compileJava NO-SOURCE
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:classes UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:jar UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gradle-plugin:react-native-gradle-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-dev-launcher-gradle-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-dev-launcher-gradle-plugin:pluginDescriptors UP-TO-DATE
+> Task :expo-module-gradle-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-dev-launcher-gradle-plugin:processResources UP-TO-DATE
+> Task :expo-module-gradle-plugin:pluginDescriptors UP-TO-DATE
+> Task :expo-module-gradle-plugin:processResources UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:compileKotlin UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:compileJava NO-SOURCE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:pluginDescriptors UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:processResources UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:classes UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:jar UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:compileKotlin UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:compileJava NO-SOURCE
+> Task :gradle-plugin:react-native-gradle-plugin:pluginDescriptors UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:processResources UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:classes UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:jar UP-TO-DATE
+> Task :expo-module-gradle-plugin:compileKotlin UP-TO-DATE
+> Task :expo-module-gradle-plugin:compileJava NO-SOURCE
+> Task :expo-module-gradle-plugin:classes UP-TO-DATE
+> Task :expo-dev-launcher-gradle-plugin:compileKotlin UP-TO-DATE
+> Task :expo-dev-launcher-gradle-plugin:compileJava NO-SOURCE
+> Task :expo-module-gradle-plugin:jar UP-TO-DATE
+> Task :expo-dev-launcher-gradle-plugin:classes UP-TO-DATE
+> Task :expo-dev-launcher-gradle-plugin:jar UP-TO-DATE
+
+> Configure project :app
+ Γä╣∩╕Å  [33mApplying gradle plugin[0m '[32mexpo-dev-launcher-gradle-plugin[0m'
+
+> Configure project :
+[32m[ExpoRootProject][0m Using the following versions:
+  - buildTools:  [32m36.0.0[0m
+  - minSdk:      [32m26[0m
+  - compileSdk:  [32m36[0m
+  - targetSdk:   [32m36[0m
+  - ndk:         [32m27.1.12297006[0m
+  - kotlin:      [32m2.1.20[0m
+  - ksp:         [32m2.1.20-2.0.1[0m
+
+> Configure project :expo
+
+Using expo modules
+  - [32mexpo-constants[0m (18.0.13)
+  - [32mexpo-dev-client[0m (6.0.20)
+  - [32mexpo-dev-launcher[0m (6.0.20)
+  - [32mexpo-dev-menu[0m (7.0.18)
+  - [32mexpo-dev-menu-interface[0m (2.0.0)
+  - [32mexpo-json-utils[0m (0.15.0)
+  - [32mexpo-manifests[0m (1.0.10)
+  - [32mexpo-modules-core[0m (3.0.29)
+  - [32mexpo-updates-interface[0m (2.0.0)
+  - [33m[≡ƒôª][0m [32mexpo-application[0m (7.0.8)
+  - [33m[≡ƒôª][0m [32mexpo-asset[0m (12.0.12)
+  - [33m[≡ƒôª][0m [32mexpo-crypto[0m (15.0.8)
+  - [33m[≡ƒôª][0m [32mexpo-device[0m (8.0.10)
+  - [33m[≡ƒôª][0m [32mexpo-file-system[0m (19.0.21)
+  - [33m[≡ƒôª][0m [32mexpo-font[0m (14.0.11)
+  - [33m[≡ƒôª][0m [32mexpo-haptics[0m (15.0.8)
+  - [33m[≡ƒôª][0m [32mexpo-image[0m (3.0.11)
+  - [33m[≡ƒôª][0m [32mexpo-keep-awake[0m (15.0.8)
+  - [33m[≡ƒôª][0m [32mexpo-linear-gradient[0m (15.0.8)
+  - [33m[≡ƒôª][0m [32mexpo-linking[0m (8.0.11)
+  - [33m[≡ƒôª][0m [32mexpo-notifications[0m (0.32.16)
+  - [33m[≡ƒôª][0m [32mexpo-secure-store[0m (55.0.8)
+  - [33m[≡ƒôª][0m [32mexpo-splash-screen[0m (31.0.13)
+  - [33m[≡ƒôª][0m [32mexpo-system-ui[0m (6.0.9)
+  - [33m[≡ƒôª][0m [32mexpo-web-browser[0m (15.0.10)
+
+
+> Task :expo-dev-menu-interface:preBuild UP-TO-DATE
+> Task :expo-manifests:preBuild UP-TO-DATE
+> Task :expo-json-utils:preBuild UP-TO-DATE
+> Task :expo-dev-menu-interface:preDebugBuild UP-TO-DATE
+> Task :expo-dev-menu:preBuild UP-TO-DATE
+> Task :expo-dev-launcher:preBuild UP-TO-DATE
+> Task :expo-modules-core:preBuild UP-TO-DATE
+> Task :expo-dev-client:preBuild UP-TO-DATE
+> Task :expo-dev-client:preDebugBuild UP-TO-DATE
+> Task :react-native-async-storage_async-storage:preBuild UP-TO-DATE
+> Task :expo-dev-launcher:preDebugBuild UP-TO-DATE
+> Task :expo-dev-menu:preDebugBuild UP-TO-DATE
+> Task :expo-json-utils:preDebugBuild UP-TO-DATE
+> Task :expo-updates-interface:preBuild UP-TO-DATE
+> Task :expo-manifests:preDebugBuild UP-TO-DATE
+> Task :expo-modules-core:preDebugBuild UP-TO-DATE
+> Task :react-native-async-storage_async-storage:preDebugBuild UP-TO-DATE
+> Task :expo-updates-interface:preDebugBuild UP-TO-DATE
+> Task :react-native-async-storage_async-storage:writeDebugAarMetadata
+> Task :expo-json-utils:writeDebugAarMetadata
+> Task :expo-dev-launcher:writeDebugAarMetadata
+> Task :expo-updates-interface:writeDebugAarMetadata
+> Task :expo-dev-menu-interface:writeDebugAarMetadata
+> Task :expo-modules-core:writeDebugAarMetadata
+> Task :expo-manifests:writeDebugAarMetadata
+> Task :expo-dev-client:writeDebugAarMetadata
+> Task :expo-dev-menu:writeDebugAarMetadata
+> Task :react-native-health-connect:preBuild UP-TO-DATE
+> Task :react-native-gesture-handler:preBuild UP-TO-DATE
+> Task :react-native-screens:preBuild UP-TO-DATE
+> Task :react-native-safe-area-context:preBuild UP-TO-DATE
+> Task :solana-mobile_mobile-wallet-adapter-protocol:preBuild UP-TO-DATE
+> Task :solana-mobile_mobile-wallet-adapter-protocol:preDebugBuild UP-TO-DATE
+> Task :react-native-health-connect:preDebugBuild UP-TO-DATE
+> Task :react-native-gesture-handler:preDebugBuild UP-TO-DATE
+> Task :react-native-svg:preBuild UP-TO-DATE
+> Task :react-native-safe-area-context:preDebugBuild UP-TO-DATE
+> Task :react-native-webview:preBuild UP-TO-DATE
+> Task :react-native-svg:preDebugBuild UP-TO-DATE
+> Task :react-native-screens:preDebugBuild UP-TO-DATE
+> Task :react-native-webview:preDebugBuild UP-TO-DATE
+> Task :react-native-gesture-handler:writeDebugAarMetadata
+> Task :react-native-health-connect:writeDebugAarMetadata
+> Task :react-native-screens:writeDebugAarMetadata
+> Task :react-native-safe-area-context:writeDebugAarMetadata
+> Task :react-native-webview:writeDebugAarMetadata
+> Task :expo-dev-client:generateDebugResValues
+> Task :expo-dev-launcher:generateDebugResValues
+> Task :expo-dev-menu:generateDebugResValues
+> Task :expo-json-utils:generateDebugResValues
+> Task :expo-dev-menu-interface:generateDebugResValues
+> Task :solana-mobile_mobile-wallet-adapter-protocol:writeDebugAarMetadata
+> Task :react-native-svg:writeDebugAarMetadata
+> Task :expo-dev-client:generateDebugResources
+> Task :expo-json-utils:generateDebugResources
+> Task :expo-dev-menu-interface:generateDebugResources
+> Task :expo-manifests:generateDebugResValues
+> Task :expo-dev-launcher:generateDebugResources
+> Task :expo-modules-core:generateDebugResValues
+> Task :expo-dev-menu:generateDebugResources
+> Task :expo-manifests:generateDebugResources
+> Task :expo-modules-core:generateDebugResources
+> Task :expo-dev-menu-interface:packageDebugResources
+> Task :expo-json-utils:packageDebugResources
+> Task :expo-dev-client:packageDebugResources
+> Task :expo-modules-core:packageDebugResources
+> Task :expo-manifests:packageDebugResources
+> Task :expo-updates-interface:generateDebugResValues
+> Task :react-native-async-storage_async-storage:generateDebugResValues
+> Task :react-native-gesture-handler:generateDebugResValues
+> Task :react-native-gesture-handler:generateDebugResources
+> Task :expo-updates-interface:generateDebugResources
+> Task :react-native-async-storage_async-storage:generateDebugResources
+> Task :react-native-safe-area-context:generateDebugResValues
+> Task :react-native-health-connect:generateDebugResValues
+> Task :expo-dev-launcher:packageDebugResources
+> Task :react-native-gesture-handler:packageDebugResources
+> Task :expo-updates-interface:packageDebugResources
+> Task :react-native-screens:generateDebugResValues
+> Task :expo-dev-menu:packageDebugResources
+> Task :react-native-svg:generateDebugResValues
+> Task :react-native-webview:generateDebugResValues
+> Task :solana-mobile_mobile-wallet-adapter-protocol:generateDebugResValues
+> Task :react-native-async-storage_async-storage:packageDebugResources
+> Task :react-native-svg:generateDebugResources
+> Task :react-native-webview:generateDebugResources
+> Task :solana-mobile_mobile-wallet-adapter-protocol:generateDebugResources
+> Task :expo-dev-client:extractDeepLinksDebug
+> Task :react-native-screens:generateDebugResources
+> Task :react-native-health-connect:generateDebugResources
+> Task :react-native-svg:packageDebugResources
+> Task :react-native-webview:packageDebugResources
+> Task :solana-mobile_mobile-wallet-adapter-protocol:packageDebugResources
+> Task :expo-dev-launcher:extractDeepLinksDebug
+> Task :expo-dev-menu:extractDeepLinksDebug
+> Task :expo-dev-menu-interface:extractDeepLinksDebug
+> Task :react-native-safe-area-context:generateDebugResources
+> Task :react-native-health-connect:packageDebugResources
+> Task :react-native-screens:packageDebugResources
+> Task :expo-json-utils:extractDeepLinksDebug
+> Task :expo-manifests:extractDeepLinksDebug
+> Task :react-native-safe-area-context:packageDebugResources
+> Task :expo-dev-menu-interface:processDebugManifest
+> Task :expo-dev-client:processDebugManifest
+> Task :expo-manifests:processDebugManifest
+> Task :expo-dev-launcher:processDebugManifest
+> Task :expo-dev-menu:processDebugManifest
+> Task :expo-modules-core:extractDeepLinksDebug
+> Task :expo-updates-interface:extractDeepLinksDebug
+> Task :react-native-health-connect:extractDeepLinksDebug
+> Task :react-native-safe-area-context:extractDeepLinksDebug
+> Task :react-native-gesture-handler:extractDeepLinksDebug
+> Task :react-native-async-storage_async-storage:extractDeepLinksDebug
+> Task :expo-json-utils:processDebugManifest
+
+> Task :react-native-async-storage_async-storage:processDebugManifest
+package="com.reactnativecommunity.asyncstorage" found in source AndroidManifest.xml: C:\Repos\Nutrient\NutrientTracker\node_modules\@react-native-async-storage\async-storage\android\src\main\AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="com.reactnativecommunity.asyncstorage" from the source AndroidManifest.xml: C:\Repos\Nutrient\NutrientTracker\node_modules\@react-native-async-storage\async-storage\android\src\main\AndroidManifest.xml.
+
+> Task :react-native-safe-area-context:processDebugManifest
+package="com.th3rdwave.safeareacontext" found in source AndroidManifest.xml: C:\Repos\Nutrient\NutrientTracker\node_modules\react-native-safe-area-context\android\src\main\AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="com.th3rdwave.safeareacontext" from the source AndroidManifest.xml: C:\Repos\Nutrient\NutrientTracker\node_modules\react-native-safe-area-context\android\src\main\AndroidManifest.xml.
+
+> Task :react-native-svg:extractDeepLinksDebug
+> Task :react-native-webview:extractDeepLinksDebug
+> Task :expo-updates-interface:processDebugManifest
+> Task :react-native-gesture-handler:processDebugManifest
+> Task :solana-mobile_mobile-wallet-adapter-protocol:extractDeepLinksDebug
+
+> Task :react-native-health-connect:processDebugManifest
+package="dev.matinzd.healthconnect" found in source AndroidManifest.xml: C:\Repos\Nutrient\NutrientTracker\node_modules\react-native-health-connect\android\src\main\AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="dev.matinzd.healthconnect" from the source AndroidManifest.xml: C:\Repos\Nutrient\NutrientTracker\node_modules\react-native-health-connect\android\src\main\AndroidManifest.xml.
+
+> Task :react-native-screens:extractDeepLinksDebug
+
+> Task :solana-mobile_mobile-wallet-adapter-protocol:processDebugManifest
+package="com.solanamobile.mobilewalletadapter.reactnative" found in source AndroidManifest.xml: C:\Repos\Nutrient\NutrientTracker\node_modules\@solana-mobile\mobile-wallet-adapter-protocol\android\src\main\AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="com.solanamobile.mobilewalletadapter.reactnative" from the source AndroidManifest.xml: C:\Repos\Nutrient\NutrientTracker\node_modules\@solana-mobile\mobile-wallet-adapter-protocol\android\src\main\AndroidManifest.xml.
+
+> Task :react-native-webview:processDebugManifest
+> Task :react-native-svg:processDebugManifest
+
+> Task :expo-modules-core:processDebugManifest
+C:\Repos\Nutrient\NutrientTracker\node_modules\expo-modules-core\android\src\main\AndroidManifest.xml:8:9-11:45 Warning:
+	meta-data#com.facebook.soloader.enabled@android:value was tagged at AndroidManifest.xml:8 to replace other declarations but no other declaration present
+
+> Task :react-native-screens:processDebugManifest
+> Task :expo-dev-menu-interface:compileDebugLibraryResources
+> Task :expo-dev-client:compileDebugLibraryResources
+> Task :expo-json-utils:compileDebugLibraryResources
+> Task :expo-modules-core:compileDebugLibraryResources
+> Task :expo-manifests:compileDebugLibraryResources
+> Task :react-native-reanimated:assertMinimalReactNativeVersionTask
+> Task :react-native-reanimated:assertNewArchitectureEnabledTask FAILED
+> Task :react-native-worklets:assertMinimalReactNativeVersionTask
+> Task :expo-dev-client:parseDebugLocalResources
+> Task :expo-dev-menu:parseDebugLocalResources
+> Task :expo-dev-launcher:parseDebugLocalResources
+> Task :expo-json-utils:parseDebugLocalResources
+> Task :expo-dev-menu-interface:parseDebugLocalResources
+> Task :expo-dev-menu:compileDebugLibraryResources
+> Task :expo-dev-launcher:compileDebugLibraryResources
+> Task :expo-constants:createExpoConfig
+> Task :expo:generatePackagesList
+
+[Incubating] Problems report is available at: file:///C:/Repos/Nutrient/NutrientTracker/android/build/reports/problems/problems-report.html
+node.exe : 
+At C:\Program Files\nodejs\npx.ps1:29 char:3
++   & $NODE_EXE $NPX_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], Rem 
+   oteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+FAILURE: Build failed with an exception.
+
+* Where:
+Build file 'C:\Repos\Nutrient\NutrientTracker\node_modules\rea
+ct-native-reanimated\android\build.gradle' line: 298
+
+* What went wrong:
+Execution failed for task 
+':react-native-reanimated:assertNewArchitectureEnabledTask'.
+> [Reanimated] Reanimated requires new architecture to be 
+enabled. Please enable it by setting `newArchEnabled` to 
+`true` in `gradle.properties`.
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 18s
+141 actionable tasks: 113 executed, 28 up-to-date
+Error: C:\Repos\Nutrient\NutrientTracker\android\gradlew.bat 
+app:assembleDebug -x lint -x test --configure-on-demand 
+-PreactNativeDevServerPort=8081 
+-PreactNativeArchitectures=arm64-v8a,armeabi-v7a exited with 
+non-zero code: 1
+Error: C:\Repos\Nutrient\NutrientTracker\android\gradlew.bat 
+app:assembleDebug -x lint -x test --configure-on-demand 
+-PreactNativeDevServerPort=8081 
+-PreactNativeArchitectures=arm64-v8a,armeabi-v7a exited with 
+non-zero code: 1
+    at ChildProcess.completionListener (C:\Repos\Nutrient\Nutr
+ientTracker\node_modules\@expo\spawn-async\src\spawnAsync.ts:6
+7:13)
+    at Object.onceWrapper (node:events:633:26)
+    at ChildProcess.emit (node:events:518:28)
+    at ChildProcess.cp.emit (C:\Repos\Nutrient\NutrientTracker
+\node_modules\cross-spawn\lib\enoent.js:34:29)
+    at maybeClose (node:internal/child_process:1101:16)
+    at Process.ChildProcess._handle.onexit 
+(node:internal/child_process:304:5)
+    ...
+    at spawnAsync (C:\Repos\Nutrient\NutrientTracker\node_modu
+les\@expo\spawn-async\src\spawnAsync.ts:28:21)
+    at spawnGradleAsync (C:\Repos\Nutrient\NutrientTracker\nod
+e_modules\expo\node_modules\@expo\cli\src\start\platforms\andr
+oid\gradle.ts:134:28)
+    at assembleAsync (C:\Repos\Nutrient\NutrientTracker\node_m
+odules\expo\node_modules\@expo\cli\src\start\platforms\android
+\gradle.ts:83:16)
+    at runAndroidAsync (C:\Repos\Nutrient\NutrientTracker\node
+_modules\expo\node_modules\@expo\cli\src\run\android\runAndroi
+dAsync.ts:62:24)

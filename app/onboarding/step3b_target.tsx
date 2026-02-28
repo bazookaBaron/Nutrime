@@ -46,7 +46,7 @@ export default function Step3bTarget() {
         }
     };
 
-    const submitData = (tWeight, weeks) => {
+    const submitData = (tWeight: number, weeks: number) => {
         updateProfile({
             target_weight: tWeight,
             target_duration_weeks: weeks
@@ -60,7 +60,7 @@ export default function Step3bTarget() {
         <View style={styles.container}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <ArrowLeft size={24} color="#1f2937" />
+                    <ArrowLeft size={24} color="#fff" />
                 </TouchableOpacity>
                 <Text style={styles.stepText}>Step 4 of 5</Text>
                 <Text style={styles.skipText}>    </Text>
@@ -79,6 +79,7 @@ export default function Step3bTarget() {
                     <TextInput
                         style={styles.input}
                         placeholder={currentWeight ? `${currentWeight - 5}` : "65"}
+                        placeholderTextColor="#6b7280"
                         keyboardType="numeric"
                         value={targetWeight}
                         onChangeText={setTargetWeight}
@@ -99,6 +100,7 @@ export default function Step3bTarget() {
                     <TextInput
                         style={styles.input}
                         placeholder="12"
+                        placeholderTextColor="#6b7280"
                         keyboardType="numeric"
                         value={durationWeeks}
                         onChangeText={setDurationWeeks}
@@ -113,7 +115,7 @@ export default function Step3bTarget() {
                         <Text style={styles.summaryTitle}>Plan Preview</Text>
                         <Text style={styles.summaryText}>
                             To reach {targetWeight}kg in {durationWeeks} weeks, you need to change by approx{' '}
-                            <Text style={{ fontWeight: 'bold', color: '#ea580c' }}>
+                            <Text style={{ fontWeight: 'bold', color: '#bef264' }}>
                                 {Math.abs((currentWeight - parseFloat(targetWeight)) / parseFloat(durationWeeks)).toFixed(2)} kg/week
                             </Text>
                         </Text>
@@ -128,8 +130,8 @@ export default function Step3bTarget() {
                     onPress={handleNext}
                     disabled={!isFormValid}
                 >
-                    <Text style={styles.buttonText}>Calculate Plan</Text>
-                    <ArrowRight size={20} color="#fff" />
+                    <Text style={[styles.buttonText, !isFormValid && { color: '#6b7280' }]}>Calculate Plan</Text>
+                    <ArrowRight size={20} color={!isFormValid ? '#6b7280' : '#000'} />
                 </TouchableOpacity>
             </View>
         </View>
@@ -139,7 +141,7 @@ export default function Step3bTarget() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: '#0a0a0a',
         paddingTop: 50,
     },
     header: {
@@ -163,7 +165,7 @@ const styles = StyleSheet.create({
     },
     progressBar: {
         height: 4,
-        backgroundColor: '#f3f4f6',
+        backgroundColor: '#1a1a1a',
         marginHorizontal: 20,
         borderRadius: 2,
         marginBottom: 30,
@@ -180,7 +182,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 28,
         fontWeight: 'bold',
-        color: '#1f2937',
+        color: '#fff',
         marginBottom: 10,
     },
     subtitle: {
@@ -194,17 +196,17 @@ const styles = StyleSheet.create({
     label: {
         fontSize: 16,
         fontWeight: '600',
-        color: '#374151',
+        color: '#fff',
         marginBottom: 8,
     },
     input: {
-        backgroundColor: '#f9fafb',
+        backgroundColor: '#1a1a1a',
         borderWidth: 1,
-        borderColor: '#e5e7eb',
+        borderColor: '#2a2a2a',
         borderRadius: 12,
         padding: 16,
         fontSize: 16,
-        color: '#1f2937',
+        color: '#fff',
     },
     helperText: {
         marginTop: 6,
@@ -212,22 +214,22 @@ const styles = StyleSheet.create({
         color: '#6b7280',
     },
     summaryCard: {
-        backgroundColor: '#fff7ed',
+        backgroundColor: '#1a1a1a',
         padding: 15,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#ffedd5',
+        borderColor: '#2a2a2a',
         marginTop: 10,
     },
     summaryTitle: {
         fontSize: 14,
         fontWeight: 'bold',
-        color: '#c2410c',
+        color: '#bef264',
         marginBottom: 4,
     },
     summaryText: {
         fontSize: 14,
-        color: '#9a3412',
+        color: '#d1d5db',
         lineHeight: 20,
     },
     footer: {
@@ -236,12 +238,12 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         padding: 20,
-        backgroundColor: '#fff',
+        backgroundColor: '#0a0a0a',
         borderTopWidth: 1,
-        borderTopColor: '#f3f4f6',
+        borderTopColor: '#1a1a1a',
     },
     button: {
-        backgroundColor: '#1f2937',
+        backgroundColor: '#bef264',
         borderRadius: 16,
         padding: 18,
         flexDirection: 'row',
@@ -250,10 +252,10 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     buttonDisabled: {
-        backgroundColor: '#d1d5db',
+        backgroundColor: '#1a1a1a',
     },
     buttonText: {
-        color: '#fff',
+        color: '#000',
         fontSize: 18,
         fontWeight: 'bold',
     },

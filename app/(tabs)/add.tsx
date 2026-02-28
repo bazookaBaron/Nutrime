@@ -64,8 +64,9 @@ export default function AddFood() {
         }
     };
 
-    const handleAddFood = async (item: any, qty: number) => {
-        await addFoodToLog(item, mealName || 'snack', qty);
+    const handleAddFood = (item: any, qty: number) => {
+        // Fire and forget so optimistic UI updates instantly
+        addFoodToLog(item, mealName || 'snack', qty);
         posthog.capture('food_logged', {
             food_name: item.name,
             meal_type: mealName || 'snack',
@@ -103,7 +104,7 @@ export default function AddFood() {
                     </View>
 
                     <TouchableOpacity style={styles.addButton} onPress={() => handleAddFood(item, quantity)}>
-                        <Plus size={20} color="#1f2937" />
+                        <Plus size={20} color="#000" />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -217,36 +218,36 @@ export default function AddFood() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f9fafb', paddingTop: 50, paddingHorizontal: 20 },
+    container: { flex: 1, backgroundColor: '#121212', paddingTop: 50, paddingHorizontal: 20 },
     searchHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 15 },
-    searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 15, height: 50, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
-    searchInput: { flex: 1, fontSize: 16, color: '#1f2937' },
-    cancelText: { fontSize: 16, color: '#4b5563', fontWeight: '500' },
-    summaryCard: { backgroundColor: '#fff', borderRadius: 20, padding: 20, marginBottom: 25, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
+    searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E1E1E', borderWidth: 1, borderColor: '#333', borderRadius: 12, paddingHorizontal: 15, height: 50 },
+    searchInput: { flex: 1, fontSize: 16, color: '#FFF' },
+    cancelText: { fontSize: 16, color: '#FFF', fontWeight: '500' },
+    summaryCard: { backgroundColor: '#1E1E1E', borderWidth: 1, borderColor: '#333', borderRadius: 20, padding: 20, marginBottom: 25 },
     summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    summaryLabel: { fontSize: 10, color: '#9ca3af', fontWeight: 'bold', letterSpacing: 0.5, marginBottom: 4 },
-    summaryValue: { fontSize: 22, fontWeight: 'bold', color: '#1f2937' },
-    summaryTarget: { fontSize: 14, color: '#9ca3af', fontWeight: 'normal' },
+    summaryLabel: { fontSize: 10, color: '#888', fontWeight: 'bold', letterSpacing: 0.5, marginBottom: 4 },
+    summaryValue: { fontSize: 22, fontWeight: 'bold', color: '#FFF' },
+    summaryTarget: { fontSize: 14, color: '#888', fontWeight: 'normal' },
     remainingValue: { fontSize: 18, fontWeight: 'bold', color: '#84cc16' },
-    summaryProgressBarBg: { height: 6, backgroundColor: '#f3f4f6', borderRadius: 3, marginTop: 15, marginBottom: 5, overflow: 'hidden' },
+    summaryProgressBarBg: { height: 6, backgroundColor: '#333', borderRadius: 3, marginTop: 15, marginBottom: 5, overflow: 'hidden' },
     summaryProgressBarFill: { height: '100%', backgroundColor: '#84cc16', borderRadius: 3 },
-    macroText: { fontSize: 11, color: '#6b7280', fontWeight: '500' },
+    macroText: { fontSize: 11, color: '#888', fontWeight: '500' },
     percentText: { fontSize: 11, color: '#84cc16', fontWeight: 'bold' },
     resultsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-    resultsTitle: { fontSize: 12, fontWeight: 'bold', color: '#9ca3af', letterSpacing: 1 },
-    scanButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: '#f3f4f6' },
-    scanText: { fontSize: 12, fontWeight: 'bold', color: '#1f2937' },
+    resultsTitle: { fontSize: 12, fontWeight: 'bold', color: '#888', letterSpacing: 1 },
+    scanButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E1E1E', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: '#333' },
+    scanText: { fontSize: 12, fontWeight: 'bold', color: '#FFF' },
     listContent: { paddingBottom: 40 },
-    resultCard: { backgroundColor: '#fff', borderRadius: 20, padding: 15, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 1 },
+    resultCard: { backgroundColor: '#1E1E1E', borderWidth: 1, borderColor: '#333', borderRadius: 20, padding: 15, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     resultInfo: { flex: 1 },
-    resultName: { fontSize: 16, fontWeight: '600', color: '#1f2937', marginBottom: 4 },
-    resultDetails: { fontSize: 13, color: '#9ca3af' },
+    resultName: { fontSize: 16, fontWeight: '600', color: '#FFF', marginBottom: 4 },
+    resultDetails: { fontSize: 13, color: '#888' },
     addButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#bef264', justifyContent: 'center', alignItems: 'center' },
     emptyContainer: { alignItems: 'center', marginTop: 40 },
-    emptyText: { fontSize: 16, color: '#9ca3af' },
+    emptyText: { fontSize: 16, color: '#888' },
     actionContainer: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    counterContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f3f4f6', borderRadius: 12, paddingHorizontal: 4, paddingVertical: 2 },
+    counterContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#333', borderRadius: 12, paddingHorizontal: 4, paddingVertical: 2 },
     counterBtn: { width: 28, height: 28, justifyContent: 'center', alignItems: 'center' },
-    counterBtnText: { fontSize: 18, color: '#6b7280', fontWeight: 'bold' },
-    counterValue: { fontSize: 14, fontWeight: 'bold', color: '#1f2937', width: 20, textAlign: 'center' },
+    counterBtnText: { fontSize: 18, color: '#ccc', fontWeight: 'bold' },
+    counterValue: { fontSize: 14, fontWeight: 'bold', color: '#FFF', width: 20, textAlign: 'center' },
 });

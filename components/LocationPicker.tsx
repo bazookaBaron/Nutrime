@@ -61,11 +61,11 @@ export default function LocationPicker({
                 onPress={() => !disabled && setVisible(true)}
                 activeOpacity={disabled ? 1 : 0.7}
             >
-                <MapPin size={16} color={value ? '#1f2937' : '#9ca3af'} style={{ marginRight: 8 }} />
+                <MapPin size={16} color={value ? '#fff' : '#9ca3af'} style={{ marginRight: 8 }} />
                 <Text style={[styles.selectorText, !value && styles.placeholder]}>
                     {selectedLabel || placeholder}
                 </Text>
-                <ChevronDown size={18} color="#6b7280" />
+                <ChevronDown size={18} color="#9ca3af" />
             </TouchableOpacity>
 
             <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
@@ -74,7 +74,7 @@ export default function LocationPicker({
                     <View style={styles.modalHeader}>
                         <Text style={styles.modalTitle}>{label}</Text>
                         <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
-                            <X size={20} color="#1f2937" />
+                            <X size={20} color="#fff" />
                         </TouchableOpacity>
                     </View>
 
@@ -134,15 +134,15 @@ const styles = StyleSheet.create({
     label: {
         fontSize: 16,
         fontWeight: '600',
-        color: '#374151',
+        color: '#fff',
         marginBottom: 8,
     },
     selector: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#f9fafb',
+        backgroundColor: '#1a1a1a',
         borderWidth: 1,
-        borderColor: '#e5e7eb',
+        borderColor: '#2a2a2a',
         borderRadius: 12,
         padding: 16,
     },
@@ -152,14 +152,14 @@ const styles = StyleSheet.create({
     selectorText: {
         flex: 1,
         fontSize: 16,
-        color: '#1f2937',
+        color: '#fff',
     },
     placeholder: {
         color: '#9ca3af',
     },
     modal: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: '#0a0a0a',
     },
     modalHeader: {
         flexDirection: 'row',
@@ -168,12 +168,12 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingVertical: 16,
         borderBottomWidth: 1,
-        borderBottomColor: '#f3f4f6',
+        borderBottomColor: '#1a1a1a',
     },
     modalTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: '#1f2937',
+        color: '#fff',
     },
     closeBtn: {
         padding: 4,
@@ -181,18 +181,18 @@ const styles = StyleSheet.create({
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#f9fafb',
+        backgroundColor: '#1a1a1a',
         margin: 16,
         borderRadius: 12,
         paddingHorizontal: 14,
         paddingVertical: 10,
         borderWidth: 1,
-        borderColor: '#e5e7eb',
+        borderColor: '#2a2a2a',
     },
     searchInput: {
         flex: 1,
         fontSize: 15,
-        color: '#1f2937',
+        color: '#fff',
     },
     option: {
         flexDirection: 'row',
@@ -201,17 +201,17 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingVertical: 14,
         borderBottomWidth: 1,
-        borderBottomColor: '#f9fafb',
+        borderBottomColor: '#1a1a1a',
     },
     optionSelected: {
-        backgroundColor: '#f7fee7',
+        backgroundColor: 'rgba(190, 242, 100, 0.05)',
     },
     optionText: {
         fontSize: 16,
-        color: '#374151',
+        color: '#fff',
     },
     optionTextSelected: {
-        color: '#1f2937',
+        color: '#bef264',
         fontWeight: '700',
     },
     empty: {

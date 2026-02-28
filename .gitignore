@@ -53,6 +53,7 @@ app-example
 
 # generated native folders
 /ios
+/android_old
 
 # env
 .env

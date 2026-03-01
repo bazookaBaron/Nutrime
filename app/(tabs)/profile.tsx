@@ -1,20 +1,21 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Switch, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useUser } from '../../context/UserContext';
 import { useChallenges } from '../../context/ChallengesContext';
 import { useRouter } from 'expo-router';
-import { Settings, Edit2, Bell, ChevronRight, User, Moon, Lock, LogOut, Award, Star, Flame, Trophy, Zap, Crown } from 'lucide-react-native';
+import { Edit2, Bell, ChevronRight, User, Lock, Award, Star, Flame, Trophy, Zap, Crown, FileText, Info, HelpCircle, Inbox } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import ConnectedDevicesPanel from '../../components/ConnectedDevicesPanel';
 import { usePostHog } from 'posthog-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 
 export default function ProfileScreen() {
     const { user, userProfile, logout } = useUser();
     const { userChallenges } = useChallenges();
     const router = useRouter();
     const posthog = usePostHog();
-    const [isDarkMode, setIsDarkMode] = useState(true);
 
     const handleLogout = async () => {
         Alert.alert(
@@ -53,15 +54,72 @@ export default function ProfileScreen() {
     const currentLevel = userProfile?.workout_level || 1;
     const displayXp = userProfile?.xp || userProfile?.workout_xp || 0;
 
+    const generateUploadUrl = useMutation(api.users.generateUploadUrl);
+    const updateProfileImage = useMutation(api.users.updateProfileImage);
+    const [isUploading, setIsUploading] = useState(false);
+    const [feedbackType, setFeedbackType] = useState<'Feature' | 'Bug'>('Feature');
+    const [feedbackText, setFeedbackText] = useState('');
+
+    const handlePickImage = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.5,
+        });
+
+        if (!result.canceled && result.assets[0].uri) {
+            await uploadImage(result.assets[0].uri);
+        }
+    };
+
+    const uploadImage = async (uri: string) => {
+        try {
+            setIsUploading(true);
+            const uploadUrl = await generateUploadUrl();
+
+            const response = await fetch(uri);
+            const blob = await response.blob();
+
+            const uploadResult = await fetch(uploadUrl, {
+                method: "POST",
+                headers: { "Content-Type": blob.type },
+                body: blob,
+            });
+
+            const { storageId } = await uploadResult.json();
+
+            if (user?.id) {
+                await updateProfileImage({
+                    userId: user.id,
+                    storageId,
+                });
+            }
+        } catch (error) {
+            console.error("Failed to upload image:", error);
+            Alert.alert("Upload Failed", "Could not upload your profile picture. Please try again.");
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const handleSubmitFeedback = () => {
+        if (!feedbackText.trim()) {
+            Alert.alert("Required", "Please enter your feedback to submit.");
+            return;
+        }
+        // Placeholder for future mail implementation
+        Alert.alert("Feedback Sent", `Your ${feedbackType.toLowerCase()} has been sent to our team. Thank you!`);
+        setFeedbackText('');
+    };
+
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             {/* Header */}
             <View style={styles.header}>
                 <View style={{ width: 40 }} />
                 <Text style={styles.headerTitle}>Profile</Text>
-                <TouchableOpacity style={styles.iconButton}>
-                    <Settings size={20} color="#fff" />
-                </TouchableOpacity>
+                <View style={{ width: 40 }} />
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -69,10 +127,10 @@ export default function ProfileScreen() {
                 <View style={styles.profileHeader}>
                     <View style={styles.avatarContainer}>
                         <Image
-                            source={{ uri: 'https://i.pravatar.cc/150?img=12' }}
-                            style={styles.avatar}
+                            source={{ uri: userProfile?.profile_image_url || 'https://i.pravatar.cc/150?img=12' }}
+                            style={[styles.avatar, isUploading && { opacity: 0.5 }]}
                         />
-                        <TouchableOpacity style={styles.editBadge}>
+                        <TouchableOpacity style={styles.editBadge} onPress={handlePickImage} disabled={isUploading}>
                             <Edit2 size={12} color="#000" />
                         </TouchableOpacity>
                     </View>
@@ -124,52 +182,76 @@ export default function ProfileScreen() {
                     </View>
                 </View>
 
-                {/* Connected Devices */}
-                <ConnectedDevicesPanel />
 
                 {/* Account Section */}
                 <Text style={styles.sectionTitle}>ACCOUNT</Text>
                 <View style={styles.menuContainer}>
-                    <TouchableOpacity style={styles.menuItem}>
+                    <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/account/privacy')}>
                         <View style={styles.menuIconContainer}>
-                            <User size={20} color="#9ca3af" />
+                            <FileText size={20} color="#9ca3af" />
                         </View>
-                        <Text style={styles.menuText}>Personal Information</Text>
+                        <Text style={styles.menuText}>Privacy Policy</Text>
                         <ChevronRight size={20} color="#4b5563" />
                     </TouchableOpacity>
                     <View style={styles.menuDivider} />
-                    <TouchableOpacity style={styles.menuItem}>
-                        <View style={styles.menuIconContainer}>
-                            <Bell size={20} color="#9ca3af" />
-                        </View>
-                        <Text style={styles.menuText}>Notifications</Text>
-                        <ChevronRight size={20} color="#4b5563" />
-                    </TouchableOpacity>
-                    <View style={styles.menuDivider} />
-                    <TouchableOpacity style={styles.menuItem}>
+
+                    <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/account/terms')}>
                         <View style={styles.menuIconContainer}>
                             <Lock size={20} color="#9ca3af" />
                         </View>
-                        <Text style={styles.menuText}>Privacy & Security</Text>
+                        <Text style={styles.menuText}>Terms of Service</Text>
+                        <ChevronRight size={20} color="#4b5563" />
+                    </TouchableOpacity>
+                    <View style={styles.menuDivider} />
+
+                    <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/account/about')}>
+                        <View style={styles.menuIconContainer}>
+                            <Info size={20} color="#9ca3af" />
+                        </View>
+                        <Text style={styles.menuText}>About Us</Text>
+                        <ChevronRight size={20} color="#4b5563" />
+                    </TouchableOpacity>
+                    <View style={styles.menuDivider} />
+
+                    <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/account/support')}>
+                        <View style={styles.menuIconContainer}>
+                            <HelpCircle size={20} color="#9ca3af" />
+                        </View>
+                        <Text style={styles.menuText}>Contact / Support</Text>
                         <ChevronRight size={20} color="#4b5563" />
                     </TouchableOpacity>
                 </View>
 
-                {/* Settings Section */}
-                <Text style={styles.sectionTitle}>SETTINGS</Text>
-                <View style={styles.menuContainer}>
-                    <View style={styles.menuItem}>
-                        <View style={styles.menuIconContainer}>
-                            <Moon size={20} color="#9ca3af" />
-                        </View>
-                        <Text style={styles.menuText}>Dark Mode</Text>
-                        <Switch
-                            value={isDarkMode}
-                            onValueChange={setIsDarkMode}
-                            trackColor={{ false: "#374151", true: "#bef264" }}
-                            thumbColor={"#fff"}
-                        />
+                {/* Feedback Panel */}
+                <Text style={styles.sectionTitle}>FEEDBACK</Text>
+                <View style={styles.feedbackContainer}>
+                    <View style={styles.feedbackToggleRow}>
+                        <TouchableOpacity
+                            style={[styles.feedbackToggleBtn, feedbackType === 'Feature' && styles.feedbackToggleActive]}
+                            onPress={() => setFeedbackType('Feature')}
+                        >
+                            <Text style={[styles.feedbackToggleText, feedbackType === 'Feature' && styles.feedbackToggleTextActive]}>Request Feature</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.feedbackToggleBtn, feedbackType === 'Bug' && styles.feedbackToggleActive]}
+                            onPress={() => setFeedbackType('Bug')}
+                        >
+                            <Text style={[styles.feedbackToggleText, feedbackType === 'Bug' && styles.feedbackToggleTextActive]}>Report a Bug</Text>
+                        </TouchableOpacity>
                     </View>
+                    <TextInput
+                        style={styles.feedbackInput}
+                        placeholder={feedbackType === 'Feature' ? "What should we build next?" : "Describe the issue you encountered..."}
+                        placeholderTextColor="#6b7280"
+                        multiline
+                        textAlignVertical="top"
+                        value={feedbackText}
+                        onChangeText={setFeedbackText}
+                    />
+                    <TouchableOpacity style={styles.feedbackSubmitBtn} onPress={handleSubmitFeedback}>
+                        <Inbox size={18} color="#000" style={{ marginRight: 8 }} />
+                        <Text style={styles.feedbackSubmitText}>Send {feedbackType}</Text>
+                    </TouchableOpacity>
                 </View>
 
                 <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -373,4 +455,59 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#ef4444',
     },
+    feedbackContainer: {
+        backgroundColor: '#1f2937',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 32,
+        borderWidth: 1,
+        borderColor: '#374151',
+    },
+    feedbackToggleRow: {
+        flexDirection: 'row',
+        backgroundColor: '#111827',
+        borderRadius: 12,
+        padding: 4,
+        marginBottom: 16,
+    },
+    feedbackToggleBtn: {
+        flex: 1,
+        paddingVertical: 10,
+        alignItems: 'center',
+        borderRadius: 8,
+    },
+    feedbackToggleActive: {
+        backgroundColor: '#374151',
+    },
+    feedbackToggleText: {
+        color: '#9ca3af',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    feedbackToggleTextActive: {
+        color: '#bef264',
+    },
+    feedbackInput: {
+        backgroundColor: '#111827',
+        borderRadius: 12,
+        padding: 16,
+        color: '#fff',
+        height: 120,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#374151',
+    },
+    feedbackSubmitBtn: {
+        backgroundColor: '#bef264',
+        borderRadius: 12,
+        paddingVertical: 14,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    feedbackSubmitText: {
+        color: '#111827',
+        fontSize: 16,
+        fontWeight: 'bold',
+    }
 });

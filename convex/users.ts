@@ -1,6 +1,17 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
+const DEFAULT_AVATARS = [
+    "kg2d1vwffdez3fx8js4tx118p9822yhh",
+    "kg2bs3mpwgkq1yakr1sc4k6m05823kcs",
+    "kg24892wjj34scnqxfzqfpr1wx823j7f",
+    "kg214jcbyzpvdnaj7mw4tkswnx823d3h",
+    "kg20e9ybx2rdtc5f2wdx1hxxd9822kp8",
+    "kg21x9pzdqn1w8v3s4394jp9j9823dcq",
+    "kg26e4wc4ef56cvnftpnbm7sxd8221vb",
+    "kg26wvye0jdnq7t1dfrdkknmk9823sh4"
+];
+
 // ---------------------------------------------------------------------------
 // Idempotently creates a profile row for a newly authenticated user.
 // Safe to call on every login/signup — it's a no-op if the row already exists.
@@ -20,10 +31,17 @@ export const ensureProfile = mutation({
 
         if (!existing) {
             const cleanedUsername = args.username ? args.username.slice(0, 9).toLowerCase() : undefined;
+
+            // Assign random default avatar
+            const randomAvatarId = DEFAULT_AVATARS[Math.floor(Math.random() * DEFAULT_AVATARS.length)];
+            const avatarUrl = await ctx.storage.getUrl(randomAvatarId);
+
             await ctx.db.insert("profiles", {
                 user_id: args.userId,
                 full_name: args.full_name,
                 username: cleanedUsername,
+                profile_image_id: randomAvatarId,
+                profile_image_url: avatarUrl ?? undefined,
                 updated_at: new Date().toISOString(),
             });
         }
@@ -181,6 +199,7 @@ export const incrementXP = mutation({
                 total_xp: newXp,
                 state: existing.state || "",
                 country: existing.country || "",
+                profile_image_url: existing.profile_image_url,
             };
 
             if (lbEntry) {
@@ -189,5 +208,49 @@ export const incrementXP = mutation({
                 await ctx.db.insert("leaderboards", lbData);
             }
         }
+    },
+});
+
+export const generateUploadUrl = mutation({
+    handler: async (ctx) => {
+        return await ctx.storage.generateUploadUrl();
+    },
+});
+
+export const updateProfileImage = mutation({
+    args: {
+        userId: v.string(),
+        storageId: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const profile = await ctx.db
+            .query("profiles")
+            .withIndex("by_user_id", (q) => q.eq("user_id", args.userId))
+            .unique();
+
+        if (!profile) return;
+
+        const url = await ctx.storage.getUrl(args.storageId);
+        if (!url) return;
+
+        await ctx.db.patch(profile._id, {
+            profile_image_id: args.storageId,
+            profile_image_url: url,
+            updated_at: new Date().toISOString(),
+        });
+
+        // Sync Leaderboard if exists
+        const lbEntry = await ctx.db
+            .query("leaderboards")
+            .withIndex("by_user_id", (q) => q.eq("user_id", args.userId))
+            .unique();
+
+        if (lbEntry) {
+            await ctx.db.patch(lbEntry._id, {
+                profile_image_url: url,
+            });
+        }
+
+        return url;
     },
 });

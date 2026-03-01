@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, Pressable, Modal,
-    TouchableWithoutFeedback, ScrollView, Animated, Easing,
+    TouchableWithoutFeedback, ScrollView, Animated, Easing, Image
 } from 'react-native';
 import { Trophy, X, Zap, Star } from 'lucide-react-native';
 import { useQuery } from 'convex/react';
@@ -13,6 +13,7 @@ interface LeaderboardEntry {
     username: string;
     workout_xp: number;
     workout_level: number;
+    profile_image_url?: string;
 }
 
 interface LeaderboardProps {
@@ -149,13 +150,17 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId, userCountry, u
                     {isTop3 ? (
                         <Text style={styles.badgeIcon}>{RANK_MEDALS[item.rank - 1]}</Text>
                     ) : (
-                        <View style={[
-                            styles.avatar,
-                            { backgroundColor: bgColor },
-                            isCurrentUser && styles.avatarCurrent,
-                        ]}>
-                            <Text style={styles.avatarInitials}>{initials(item.username)}</Text>
-                        </View>
+                        item.profile_image_url ? (
+                            <Image style={[styles.avatar, isCurrentUser && styles.avatarCurrent]} source={{ uri: item.profile_image_url }} />
+                        ) : (
+                            <View style={[
+                                styles.avatar,
+                                { backgroundColor: bgColor },
+                                isCurrentUser && styles.avatarCurrent,
+                            ]}>
+                                <Text style={styles.avatarInitials}>{initials(item.username)}</Text>
+                            </View>
+                        )
                     )}
                 </View>
 
@@ -260,9 +265,13 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId, userCountry, u
                         </View>
 
                         <View style={styles.avatarSticky}>
-                            <Text style={styles.avatarInitialsSticky}>
-                                {initials(data.currentUserEntry.username)}
-                            </Text>
+                            {data.currentUserEntry.profile_image_url ? (
+                                <Image style={styles.avatarStickyImage} source={{ uri: data.currentUserEntry.profile_image_url }} />
+                            ) : (
+                                <Text style={styles.avatarInitialsSticky}>
+                                    {initials(data.currentUserEntry.username)}
+                                </Text>
+                            )}
                         </View>
 
                         <View style={styles.userInfo}>
@@ -302,10 +311,15 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId, userCountry, u
                                     <View style={[styles.chipAvatar, {
                                         backgroundColor: avatarColor(hoveredEntry.user_id),
                                         borderColor: hoveredEntry.rank <= 3 ? RANK_COLORS[hoveredEntry.rank].border : '#bef264',
+                                        overflow: 'hidden',
                                     }]}>
                                         {hoveredEntry.rank <= 3
                                             ? <Text style={{ fontSize: 28 }}>{RANK_MEDALS[hoveredEntry.rank - 1]}</Text>
-                                            : <Text style={styles.chipAvatarText}>{initials(hoveredEntry.username)}</Text>
+                                            : (hoveredEntry.profile_image_url ? (
+                                                <Image style={{ width: '100%', height: '100%' }} source={{ uri: hoveredEntry.profile_image_url }} />
+                                            ) : (
+                                                <Text style={styles.chipAvatarText}>{initials(hoveredEntry.username)}</Text>
+                                            ))
                                         }
                                     </View>
 
@@ -561,6 +575,11 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 12,
+        overflow: 'hidden',
+    },
+    avatarStickyImage: {
+        width: '100%',
+        height: '100%',
     },
     avatarInitialsSticky: {
         color: '#bef264',

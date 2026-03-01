@@ -10,8 +10,6 @@ import { ChevronLeft, Calendar as CalendarIcon } from 'lucide-react-native';
 import { Calendar } from 'react-native-calendars';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { getTodayISODate } from '../../utils/DateUtils';
-
-import { wearableService, DailyWearableData } from '../../services/WearableService';
 import {
     DateFilter,
     DateRange,
@@ -27,7 +25,6 @@ import KcalTrendChart from '../../components/KcalTrendChart';
 import GoalDonutChart from '../../components/GoalDonutChart';
 import RadarNutrientChart from '../../components/RadarNutrientChart';
 import NutrientProgressBars from '../../components/NutrientProgressBars';
-import HealthVitalsSection from '../../components/HealthVitalsSection';
 
 
 const DATE_FILTERS: DateFilter[] = ['Today', '7 Days', '30 Days', 'Custom'];
@@ -38,9 +35,7 @@ export default function Analytics() {
     const router = useRouter();
 
     // ── State ──────────────────────────────────────────────────────────────────
-    const [wearableData, setWearableData] = useState<DailyWearableData[]>([]);
-    const [wearableLoading, setWearableLoading] = useState(true);
-    const [selectedFilter, setSelectedFilter] = useState<DateFilter>('7 Days');
+    const [selectedFilter, setSelectedFilter] = useState<DateFilter>('Today');
     const [customRange, setCustomRange] = useState<DateRange | null>(null);
     const [showCalendar, setShowCalendar] = useState(false);
     const [calendarStart, setCalendarStart] = useState<string | null>(null);
@@ -51,37 +46,9 @@ export default function Analytics() {
         if (w > 0) setMacroBarWidth(w);
     }, []);
 
-    const isLoading = foodLoading || userLoading || wearableLoading;
+    const isLoading = foodLoading || userLoading;
 
-    // ── Wearable Data ──────────────────────────────────────────────────────────
-    useFocusEffect(
-        useCallback(() => {
-            let active = true;
-            const fetchWearable = async () => {
-                try {
-                    setWearableLoading(true);
-                    const data = await wearableService.getHistory(30);
-                    if (active) {
-                        setWearableData(data);
-                    }
-                } catch (e) {
-                    console.error("Analytics: Failed to fetch wearable data", e);
-                } finally {
-                    if (active) setWearableLoading(false);
-                }
-            };
-            fetchWearable();
-            return () => { active = false; };
-        }, [])
-    );
 
-    const handleRefreshWearable = useCallback(() => {
-        setWearableLoading(true);
-        wearableService.getHistory(30).then(d => {
-            setWearableData(d);
-            setWearableLoading(false);
-        });
-    }, []);
 
     // ── Date Range ─────────────────────────────────────────────────────────────
     const dateRange = useMemo<DateRange>(() => {
@@ -318,11 +285,7 @@ export default function Analytics() {
                     </View>
                 </View>
 
-                {/* ── 6. Health Vitals ───────────────────────────────────────── */}
-                <HealthVitalsSection
-                    wearableData={wearableData}
-                    onRefresh={handleRefreshWearable}
-                />
+
 
             </ScrollView>
 

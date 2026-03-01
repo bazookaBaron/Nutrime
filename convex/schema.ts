@@ -9,6 +9,8 @@ export default defineSchema({
         goal: v.optional(v.string()),
         activity_level: v.optional(v.string()),
         gender: v.optional(v.string()),
+        profile_image_id: v.optional(v.string()),
+        profile_image_url: v.optional(v.string()),
         weight: v.optional(v.number()),
         height: v.optional(v.number()),
         age: v.optional(v.number()),
@@ -114,6 +116,7 @@ export default defineSchema({
         total_xp: v.number(),
         state: v.string(),
         country: v.string(),
+        profile_image_url: v.optional(v.string()),
     })
         .index("by_user_id", ["user_id"])
         .index("by_total_xp", ["total_xp"]),

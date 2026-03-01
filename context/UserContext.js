@@ -179,10 +179,10 @@ export const UserProvider = ({ children }) => {
     // Workout schedule management (rolling generation)
     // -------------------------------------------------------------------------
     useEffect(() => {
-        if (workoutSchedule && userProfile && user) {
+        if (dbScheduleRaw !== undefined && workoutSchedule && userProfile && user) {
             manageWorkoutSchedule(user.id, workoutSchedule, userProfile);
         }
-    }, [workoutSchedule?.length, userProfile?._id, user?.id]);
+    }, [workoutSchedule?.length, userProfile?._id, user?.id, dbScheduleRaw !== undefined]);
 
     // =========================================================================
     // Data Mutation Helpers
@@ -259,16 +259,20 @@ export const UserProvider = ({ children }) => {
         }
     };
 
-    const updateWaterIntake = async (litres, date = null) => {
+    const updateWaterIntake = (litres, date = null) => {
         if (!user) return;
         const targetDate = date || todayStr;
         const newTotal = parseFloat(litres.toFixed(2));
-        setWaterIntake(newTotal);
+        const prev = waterIntake; // save for rollback
+        setWaterIntake(newTotal); // instant UI update
         if (targetDate === todayStr && newTotal >= 3.5) {
             Alert.alert('Goal Reached! 💧', "You've reached your 3.5L daily water goal.");
         }
-        await convex.mutation(api.users.updateDailyStats, {
+        // Background sync — no await
+        convex.mutation(api.users.updateDailyStats, {
             userId: user.id, date: targetDate, updates: { water_glasses: newTotal },
+        }).catch(() => {
+            setWaterIntake(prev); // rollback on failure
         });
     };
 
@@ -337,7 +341,7 @@ export const UserProvider = ({ children }) => {
                 userId: user.id, date: dayToUpdate.date,
                 updates: { calories_burned: Math.round(totalCaloriesBurned), daily_exercise_completions: dayToUpdate.completed_exercises },
             });
-            await addXP(10);
+            addXP(10); // fire-and-forget
         } catch (err) {
             console.error('[UserContext] Failed to save exercise:', err);
         }
@@ -387,10 +391,22 @@ export const UserProvider = ({ children }) => {
     };
 
     const manageWorkoutSchedule = async (uid, currentSchedule, profile) => {
-        if (!currentSchedule || !profile) return;
+        if (!currentSchedule || currentSchedule.length === 0 || !profile) return;
+
         const today = todayStr;
+
+        // 1. Archive blocks that are entirely in the past
+        // We look for any days whose date is before today. But we only want to archive
+        // them if they form a block that is completely finished, OR if they are extremely old.
+        // For simplicity, let's just archive any day that is older than 5 days ago, OR
+        // if the user has a new block that has already started.
+        // Actually, user requested: "after completion of the previous 5 days the past 5 days schedule should be removed".
         const pastDays = currentSchedule.filter((d) => d.date < today);
-        if (pastDays.length > 0) {
+        const futureDays = currentSchedule.filter((d) => d.date >= today);
+
+        // Only archive past days if we have at least 5 days in the future/present 
+        // to show, meaning the old block is truly dead and replaced.
+        if (pastDays.length > 0 && futureDays.length >= 5) {
             const historyEntries = pastDays.map((d) => ({
                 user_id: uid, date: d.date,
                 summary_data: { day_number: d.day_number, focus: d.focus, calories_target: d.target_calories, calories_burned: d.calories_burned || 0, completed: d.completed },
@@ -401,38 +417,66 @@ export const UserProvider = ({ children }) => {
                 await convex.mutation(api.workouts.deleteDailyPlans, { ids: pastDays.map((d) => d.id) });
             } catch (e) { console.error('[UserContext] Archive failed:', e); }
         }
-        const activeDays = currentSchedule.filter((d) => d.date >= today);
-        if (activeDays.length < 3) {
-            let lastDayDate = new Date();
-            let lastDayNumber = 0;
-            if (activeDays.length > 0) {
-                const lastDay = activeDays[activeDays.length - 1];
-                lastDayDate = new Date(lastDay.date);
-                lastDayNumber = lastDay.day_number;
-            }
-            const nextBlockStartDate = new Date(lastDayDate);
-            if (activeDays.length > 0) nextBlockStartDate.setDate(lastDayDate.getDate() + 1);
+
+        // 2. Generate new block on the 4th day
+        // Find the absolute last scheduled day in the database
+        const sortedDays = [...currentSchedule].sort((a, b) => a.date.localeCompare(b.date));
+        const lastDay = sortedDays[sortedDays.length - 1];
+
+        // If the last day is LESS THAN OR EQUAL TO 2 days from today, we are on day 4 or 5 of the current block.
+        // So we need to generate the next 5 days.
+        const lastDayDateObj = new Date(lastDay.date);
+        const todayDateObj = new Date(today);
+        const diffTime = lastDayDateObj.getTime() - todayDateObj.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays <= 2) {
+            // Predict the start date of the new block
+            const nextBlockStartDate = new Date(lastDayDateObj);
+            nextBlockStartDate.setDate(lastDayDateObj.getDate() + 1);
+
+            const lastDayNumber = lastDay.day_number;
             const totalDurationDays = (profile.target_duration_weeks || 4) * 7;
             const remainingDays = totalDurationDays - lastDayNumber;
             const newDailyBurn = recalculateTargets(profile.weight, profile.target_weight || profile.weight, remainingDays > 0 ? remainingDays : 30);
+
+            // Generate EXACTLY 5 days
             const newBlock = generateWorkoutSchedule({ ...profile, recalculatedDailyBurn: newDailyBurn }, gymExercises, homeExercises, nextBlockStartDate, lastDayNumber + 1, 5);
+
             const dbRows = newBlock.map((day) => ({
                 user_id: uid, date: day.date, day_number: day.day_number,
                 plan_data: { gym: day.gym, home: day.home, focus: day.focus, target_calories: isNaN(day.target_calories) ? 0 : day.target_calories },
                 is_completed: false,
             }));
             try {
+                // Upsert to backend. This logic only runs once because next time `diffDays` will be > 2.
                 await convex.mutation(api.workouts.upsertDailyPlans, { userId: uid, plans: dbRows });
             } catch (e) { console.error('[UserContext] Rolling generation failed:', e); }
         }
     };
 
-    const fetchLeaderboard = async () => {
+
+    const fetchLeaderboard = async (scope = 'all', filter = undefined) => {
         try {
-            const top10 = await convex.query(api.users.getLeaderboard, {});
-            const myEntry = user ? top10.find((u) => u.user_id === user.id) : null;
+            // Determine filter value from user profile if not explicitly provided
+            let filterValue = filter;
+            if (!filterValue) {
+                if (scope === 'country') filterValue = userProfile?.country;
+                if (scope === 'state') filterValue = userProfile?.state;
+            }
+
+            const top10 = await convex.query(api.leaderboards.getLeaderboard, { scope, filter: filterValue });
+
+            // Re-fetch the current user's exact rank so they see themselves even if they aren't top 10
+            let myEntry = null;
+            if (user?.id) {
+                myEntry = await convex.query(api.leaderboards.getUserRank, { userId: user.id, scope, filter: filterValue });
+            }
             return { top10, currentUserEntry: myEntry };
-        } catch (e) { return { top10: [], currentUserEntry: null }; }
+        } catch (e) {
+            console.error("Leaderboard fetch error:", e);
+            return { top10: [], currentUserEntry: null };
+        }
     };
 
     const fetchDailyStats = async (uid, date) => {

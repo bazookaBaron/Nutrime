@@ -61,7 +61,10 @@ export const deleteDailyPlans = mutation({
     args: { ids: v.array(v.id("workout_daily_plans")) },
     handler: async (ctx, args) => {
         for (const id of args.ids) {
-            await ctx.db.delete(id);
+            const existing = await ctx.db.get(id);
+            if (existing) {
+                await ctx.db.delete(id);
+            }
         }
     },
 });

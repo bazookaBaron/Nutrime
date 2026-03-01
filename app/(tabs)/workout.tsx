@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { useUser } from '@/context/UserContext';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AlertCircle, Flame, Dumbbell, Home as HomeIcon, X, RefreshCw } from 'lucide-react-native';
+import { AlertCircle, Flame, Dumbbell, Home as HomeIcon, X, RefreshCw, Zap } from 'lucide-react-native';
 import ExerciseCard from '@/components/Workout/ExerciseCard';
 import Leaderboard from '@/components/Workout/Leaderboard';
 import { usePostHog } from 'posthog-react-native';
@@ -192,23 +192,54 @@ export default function WorkoutScreen() {
     return (
         <SafeAreaView style={styles.container}>
             <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 100 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#bef264" />}>
-                <View style={styles.headerContainer}>
+                <LinearGradient
+                    colors={['#1C2A1A', '#1A1A1A']}
+                    style={styles.headerCard}
+                >
+                    {/* Top Row: level badge + name + XP */}
                     <View style={styles.topRow}>
-                        <View style={styles.levelBadge}><Text style={styles.levelLabel}>LEVEL</Text><Text style={styles.levelValue}>{userProfile.workout_level || 1}</Text></View>
-                        <View><Text style={styles.greeting}>Hello, {userProfile.full_name?.split(' ')[0] || 'Athlete'}!</Text><Text style={styles.subGreeting}>Ready to crush your goals?</Text></View>
-                        <View style={styles.totalXpContainer}><Text style={styles.totalXpLabel}>Total XP</Text><Text style={styles.totalXpValue}>{userProfile.workout_xp || 0}</Text></View>
+                        <View style={styles.levelBadge}>
+                            <Text style={styles.levelLabel}>LEVEL</Text>
+                            <Text style={styles.levelValue}>{userProfile.workout_level || 1}</Text>
+                        </View>
+                        <View style={styles.greetingBlock}>
+                            <Text style={styles.greeting}>{userProfile.full_name?.split(' ')[0] || 'Athlete'}</Text>
+                            <Text style={styles.subGreeting}>Ready to crush it? 💪</Text>
+                        </View>
+                        <View style={styles.xpPill}>
+                            <Dumbbell size={12} color="#bef264" />
+                            <Text style={styles.xpPillText}>{userProfile.workout_xp || 0} XP</Text>
+                        </View>
                     </View>
-                    <View style={styles.burnTracker}>
-                        <View style={styles.burnTrackerHeader}><Text style={styles.burnTrackerLabel}>Today's Burn</Text><Text style={styles.burnTrackerValue}>{actualBurn} / {plannedBurn} kcal</Text></View>
-                        <View style={styles.burnProgressBar}><AnimatedProgressBar progress={actualBurn / Math.max(plannedBurn, 1)} color="#bef264" backgroundColor="#333" height={6} /></View>
+
+                    {/* Divider */}
+                    <View style={styles.headerDivider} />
+
+                    {/* Stats Row: burn + daily XP */}
+                    <View style={styles.statsRow}>
+                        <View style={styles.statBlock}>
+                            <View style={styles.statIconRow}>
+                                <Flame size={13} color="#FF6B6B" />
+                                <Text style={styles.statValue}>{actualBurn} <Text style={styles.statUnit}>/ {plannedBurn}</Text></Text>
+                            </View>
+                            <Text style={styles.statLabel}>KCAL BURNED</Text>
+                            <View style={styles.miniProgressBar}>
+                                <AnimatedProgressBar progress={actualBurn / Math.max(plannedBurn, 1)} color="#FF6B6B" backgroundColor="#2A2A2A" height={4} />
+                            </View>
+                        </View>
+                        <View style={styles.statDivider} />
+                        <View style={styles.statBlock}>
+                            <View style={styles.statIconRow}>
+                                <Zap size={13} color="#bef264" />
+                                <Text style={styles.statValue}>{earnedXP} <Text style={styles.statUnit}>/ {maxDailyXP}</Text></Text>
+                            </View>
+                            <Text style={styles.statLabel}>DAILY XP</Text>
+                            <View style={styles.miniProgressBar}>
+                                <AnimatedProgressBar progress={earnedXP / Math.max(maxDailyXP, 1)} color="#bef264" backgroundColor="#2A2A2A" height={4} />
+                            </View>
+                        </View>
                     </View>
-                    <View style={styles.xpInfo}><Text style={styles.xpInfoText}>Daily XP: {earnedXP} / {maxDailyXP}</Text></View>
-                </View>
-                <View style={styles.instructionsContainer}>
-                    <Text style={styles.instructionsText}>
-                        You can follow either <Text style={{ fontWeight: 'bold', color: '#FFF' }}>Home</Text> or <Text style={{ fontWeight: 'bold', color: '#FFF' }}>Gym</Text> workouts. <Text style={{ color: '#bef264', fontWeight: 'bold' }}>Complete any one workout schedule (Gym/Home) per day.</Text>
-                    </Text>
-                </View>
+                </LinearGradient>
                 <View style={styles.daySelectorContainer}>
                     <View style={styles.sectionHeaderRow}>
                         <Text style={styles.sectionTitle}>Your Schedule</Text>
@@ -221,7 +252,7 @@ export default function WorkoutScreen() {
                             const [y, m, d] = day.date.split('-');
                             const formattedDay = new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
                             return (
-                                <TouchableOpacity key={day.day_number} onPress={() => setSelectedDayIndex(index)} style={[styles.dayChip, isSelected && styles.dayChipSelected, isToday && !isSelected && styles.dayChipToday, !isToday && !isSelected && styles.dayChipDimmed, day.completed && styles.dayChipCompleted]}>
+                                <TouchableOpacity key={day.id || index} onPress={() => setSelectedDayIndex(index)} style={[styles.dayChip, isSelected && styles.dayChipSelected, isToday && !isSelected && styles.dayChipToday, !isToday && !isSelected && styles.dayChipDimmed, day.completed && styles.dayChipCompleted]}>
                                     <View style={styles.dayHeader}><Text style={[styles.dayChipText, isSelected && styles.dayChipTextSelected]}>Day {day.day_number}</Text>{isToday && <View style={styles.todayIndicator} />}</View>
                                     <Text style={[styles.dayChipDate, isSelected && styles.dayChipTextSelected]}>{formattedDay}</Text>
                                     <Text style={[styles.dayChipFocus, isSelected && styles.dayChipFocusSelected]}>{day.focus}</Text>
@@ -245,7 +276,7 @@ export default function WorkoutScreen() {
                                 <ExerciseCard key={idx} exercise={ex} onComplete={() => handleComplete(ex)} onReplace={() => handleReplaceRequest(ex)} onStart={() => handleStart(ex)} disabled={!isTodaySelected} isCompleted={completedExerciseIds.has(ex.instance_id || ex.name)} />
                             ))}
                         </ScrollView>
-                        <Leaderboard currentUserId={userProfile?.id || ''} userCountry={userProfile?.country} userState={userProfile?.state} onFetchLeaderboard={fetchLeaderboard} />
+                        <Leaderboard currentUserId={userProfile?.id || ''} userCountry={userProfile?.country} userState={userProfile?.state} />
                     </View>
                 )}
                 {(!workoutSchedule || workoutSchedule.length === 0) ? (
@@ -274,16 +305,50 @@ export default function WorkoutScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#121212' },
     scrollView: { flex: 1 },
-    headerContainer: { padding: 20, paddingBottom: 10 },
-    topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-    levelBadge: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#bef264', width: 60, height: 60, borderRadius: 30 },
-    levelLabel: { fontSize: 9, fontWeight: 'bold', color: '#000' },
-    levelValue: { fontSize: 22, fontWeight: 'bold', color: '#000' },
-    totalXpContainer: { alignItems: 'center' },
-    totalXpLabel: { fontSize: 11, fontWeight: '600', color: '#888' },
-    totalXpValue: { fontSize: 20, fontWeight: 'bold', color: '#bef264' },
-    greeting: { fontSize: 20, fontWeight: 'bold', color: '#FFF' },
-    subGreeting: { fontSize: 14, color: '#888', marginTop: 2 },
+    headerCard: {
+        marginHorizontal: 20,
+        marginTop: 16,
+        marginBottom: 20,
+        borderRadius: 20,
+        padding: 18,
+        borderWidth: 1,
+        borderColor: '#2A3A1A',
+    },
+    topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+    levelBadge: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#bef264',
+        width: 52,
+        height: 52,
+        borderRadius: 14,
+    },
+    levelLabel: { fontSize: 8, fontWeight: '800', color: '#000', letterSpacing: 0.5 },
+    levelValue: { fontSize: 22, fontWeight: '900', color: '#000' },
+    greetingBlock: { flex: 1, alignItems: 'center' },
+    greeting: { fontSize: 18, fontWeight: '700', color: '#FFF' },
+    subGreeting: { fontSize: 12, color: '#888', marginTop: 2 },
+    xpPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        backgroundColor: 'rgba(190,242,100,0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(190,242,100,0.25)',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 20,
+    },
+    xpPillText: { fontSize: 12, fontWeight: '700', color: '#bef264' },
+    headerDivider: { height: 1, backgroundColor: '#2A2A2A', marginBottom: 14 },
+    statsRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
+    statBlock: { flex: 1, alignItems: 'center' },
+    statIconRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 3 },
+    statDivider: { width: 1, height: 36, backgroundColor: '#2A2A2A', marginHorizontal: 12 },
+    statValue: { fontSize: 18, fontWeight: '800', color: '#FFF' },
+    statUnit: { fontSize: 12, fontWeight: '400', color: '#555' },
+    statLabel: { fontSize: 10, color: '#666', fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase', marginTop: 2 },
+    miniProgressBar: { width: '60%', marginTop: 8, borderRadius: 2, overflow: 'hidden' },
     sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#FFF', paddingHorizontal: 20 },
     sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingRight: 10 },
     instructionsContainer: { paddingHorizontal: 20, marginBottom: 16 },
@@ -316,13 +381,6 @@ const styles = StyleSheet.create({
     exerciseScroll: { paddingRight: 20 },
     startWorkoutBtn: { backgroundColor: '#bef264', padding: 16, borderRadius: 16, alignItems: 'center', marginTop: 20 },
     startWorkoutText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
-    burnTracker: { marginTop: 16, marginBottom: 12, padding: 12, backgroundColor: '#1E1E1E', borderRadius: 12 },
-    burnTrackerHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-    burnTrackerLabel: { fontSize: 14, fontWeight: '600', color: '#AAA' },
-    burnTrackerValue: { fontSize: 14, fontWeight: 'bold', color: '#FF6B6B' },
-    burnProgressBar: { height: 8, backgroundColor: '#2A2A2A', borderRadius: 4, overflow: 'hidden' },
-    xpInfo: { flexDirection: 'row', justifyContent: 'space-between', padding: 12, backgroundColor: '#1E1E1E', borderRadius: 12, marginBottom: 16 },
-    xpInfoText: { fontSize: 13, fontWeight: '600', color: '#bef264' },
     emptyState: { alignItems: 'center', marginTop: 50 },
     emptyText: { color: '#666', marginTop: 12, fontSize: 16 },
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },

@@ -12,6 +12,7 @@ import type * as challenges from "../challenges.js";
 import type * as crons from "../crons.js";
 import type * as food from "../food.js";
 import type * as hello from "../hello.js";
+import type * as leaderboards from "../leaderboards.js";
 import type * as migration from "../migration.js";
 import type * as notifications from "../notifications.js";
 import type * as users from "../users.js";
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   food: typeof food;
   hello: typeof hello;
+  leaderboards: typeof leaderboards;
   migration: typeof migration;
   notifications: typeof notifications;
   users: typeof users;

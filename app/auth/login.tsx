@@ -233,6 +233,10 @@ export default function LoginScreen() {
             showAlert('Missing Fields', 'Please fill in all fields to create an account.');
             return;
         }
+        if (username.trim().length > 9) {
+            showAlert('Invalid Username', 'Username must be at most 9 characters.');
+            return;
+        }
         setSubmitting(true);
         try {
             // Create the sign-up attempt with only email + password.
@@ -444,9 +448,9 @@ export default function LoginScreen() {
                             />
                             <Field
                                 icon={<User size={20} color="#6b7280" />}
-                                placeholder="Username (e.g. fituser99)"
+                                placeholder="Username (max 9 chars)"
                                 value={username}
-                                onChangeText={setUsername}
+                                onChangeText={(text) => setUsername(text.slice(0, 9).toLowerCase().replace(/[^a-z0-9]/g, ''))}
                                 autoCapitalize="none"
                             />
                         </>

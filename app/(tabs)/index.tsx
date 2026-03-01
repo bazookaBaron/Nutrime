@@ -8,7 +8,7 @@ import { useRouter } from 'expo-router';
 import { usePostHog } from 'posthog-react-native';
 import {
   Flame, Utensils, Droplet, Plus, Minus,
-  Circle, Zap
+  Circle, Zap, Sun, Moon
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { PieChart } from 'react-native-gifted-charts';
@@ -108,9 +108,8 @@ export default function Dashboard() {
     if (userProfile?.id) {
       await fetchDailyStats?.(userProfile.id, selectedDate);
     }
-    updateDashboard();
     setRefreshing(false);
-  }, [userProfile, selectedDate]);
+  }, [userProfile, selectedDate, fetchDailyStats]);
 
   useEffect(() => {
     if (isFocused) {
@@ -139,6 +138,15 @@ export default function Dashboard() {
     );
   }
 
+  const getTimeGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return { text: 'Good Morning', icon: <Sun size={18} color="#FFB800" /> };
+    if (hour < 18) return { text: 'Good Afternoon', icon: <Sun size={18} color="#FF8A00" /> };
+    return { text: 'Good Evening', icon: <Moon size={18} color="#94A3B8" /> };
+  };
+
+  const { text: timeGreeting, icon: greetingIcon } = getTimeGreeting();
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -152,42 +160,49 @@ export default function Dashboard() {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Hello, {userProfile?.full_name?.split(' ')[0] || 'Fitness Fan'}</Text>
-            <Text style={styles.dateText}>Ready for today's goals?</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {greetingIcon}
+              <Text style={styles.greetingText}>{timeGreeting},</Text>
+              <Text style={styles.userName}>{userProfile?.username?.split(' ')[0] || 'Athlete'}</Text>
+            </View>
+            <View style={styles.goalStatusContainer}>
+              <View style={styles.goalStatusDot} />
+              <Text style={styles.dateText}>Ready for today's goals?</Text>
+            </View>
           </View>
-          <View style={styles.xpBadge}>
+          <TouchableOpacity style={styles.xpBadge} onPress={() => router.push('/(tabs)/profile')}>
             <Zap size={14} color="#bef264" fill="#bef264" />
             <Text style={styles.xpBadgeText}>{userProfile?.workout_xp || 0} XP</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Compact Highlight Cards */}
         <View style={styles.highlightsRow}>
           {/* Streak Card */}
-          <LinearGradient colors={['#bef264', '#a3e635']} style={styles.streakCard}>
-            <View style={styles.streakHeader}>
-              <View style={styles.fireIconBg}>
-                <Flame size={14} color="#ea580c" fill="#ea580c" />
+          <LinearGradient colors={['#252525', '#1A1A1A']} style={styles.topCard}>
+            <View style={styles.topCardHeader}>
+              <View style={[styles.topCardIconBg, { backgroundColor: 'rgba(234, 88, 12, 0.15)' }]}>
+                <Flame size={14} color="#f97316" fill="#f97316" />
               </View>
               <View>
-                <Text style={styles.streakLabel}>Streak</Text>
-                <Text style={styles.streakValue}>{streak} <Text style={styles.streakUnit}>Days</Text></Text>
+                <Text style={styles.topCardLabel}>Streak</Text>
+                <Text style={styles.topCardValue}>{streak} <Text style={styles.topCardUnit}>Days</Text></Text>
               </View>
             </View>
           </LinearGradient>
 
           {/* Ranking Card */}
-          <View style={styles.rankCard}>
-            <View style={styles.streakHeader}>
-              <View style={styles.rankIconBg}>
-                <Zap size={14} color="#ca8a04" fill="#ca8a04" />
+          <LinearGradient colors={['#252525', '#1A1A1A']} style={styles.topCard}>
+            <View style={styles.topCardHeader}>
+              <View style={[styles.topCardIconBg, { backgroundColor: 'rgba(202, 138, 4, 0.15)' }]}>
+                <Zap size={14} color="#eab308" fill="#eab308" />
               </View>
               <View>
-                <Text style={[styles.streakLabel, { color: '#FFF' }]}>State Rank</Text>
-                <Text style={[styles.streakValue, { color: '#FFF' }]}>#{ranking || '-'}</Text>
+                <Text style={styles.topCardLabel}>State Rank</Text>
+                <Text style={styles.topCardValue}>#{ranking || '-'}</Text>
               </View>
             </View>
-          </View>
+          </LinearGradient>
         </View>
 
         {/* Side-by-Side Stats Section */}
@@ -248,14 +263,18 @@ export default function Dashboard() {
         </View>
 
         {/* Water Intake Card (Full Width) */}
-        <View style={[styles.fullStatCard, { backgroundColor: '#1E1E1E', marginTop: 10, marginBottom: 25, paddingVertical: 16, borderColor: '#333', borderWidth: 1 }]}>
+        <LinearGradient
+          colors={['#0F172A', '#1E1E1E']}
+          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+          style={[styles.fullStatCard, { marginTop: 10, marginBottom: 25, paddingVertical: 18, borderColor: '#1E3A8A', borderWidth: 1 }]}
+        >
           <View style={styles.statHeader}>
             <View>
-              <Text style={[styles.statTitle, { color: '#3b82f6' }]}>Drink Water</Text>
-              <Text style={styles.statSubtitle}>Today's goal: 3.5 L</Text>
+              <Text style={[styles.statTitle, { color: '#60A5FA' }]}>Drink Water</Text>
+              <Text style={[styles.statSubtitle, { color: '#94A3B8' }]}>Today's goal: 3.5 L</Text>
             </View>
             <View style={[styles.iconBg, { backgroundColor: 'rgba(59, 130, 246, 0.2)' }]}>
-              <Droplet size={18} color="#3b82f6" fill="#3b82f6" />
+              <Droplet size={18} color="#60A5FA" fill="#60A5FA" />
             </View>
           </View>
 
@@ -297,7 +316,7 @@ export default function Dashboard() {
               </View>
             )}
           </View>
-        </View>
+        </LinearGradient>
 
         {/* Date Selector (Moved Above Meals) */}
         <View style={styles.dateSelectorContainer}>
@@ -412,17 +431,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
     paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingTop: 40,
   },
-  greeting: {
-    fontSize: 14,
+  greetingText: {
+    fontSize: 16,
     color: '#888',
-    marginBottom: 2,
+    fontWeight: '500',
+    // letterSpacing: 0.5,
   },
   userName: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '800',
     color: '#FFF',
+  },
+  goalStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    gap: 6,
+  },
+  goalStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#bef264',
+  },
+  dateText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
   },
   xpBadge: {
     flexDirection: 'row',
@@ -431,9 +468,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E1E1E',
     borderRadius: 20,
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderWidth: 1,
     borderColor: '#333',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   xpBadgeText: {
     color: '#bef264',
@@ -509,55 +551,42 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     paddingHorizontal: 20,
   },
-  streakCard: {
+  topCard: {
     flex: 1,
     padding: 16,
-    borderRadius: 24,
-  },
-  rankCard: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 24,
-    backgroundColor: '#1E1E1E',
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: '#2A2A2A',
   },
-  streakHeader: {
+  topCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  streakLabel: {
+  topCardLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1f2937',
-    opacity: 0.8,
+    color: '#888',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  fireIconBg: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.5)',
+  topCardIconBg: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  rankIconBg: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#fef9c3',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  streakValue: {
+  topCardValue: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
+    fontWeight: '800',
+    color: '#FFF',
+    marginTop: 2,
   },
-  streakUnit: {
+  topCardUnit: {
     fontSize: 12,
-    fontWeight: 'normal',
-    color: '#374151',
+    fontWeight: '500',
+    color: '#666',
   },
   sideBySideRow: {
     flexDirection: 'row',
@@ -788,11 +817,6 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#bef264',
     borderRadius: 2,
-  },
-  dateText: {
-    fontSize: 14,
-    color: '#888',
-    marginBottom: 5,
   },
   syncButton: {
     width: 40,

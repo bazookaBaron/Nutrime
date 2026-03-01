@@ -80,8 +80,15 @@ export default function AddFood() {
 
     const FoodListItem = ({ item }) => {
         const [quantity, setQuantity] = useState(1);
+        const [added, setAdded] = useState(false);
         const increment = () => setQuantity(q => q + 1);
         const decrement = () => setQuantity(q => Math.max(1, q - 1));
+
+        const handlePress = () => {
+            handleAddFood(item, quantity);
+            setAdded(true);
+            setTimeout(() => setAdded(false), 1200);
+        };
 
         return (
             <View style={styles.resultCard}>
@@ -103,13 +110,21 @@ export default function AddFood() {
                         </TouchableOpacity>
                     </View>
 
-                    <TouchableOpacity style={styles.addButton} onPress={() => handleAddFood(item, quantity)}>
-                        <Plus size={20} color="#000" />
+                    <TouchableOpacity
+                        style={[styles.addButton, added && styles.addButtonDone]}
+                        onPress={handlePress}
+                        activeOpacity={0.7}
+                    >
+                        {added
+                            ? <Text style={{ fontSize: 18 }}>✓</Text>
+                            : <Plus size={20} color="#000" />
+                        }
                     </TouchableOpacity>
                 </View>
             </View>
         );
     };
+
 
     const dailyTarget = nutritionTargets.calories || 2000;
     const mealSplit = nutritionTargets.mealSplit || { breakfast: 0.25, lunch: 0.35, snack: 0.10, dinner: 0.30 };
@@ -243,6 +258,7 @@ const styles = StyleSheet.create({
     resultName: { fontSize: 16, fontWeight: '600', color: '#FFF', marginBottom: 4 },
     resultDetails: { fontSize: 13, color: '#888' },
     addButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#bef264', justifyContent: 'center', alignItems: 'center' },
+    addButtonDone: { backgroundColor: '#22c55e' },
     emptyContainer: { alignItems: 'center', marginTop: 40 },
     emptyText: { fontSize: 16, color: '#888' },
     actionContainer: { flexDirection: 'row', alignItems: 'center', gap: 12 },

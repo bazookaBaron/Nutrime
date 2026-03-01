@@ -123,32 +123,29 @@ export default function ActiveWorkoutScreen() {
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${centis.toString().padStart(2, '0')}`;
     };
 
-    const handleLogSet = async () => {
+    const handleLogSet = () => {
         if (completedSets < exercise.sets) {
             const nextCompleted = completedSets + 1;
-            setCompletedSets(nextCompleted);
-
-            // Persist progress immediately to DB
-            if (exercise.day_number && exercise.id) {
-                await completeExercise(exercise.day_number, exercise.id, exercise.mode, null, nextCompleted);
-            }
-
+            setCompletedSets(nextCompleted); // instant UI
             if (currentSet < exercise.sets) {
                 setCurrentSet(prev => prev + 1);
+            }
+            // Background sync — no await
+            if (exercise.day_number && exercise.id) {
+                completeExercise(exercise.day_number, exercise.id, exercise.mode, null, nextCompleted);
             }
         }
     };
 
-    const handleComplete = async () => {
+    const handleComplete = () => {
         setIsActive(false);
         setPlaying(false);
-
+        setShowSuccessModal(true); // show instantly
+        // Background sync — no await
         if (exercise.day_number && exercise.id) {
-            // For Set/Rep, ensure completedSets is sent. For Duration, we might want to mark as "1 set" done if finished.
             const setsToReport = isSetRep ? completedSets : 1;
-            await completeExercise(exercise.day_number, exercise.id, exercise.mode, caloriesBurned, setsToReport);
+            completeExercise(exercise.day_number, exercise.id, exercise.mode, caloriesBurned, setsToReport);
         }
-        setShowSuccessModal(true);
     };
 
     const handleCloseModal = () => {

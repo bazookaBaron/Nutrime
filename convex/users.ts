@@ -19,10 +19,11 @@ export const ensureProfile = mutation({
             .unique();
 
         if (!existing) {
+            const cleanedUsername = args.username ? args.username.slice(0, 9).toLowerCase() : undefined;
             await ctx.db.insert("profiles", {
                 user_id: args.userId,
                 full_name: args.full_name,
-                username: args.username,
+                username: cleanedUsername,
                 updated_at: new Date().toISOString(),
             });
         }
@@ -52,16 +53,21 @@ export const updateProfile = mutation({
             .withIndex("by_user_id", (q) => q.eq("user_id", args.userId))
             .unique();
 
+        const cleanedUpdates = { ...args.updates };
+        if (cleanedUpdates.username) {
+            cleanedUpdates.username = cleanedUpdates.username.slice(0, 9).toLowerCase();
+        }
+
         if (existing) {
             await ctx.db.patch(existing._id, {
-                ...args.updates,
+                ...cleanedUpdates,
                 updated_at: new Date().toISOString(),
             });
             return existing._id;
         } else {
             return await ctx.db.insert("profiles", {
                 user_id: args.userId,
-                ...args.updates,
+                ...cleanedUpdates,
                 updated_at: new Date().toISOString(),
             });
         }
@@ -162,25 +168,26 @@ export const incrementXP = mutation({
                 workout_level: newLevel,
                 updated_at: new Date().toISOString(),
             });
+
+            // ── Upsert leaderboard row in real-time ──
+            const lbEntry = await ctx.db
+                .query("leaderboards")
+                .withIndex("by_user_id", (q) => q.eq("user_id", args.userId))
+                .unique();
+
+            const lbData = {
+                user_id: args.userId,
+                username: existing.username || existing.full_name || "Anonymous",
+                total_xp: newXp,
+                state: existing.state || "",
+                country: existing.country || "",
+            };
+
+            if (lbEntry) {
+                await ctx.db.patch(lbEntry._id, lbData);
+            } else {
+                await ctx.db.insert("leaderboards", lbData);
+            }
         }
-    },
-});
-
-export const getLeaderboard = query({
-    args: {},
-    handler: async (ctx) => {
-        const profiles = await ctx.db.query("profiles").collect();
-        const sorted = profiles
-            .filter((p) => p.workout_xp && p.workout_xp > 0)
-            .sort((a, b) => (b.workout_xp || 0) - (a.workout_xp || 0))
-            .slice(0, 10);
-
-        return sorted.map((p, index) => ({
-            rank: index + 1,
-            user_id: p.user_id,
-            username: p.username || p.full_name || "Anonymous",
-            workout_xp: p.workout_xp || 0,
-            workout_level: p.workout_level || 1,
-        }));
     },
 });

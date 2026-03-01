@@ -18,12 +18,12 @@ if (__DEV__) {
 if (!isPostHogConfigured) {
   console.warn(
     'PostHog API key not configured. Analytics will be disabled. ' +
-      'Set POSTHOG_API_KEY in your .env file to enable analytics.'
+    'Set POSTHOG_API_KEY in your .env file to enable analytics.'
   );
 }
 
 /**
- * PostHog client instance for NutrientTracker (Expo)
+ * PostHog client instance for Xenith (Expo)
  *
  * Configuration loaded from app.config.js extras via expo-constants.
  *

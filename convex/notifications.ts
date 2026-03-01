@@ -348,7 +348,7 @@ export const sendInactiveUserReminder = internalAction({
                     to: user.push_token,
                     sound: "default",
                     title: "7 days gone 😢",
-                    body: `${name}, a week without NutrientTracker? Your goals are still waiting. Jump back in — one small step is all it takes!`,
+                    body: `${name}, a week without Xenith? Your goals are still waiting. Jump back in — one small step is all it takes!`,
                     data: { screen: "home" },
                 });
             }

@@ -34,8 +34,8 @@
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="nutrienttracker"/>
-        <data android:scheme="exp+nutrienttracker"/>
+        <data android:scheme="xenith"/>
+        <data android:scheme="exp+xenith"/>
       </intent-filter>
       <intent-filter>
         <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE"/>

@@ -107,4 +107,15 @@ export default defineSchema({
         completed_at: v.optional(v.string()),
     }).index("by_user_id", ["user_id"])
         .index("by_challenge_id", ["challenge_id"]),
+
+    leaderboards: defineTable({
+        user_id: v.string(),
+        username: v.string(),
+        total_xp: v.number(),
+        state: v.string(),
+        country: v.string(),
+    })
+        .index("by_user_id", ["user_id"])
+        .index("by_total_xp", ["total_xp"]),
 });
+

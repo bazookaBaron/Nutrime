@@ -149,6 +149,7 @@ export default function WorkoutScreen() {
                 exerciseType: exercise.exerciseType,
                 sets: exercise.predicted_sets,
                 completed_sets: exercise.completed_sets || 0,
+                elapsed_seconds: exercise.elapsed_seconds || 0,
                 reps: exercise.predicted_reps
             }
         });

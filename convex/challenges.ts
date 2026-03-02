@@ -1,4 +1,4 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 
@@ -19,7 +19,7 @@ export const getUserChallenges = query({
         if (!args.userId) return [];
         return await ctx.db
             .query("user_challenges")
-            .withIndex("by_user_id", (q) => q.eq("user_id", args.userId))
+            .withIndex("by_user_id", (q) => q.eq("user_id", args.userId as string))
             .collect();
     },
 });
@@ -100,3 +100,29 @@ export const create = mutation({
         });
     },
 });
+
+export const clearExpiredChallenges = internalMutation({
+    args: {},
+    handler: async (ctx) => {
+        const now = new Date().toISOString();
+        const expired = await ctx.db
+            .query("challenges")
+            .filter((q) => q.lt(q.field("end_time"), now))
+            .collect();
+
+        for (const challenge of expired) {
+            await ctx.db.delete(challenge._id);
+            // Also clean up user_challenges for this challenge
+            const users = await ctx.db
+                .query("user_challenges")
+                .withIndex("by_user_id") // We don't have by_challenge_id, so we'll just filter or collect
+                .filter(q => q.eq(q.field("challenge_id"), challenge._id.toString()))
+                .collect();
+            for (const u of users) {
+                await ctx.db.delete(u._id);
+            }
+        }
+        return expired.length;
+    },
+});
+

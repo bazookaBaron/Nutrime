@@ -1,58 +1,65 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, Mail, ExternalLink } from 'lucide-react-native';
+import { ChevronLeft, Mail, Instagram } from 'lucide-react-native';
 
-export default function SupportScreen() {
+export default function ContactScreen() {
     const router = useRouter();
 
-    const handleEmailSupport = () => {
-        const email = 'support@nutrientapp.com'; // Placeholder
-        Linking.openURL(`mailto:${email}`).catch(err => {
-            Alert.alert("Error", "Could not open email client.");
-        });
-    };
+    const Section = ({ icon, title, subtitle, onPress }) => (
+        <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
+            <View style={styles.iconContainer}>
+                {icon}
+            </View>
+            <View style={{ flex: 1 }}>
+                <Text style={styles.cardTitle}>{title}</Text>
+                <Text style={styles.cardSubtitle}>{subtitle}</Text>
+            </View>
+        </TouchableOpacity>
+    );
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-                    <ChevronLeft size={24} color="#fff" />
+                    <ChevronLeft size={22} color="#A3E635" />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Contact Support</Text>
+                <Text style={styles.headerTitle}>Contact Us</Text>
                 <View style={{ width: 40 }} />
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
-                <View style={styles.card}>
-                    <Text style={styles.title}>Need Help?</Text>
-                    <Text style={styles.description}>
-                        If you've encountered a bug, have a billing question, or just need some assistance using Nutrient, we're here to help!
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+
+                <Text style={styles.subtitle}>
+                    Have questions, feedback, or need support?
+                    We're here to help.
+                </Text>
+
+                <Section
+                    icon={<Mail size={20} color="#A3E635" />}
+                    title="Email Support"
+                    subtitle="support@valorfitness.app"
+                    onPress={() => Linking.openURL('mailto:support@valorfitness.app')}
+                />
+
+                <Section
+                    icon={<Instagram size={20} color="#A3E635" />}
+                    title="Instagram"
+                    subtitle="@valorfitness"
+                    onPress={() => Linking.openURL('https://instagram.com/valorfitness')}
+                />
+
+                <View style={styles.infoBox}>
+                    <Text style={styles.infoText}>
+                        Valor typically responds within 24–48 hours.
+                        {"\n\n"}
+                        Thank you for being part of the Valor community 💪
                     </Text>
-
-                    <TouchableOpacity style={styles.contactBtn} onPress={handleEmailSupport}>
-                        <Mail size={20} color="#000" />
-                        <Text style={styles.contactBtnText}>Email Support Team</Text>
-                    </TouchableOpacity>
                 </View>
 
-                <View style={styles.card}>
-                    <Text style={styles.title}>Community & Social</Text>
-                    <Text style={styles.description}>Follow us for the latest updates and tips on maintaining your health and fitness.</Text>
+                <View style={{ height: 40 }} />
 
-                    <TouchableOpacity style={styles.linkRow}>
-                        <Text style={styles.linkText}>Follow us on Twitter</Text>
-                        <ExternalLink size={16} color="#9ca3af" />
-                    </TouchableOpacity>
-
-                    <View style={styles.divider} />
-
-                    <TouchableOpacity style={styles.linkRow}>
-                        <Text style={styles.linkText}>Join our Discord Server</Text>
-                        <ExternalLink size={16} color="#9ca3af" />
-                    </TouchableOpacity>
-                </View>
             </ScrollView>
         </SafeAreaView>
     );
@@ -61,7 +68,7 @@ export default function SupportScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#111827',
+        backgroundColor: '#0B0F14',
     },
     header: {
         flexDirection: 'row',
@@ -69,74 +76,74 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 20,
         paddingTop: 10,
-        paddingBottom: 20,
+        paddingBottom: 10,
     },
     iconButton: {
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: '#1f2937',
+        backgroundColor: '#1A1F26',
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: '#374151',
+        borderColor: '#2A2F38',
     },
     headerTitle: {
         fontSize: 18,
-        fontWeight: 'bold',
-        color: '#fff',
+        fontWeight: '600',
+        color: '#FFFFFF',
     },
     content: {
-        padding: 24,
+        paddingHorizontal: 20,
+        paddingTop: 10,
+    },
+    subtitle: {
+        color: '#6B7280',
+        fontSize: 14,
+        marginBottom: 20,
+        lineHeight: 20,
     },
     card: {
-        backgroundColor: '#1f2937',
-        borderRadius: 16,
-        padding: 20,
-        marginBottom: 24,
-        borderWidth: 1,
-        borderColor: '#374151',
-    },
-    title: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#fff',
-        marginBottom: 8,
-    },
-    description: {
-        color: '#9ca3af',
-        fontSize: 15,
-        lineHeight: 22,
-        marginBottom: 24,
-    },
-    contactBtn: {
-        backgroundColor: '#bef264',
-        borderRadius: 12,
-        paddingVertical: 14,
         flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#141A21',
+        padding: 18,
+        borderRadius: 18,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#1F2937',
+    },
+    iconContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#1A1F26',
         justifyContent: 'center',
         alignItems: 'center',
-        gap: 8,
+        marginRight: 14,
     },
-    contactBtnText: {
-        color: '#111827',
-        fontWeight: 'bold',
-        fontSize: 16,
-    },
-    linkRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 12,
-    },
-    linkText: {
-        color: '#d1d5db',
+    cardTitle: {
+        color: '#FFFFFF',
         fontSize: 15,
-        fontWeight: '500',
+        fontWeight: '600',
     },
-    divider: {
-        height: 1,
-        backgroundColor: '#374151',
-        marginVertical: 4,
-    }
+    cardSubtitle: {
+        color: '#9CA3AF',
+        fontSize: 13,
+        marginTop: 4,
+    },
+    infoBox: {
+        backgroundColor: '#141A21',
+        padding: 18,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: '#1F2937',
+        marginTop: 10,
+    },
+    infoText: {
+        color: '#D1D5DB',
+        fontSize: 14,
+        lineHeight: 22,
+        textAlign: 'center',
+    },
 });

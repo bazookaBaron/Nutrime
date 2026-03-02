@@ -139,20 +139,29 @@ export const UserProvider = ({ children }) => {
         if (!userProfile || !user) return;
         const tz = userProfile?.timezone || deviceTimezone;
         const today = getTodayISODate(tz);
+
+        console.log(`[UserContext] Checking streak. Profile last active: ${userProfile.last_active_date}, today: ${today}, current streak: ${userProfile.streak}`);
+
         if (userProfile.last_active_date === today) {
             setStreak(userProfile.streak || 0);
             return;
         }
+
         const yesterdayStr = getYesterdayISODate(tz);
         const newStreak = userProfile.last_active_date === yesterdayStr
             ? (userProfile.streak || 0) + 1
             : 1;
+
+        console.log(`[UserContext] Updating streak to ${newStreak}. Previous date: ${userProfile.last_active_date}, Yesterday was: ${yesterdayStr}`);
+
         setStreak(newStreak);
         convex.mutation(api.users.updateProfile, {
             userId: user.id,
             updates: { streak: newStreak, last_active_date: today },
-        }).catch((e) => console.error('[UserContext] Streak update failed:', e));
-    }, [userProfile?.last_active_date, todayStr]);
+        })
+            .then(() => console.log('[UserContext] Streak updated successfully in DB'))
+            .catch((e) => console.error('[UserContext] Streak update failed:', e));
+    }, [userProfile?.last_active_date, userProfile?.streak, todayStr, user?.id]);
 
     // -------------------------------------------------------------------------
     // Push token sync
@@ -299,7 +308,7 @@ export const UserProvider = ({ children }) => {
         }
     };
 
-    const completeExercise = async (dayNumber, exerciseId, mode = 'Gym', actualCalories = null, completedSets = null) => {
+    const completeExercise = async (dayNumber, exerciseId, mode = 'Gym', actualCalories = null, completedSets = null, elapsedSeconds = null) => {
         if (!user || !userProfile) return;
         let dayId = null;
         let dayToUpdate = null;
@@ -314,20 +323,37 @@ export const UserProvider = ({ children }) => {
             const targetSets = exerciseObj?.predicted_sets || 3;
             let updatedCompletions = [...completions];
             const alreadyDone = completions.includes(exerciseId);
-            if (completedSets === null) {
+
+            if (completedSets === null && elapsedSeconds === null) {
+                // Toggle complete
                 const becomingDone = !alreadyDone;
                 updatedCompletions = alreadyDone ? completions.filter((id) => id !== exerciseId) : [...completions, exerciseId];
                 session.exercises = session.exercises.map((ex, idx) =>
                     idx === exIndex ? { ...ex, is_completed: becomingDone ? 'true' : 'no', completed_sets: becomingDone ? targetSets : 0 } : ex
                 );
             } else {
-                if (completedSets >= targetSets && !alreadyDone) updatedCompletions = [...completions, exerciseId];
+                // Specific update
                 session.exercises = session.exercises.map((ex, idx) => {
                     if (idx !== exIndex) return ex;
-                    const status = completedSets >= targetSets ? 'true' : completedSets > 0 ? 'partial' : 'no';
-                    return { ...ex, actual_calories_burned: actualCalories ?? ex.actual_calories_burned, completed_sets: completedSets, is_completed: status };
+
+                    const newSets = completedSets !== null ? completedSets : ex.completed_sets;
+                    const newElapsed = elapsedSeconds !== null ? elapsedSeconds : ex.elapsed_seconds;
+
+                    const status = newSets >= targetSets ? 'true' : (newSets > 0 || (newElapsed && newElapsed > 0)) ? 'partial' : 'no';
+
+                    if (status === 'true' && !alreadyDone) updatedCompletions = [...completions, exerciseId];
+                    else if (status !== 'true' && alreadyDone) updatedCompletions = completions.filter(id => id !== exerciseId);
+
+                    return {
+                        ...ex,
+                        actual_calories_burned: actualCalories ?? ex.actual_calories_burned,
+                        completed_sets: newSets,
+                        elapsed_seconds: newElapsed,
+                        is_completed: status
+                    };
                 });
             }
+
             const isAllDone = session.exercises.every((ex) => {
                 const id = ex.instance_id || ex.name;
                 return updatedCompletions.includes(id) || ex.is_completed === 'true';
@@ -335,16 +361,25 @@ export const UserProvider = ({ children }) => {
             dayToUpdate = { ...day, [modeKey]: session, completed_exercises: updatedCompletions, completed: isAllDone };
             return dayToUpdate;
         });
+
         setLocalWorkoutSchedule(newSchedule);
         if (!dayId) return;
+
         try {
             await convex.mutation(api.workouts.updatePlan, {
                 id: dayId,
                 updates: {
-                    plan_data: { gym: dayToUpdate.gym, home: dayToUpdate.home, focus: dayToUpdate.focus, target_calories: dayToUpdate.target_calories, completed_exercises: dayToUpdate.completed_exercises },
+                    plan_data: {
+                        gym: dayToUpdate.gym,
+                        home: dayToUpdate.home,
+                        focus: dayToUpdate.focus,
+                        target_calories: dayToUpdate.target_calories,
+                        completed_exercises: dayToUpdate.completed_exercises
+                    },
                     is_completed: dayToUpdate.completed,
                 },
             });
+
             let totalCaloriesBurned = 0;
             const allExercises = [...(dayToUpdate.gym?.exercises || []), ...(dayToUpdate.home?.exercises || [])];
             dayToUpdate.completed_exercises.forEach((id) => {
@@ -355,7 +390,10 @@ export const UserProvider = ({ children }) => {
                 userId: user.id, date: dayToUpdate.date,
                 updates: { calories_burned: Math.round(totalCaloriesBurned), daily_exercise_completions: dayToUpdate.completed_exercises },
             });
-            addXP(10); // fire-and-forget
+            // XP only on full completion toggle or set increment
+            if (completedSets !== null || (completedSets === null && elapsedSeconds === null)) {
+                addXP(10);
+            }
         } catch (err) {
             console.error('[UserContext] Failed to save exercise:', err);
         }

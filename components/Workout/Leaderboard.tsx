@@ -147,10 +147,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId, userCountry, u
                 </View>
 
                 <View style={styles.avatarContainer}>
-                    {isTop3 ? (
-                        <Text style={styles.badgeIcon}>{RANK_MEDALS[item.rank - 1]}</Text>
-                    ) : (
-                        item.profile_image_url ? (
+                    <View style={styles.avatarWrapper}>
+                        {item.profile_image_url ? (
                             <Image style={[styles.avatar, isCurrentUser && styles.avatarCurrent]} source={{ uri: item.profile_image_url }} />
                         ) : (
                             <View style={[
@@ -160,8 +158,13 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId, userCountry, u
                             ]}>
                                 <Text style={styles.avatarInitials}>{initials(item.username)}</Text>
                             </View>
-                        )
-                    )}
+                        )}
+                        {isTop3 && (
+                            <View style={styles.medalOverlay}>
+                                <Text style={styles.medalIconSmall}>{RANK_MEDALS[item.rank - 1]}</Text>
+                            </View>
+                        )}
+                    </View>
                 </View>
 
                 <View style={styles.userInfo}>
@@ -313,14 +316,16 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId, userCountry, u
                                         borderColor: hoveredEntry.rank <= 3 ? RANK_COLORS[hoveredEntry.rank].border : '#bef264',
                                         overflow: 'hidden',
                                     }]}>
-                                        {hoveredEntry.rank <= 3
-                                            ? <Text style={{ fontSize: 28 }}>{RANK_MEDALS[hoveredEntry.rank - 1]}</Text>
-                                            : (hoveredEntry.profile_image_url ? (
-                                                <Image style={{ width: '100%', height: '100%' }} source={{ uri: hoveredEntry.profile_image_url }} />
-                                            ) : (
-                                                <Text style={styles.chipAvatarText}>{initials(hoveredEntry.username)}</Text>
-                                            ))
-                                        }
+                                        {hoveredEntry.profile_image_url ? (
+                                            <Image style={{ width: '100%', height: '100%' }} source={{ uri: hoveredEntry.profile_image_url }} />
+                                        ) : (
+                                            <Text style={styles.chipAvatarText}>{initials(hoveredEntry.username)}</Text>
+                                        )}
+                                        {hoveredEntry.rank <= 3 && (
+                                            <View style={[styles.medalOverlay, { width: 24, height: 24, bottom: 0, right: 0, borderRadius: 12 }]}>
+                                                <Text style={{ fontSize: 14 }}>{RANK_MEDALS[hoveredEntry.rank - 1]}</Text>
+                                            </View>
+                                        )}
                                     </View>
 
                                     <Text style={styles.chipUsername}>{hoveredEntry.username}</Text>
@@ -606,6 +611,29 @@ const styles = StyleSheet.create({
         fontSize: 15,
         fontWeight: '900',
         color: '#000',
+    },
+    avatarWrapper: {
+        position: 'relative',
+        width: 36,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    medalOverlay: {
+        position: 'absolute',
+        bottom: -4,
+        right: -4,
+        backgroundColor: '#000',
+        borderRadius: 10,
+        width: 18,
+        height: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#333',
+    },
+    medalIconSmall: {
+        fontSize: 10,
     },
     chipOverlay: {
         flex: 1,

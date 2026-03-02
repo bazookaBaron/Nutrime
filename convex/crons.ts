@@ -73,4 +73,10 @@ crons.hourly(
     internal.notifications.sendInactiveUserReminder
 );
 
+crons.interval(
+    "clear-expired-challenges",
+    { hours: 48 },
+    internal.challenges.clearExpiredChallenges
+);
+
 export default crons;

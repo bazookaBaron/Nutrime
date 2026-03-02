@@ -43,24 +43,44 @@ export default function ActiveWorkoutScreen() {
         exerciseType: params.exerciseType as string || 'Duration',
         sets: params.sets ? parseInt(params.sets as string) : 3,
         completed_sets: params.completed_sets ? parseInt(params.completed_sets as string) : 0,
+        elapsed_seconds: params.elapsed_seconds ? parseInt(params.elapsed_seconds as string) : 0,
         reps: params.reps as string || "10-12",
     };
 
     const isSetRep = exercise.exerciseType === 'Set/Rep';
     const videoId = getVideoId(exercise.videoLink);
     const [playing, setPlaying] = useState(false);
-    const [elapsedMs, setElapsedMs] = useState(0);
+    const [elapsedMs, setElapsedMs] = useState(exercise.elapsed_seconds * 1000);
     const [isActive, setIsActive] = useState(false);
     const [caloriesBurned, setCaloriesBurned] = useState(0);
     const [videoReady, setVideoReady] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
 
     const startTimeRef = useRef<number | null>(null);
-    const accumulatedTimeRef = useRef(0);
+    const accumulatedTimeRef = useRef(exercise.elapsed_seconds * 1000);
 
     // Set/Rep state
     const [currentSet, setCurrentSet] = useState(exercise.completed_sets + 1);
     const [completedSets, setCompletedSets] = useState(exercise.completed_sets);
+
+    // Save progress helper
+    const saveProgress = useCallback((forceElapsedMs?: number) => {
+        const ms = forceElapsedMs ?? elapsedMs;
+        if (exercise.day_number && exercise.id) {
+            const seconds = Math.floor(ms / 1000);
+            const setsToReport = isSetRep ? completedSets : null;
+            completeExercise(exercise.day_number, exercise.id, exercise.mode, caloriesBurned, setsToReport, seconds);
+        }
+    }, [elapsedMs, exercise.day_number, exercise.id, exercise.mode, isSetRep, completedSets, caloriesBurned]);
+
+    // Periodically save progress while active
+    useEffect(() => {
+        if (!isActive) return;
+        const interval = setInterval(() => {
+            saveProgress();
+        }, 30000); // Save every 30 seconds
+        return () => clearInterval(interval);
+    }, [isActive, saveProgress]);
 
     // Timer logic with high precision using requestAnimationFrame (Only for Duration type)
     useEffect(() => {
@@ -108,6 +128,9 @@ export default function ActiveWorkoutScreen() {
     }, [elapsedMs, exercise.met, userProfile?.weight, isSetRep, completedSets, exercise.sets, exercise.targetDuration]);
 
     const toggleTimer = () => {
+        if (isActive) {
+            saveProgress(); // Save when pausing
+        }
         setIsActive(!isActive);
     };
 

@@ -137,7 +137,7 @@ export default function ChallengesScreen() {
     const router = useRouter();
     const posthog = usePostHog();
     const { challenges, userChallenges, loading, fetchChallenges, seedDefaultChallenges, joinChallenge, markDailyProgress } = useChallenges();
-    const [selectedTab, setSelectedTab] = useState<'ongoing' | 'top'>('ongoing');
+    const [selectedTab, setSelectedTab] = useState<'ongoing' | 'top'>('top');
     const isFocused = useIsFocused();
     const [refreshing, setRefreshing] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);

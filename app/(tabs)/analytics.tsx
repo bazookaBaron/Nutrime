@@ -35,7 +35,7 @@ export default function Analytics() {
     const router = useRouter();
 
     // ── State ──────────────────────────────────────────────────────────────────
-    const [selectedFilter, setSelectedFilter] = useState<DateFilter>('Today');
+    const [selectedFilter, setSelectedFilter] = useState<DateFilter>('7 Days');
     const [customRange, setCustomRange] = useState<DateRange | null>(null);
     const [showCalendar, setShowCalendar] = useState(false);
     const [calendarStart, setCalendarStart] = useState<string | null>(null);

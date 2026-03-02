@@ -38,16 +38,26 @@ export const getLeaderboard = query({
         // Sort by total_xp descending
         filtered.sort((a, b) => b.total_xp - a.total_xp);
 
-        // Return top 50 with index-based ranking (1, 2, 3...)
-        return filtered.slice(0, 50).map((entry, index) => {
-            return {
-                rank: index + 1,
+        // Fetch profiles for the top 50 to get icons
+        const top50 = filtered.slice(0, 50);
+        const result = [];
+        for (let i = 0; i < top50.length; i++) {
+            const entry = top50[i];
+            const profile = await ctx.db
+                .query("profiles")
+                .withIndex("by_user_id", (q) => q.eq("user_id", entry.user_id))
+                .unique();
+
+            result.push({
+                rank: i + 1,
                 user_id: entry.user_id,
                 username: entry.username,
                 workout_xp: entry.total_xp,
                 workout_level: calculateLevel(entry.total_xp),
-            };
-        });
+                profile_image_url: profile?.profile_image_url,
+            });
+        }
+        return result;
     },
 });
 
@@ -77,6 +87,10 @@ export const getUserRank = query({
         if (userIndex === -1) return null;
 
         const userEntry = filtered[userIndex];
+        const profile = await ctx.db
+            .query("profiles")
+            .withIndex("by_user_id", (q) => q.eq("user_id", userEntry.user_id))
+            .unique();
 
         return {
             rank: userIndex + 1,
@@ -84,6 +98,7 @@ export const getUserRank = query({
             username: userEntry.username,
             workout_xp: userEntry.total_xp,
             workout_level: calculateLevel(userEntry.total_xp),
+            profile_image_url: profile?.profile_image_url,
         };
     },
 });

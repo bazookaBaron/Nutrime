@@ -1,6 +1,6 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -16,7 +16,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { PostHogProvider } from 'posthog-react-native';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useAuth } from '@clerk/clerk-expo';
 import { ClerkProvider } from '@clerk/clerk-expo';
 import { ConvexProviderWithClerk } from 'convex/react-clerk';
@@ -60,49 +60,73 @@ function RootLayoutNav() {
       .catch((e) => console.warn('[Notifications] Failed to sync push token:', e));
   }, [isSignedIn, userId, expoPushToken, timezone]);
 
+  const [initialLoad, setInitialLoad] = useState(true);
+
+  useEffect(() => {
+    if (isAuthLoaded && !loading) {
+      setInitialLoad(false);
+    }
+  }, [isAuthLoaded, loading]);
+
   // Redirect logic — runs whenever auth state or onboarding status changes
+  const inAuthGroup = segments[0] === 'auth';
+  const inOnboardingGroup = segments[0] === 'onboarding';
+
+  const isRedirecting = useMemo(() => {
+    if (!isAuthLoaded || loading) return false;
+    if (!isSignedIn && !inAuthGroup) return true;
+    if (isSignedIn && !hasCompletedOnboarding && !inOnboardingGroup) return true;
+    if (isSignedIn && hasCompletedOnboarding && (inAuthGroup || inOnboardingGroup)) return true;
+    return false;
+  }, [isAuthLoaded, loading, isSignedIn, hasCompletedOnboarding, inAuthGroup, inOnboardingGroup]);
+
   useEffect(() => {
     if (!isAuthLoaded || loading) return; // Wait for Clerk + Convex
 
-    const inAuthGroup = segments[0] === 'auth';
-    const inOnboardingGroup = segments[0] === 'onboarding';
+    // Use a small timeout to let the router mount properly before redirecting,
+    // avoiding navigation being swallowed by Expo Router.
+    const timer = setTimeout(() => {
+      if (!isSignedIn) {
+        // Not authenticated → send to login
+        if (!inAuthGroup) {
+          router.replace('/auth/login');
+        }
+      } else if (!hasCompletedOnboarding) {
+        // Authenticated but not onboarded → send to onboarding
+        if (!inOnboardingGroup) {
+          router.replace('/onboarding/step1_goal');
+        }
+      } else {
+        // Fully authenticated & onboarded → send to tabs
+        if (inAuthGroup || inOnboardingGroup) {
+          router.replace('/(tabs)');
+        }
+      }
+    }, 10);
 
-    if (!isSignedIn) {
-      // Not authenticated → send to login
-      if (!inAuthGroup) {
-        router.replace('/auth/login');
-      }
-    } else if (!hasCompletedOnboarding) {
-      // Authenticated but not onboarded → send to onboarding
-      if (!inOnboardingGroup) {
-        router.replace('/onboarding/step1_goal');
-      }
-    } else {
-      // Fully authenticated & onboarded → send to tabs
-      if (inAuthGroup || inOnboardingGroup) {
-        router.replace('/(tabs)');
-      }
-    }
+    return () => clearTimeout(timer);
   }, [isAuthLoaded, isSignedIn, loading, hasCompletedOnboarding, segments]);
-
-  // Show a full-screen spinner until Clerk + Convex are both ready
-  if (!isAuthLoaded || loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0a0a0a' }}>
-        <ActivityIndicator size="large" color="#bef264" />
-        <StatusBar style="light" />
-      </View>
-    );
-  }
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      {/* 
+        Always mount the Stack so the router state stays intact.
+        During auth transitions (when `loading` is true but we haven't redirected yet)
+        we show an absolute-positioned overlay to prevent UI flash.
+      */}
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="auth" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
+
+      {(!isAuthLoaded || loading || initialLoad || isRedirecting) && (
+        <View style={[StyleSheet.absoluteFillObject, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#0a0a0a', zIndex: 9999 }]}>
+          <ActivityIndicator size="large" color="#bef264" />
+        </View>
+      )}
+
       <StatusBar style="auto" />
     </ThemeProvider>
   );

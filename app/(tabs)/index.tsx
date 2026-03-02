@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, RefreshControl, AppState } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import { useFood } from '../../context/FoodContext';
 import { useUser } from '../../context/UserContext';
 import { useChallenges } from '../../context/ChallengesContext';
 import { useRouter } from 'expo-router';
 import { usePostHog } from 'posthog-react-native';
+import * as Haptics from 'expo-haptics';
 import {
   Flame, Utensils, Droplet, Plus, Minus,
   Circle, Zap, Sun, Moon
@@ -22,6 +24,7 @@ export default function Dashboard() {
   const { userProfile, nutritionTargets, waterIntake, streak, updateWaterIntake, workoutSchedule, fetchLeaderboard, fetchDailyStats, loading: userLoading, todayStr } = useUser();
   const { verifyChallenges } = useChallenges();
   const posthog = usePostHog();
+  const insets = useSafeAreaInsets();
 
   const isDataLoading = foodLoading || userLoading;
 
@@ -86,9 +89,9 @@ export default function Dashboard() {
   };
 
   const fetchRanking = async () => {
-    if (!ranking && userProfile?.state) {
+    if (!ranking && userProfile?.id) {
       try {
-        const result = await fetchLeaderboard('state', userProfile.state);
+        const result = await fetchLeaderboard('all');
         if (result && result.currentUserEntry) {
           setRanking(result.currentUserEntry.rank);
         } else {
@@ -158,7 +161,7 @@ export default function Dashboard() {
       >
 
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top || 20 }]}>
           <View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               {greetingIcon}
@@ -198,7 +201,7 @@ export default function Dashboard() {
                 <Zap size={14} color="#eab308" fill="#eab308" />
               </View>
               <View>
-                <Text style={styles.topCardLabel}>State Rank</Text>
+                <Text style={styles.topCardLabel}>Global Rank</Text>
                 <Text style={styles.topCardValue}>#{ranking || '-'}</Text>
               </View>
             </View>
@@ -288,6 +291,7 @@ export default function Dashboard() {
                 <TouchableOpacity
                   style={[styles.waterBtnWhite, { width: 48, height: 48, backgroundColor: '#333' }]}
                   onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     const newValue = Math.max(0, waterIntake - 0.25);
                     updateWaterIntake(newValue, selectedDate);
                     posthog.capture('water_intake_updated', {
@@ -302,6 +306,7 @@ export default function Dashboard() {
                 <TouchableOpacity
                   style={[styles.waterBtnBlue, { width: 48, height: 48 }]}
                   onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                     const newValue = waterIntake + 0.25;
                     updateWaterIntake(newValue, selectedDate);
                     posthog.capture('water_intake_updated', {
@@ -431,7 +436,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
     paddingHorizontal: 20,
-    paddingTop: 40,
   },
   greetingText: {
     fontSize: 16,

@@ -9,24 +9,17 @@ export default function Step4Result() {
     const { nutritionTargets, completeOnboarding, userProfile } = useUser();
     const router = useRouter();
     const posthog = usePostHog();
-    const [isFinishing, setIsFinishing] = React.useState(false);
 
-    const handleFinish = async () => {
-        setIsFinishing(true);
+    const handleFinish = () => {
         posthog.capture('onboarding_completed', {
             goal: userProfile?.goal,
             daily_calories_target: nutritionTargets.calories,
             activity_level: userProfile?.activity_level,
             target_duration_weeks: userProfile?.target_duration_weeks,
         });
-        try {
-            await completeOnboarding();
-            // We intentionally do not call router.replace() here.
-            // _layout.tsx will detect that hasCompletedOnboarding is true and auto-route to /(tabs)
-        } catch (e) {
-            console.error(e);
-            setIsFinishing(false);
-        }
+
+        // Route to the new mandatory subscription screen
+        router.push('/onboarding/subscription');
     };
 
     const { calories, mealSplit } = nutritionTargets;
@@ -107,21 +100,30 @@ export default function Step4Result() {
 
             <View style={styles.footer}>
                 <TouchableOpacity
-                    style={[styles.button, isFinishing && { opacity: 0.7 }]}
+                    style={styles.button}
                     onPress={handleFinish}
-                    disabled={isFinishing}
                 >
                     <Text style={styles.buttonText}>
-                        {isFinishing ? 'Preparing your plan...' : 'Start Tracking'}
+                        Start Tracking
                     </Text>
-                    {!isFinishing && <ArrowRight size={20} color="#000" />}
+                    <ArrowRight size={20} color="#000" />
                 </TouchableOpacity>
             </View>
         </View>
     );
 }
 
-const MealRow = ({ label, calories, color, percent }) => (
+const MealRow = ({
+    label,
+    calories,
+    color,
+    percent
+}: {
+    label: string,
+    calories: number,
+    color: string,
+    percent: string
+}) => (
     <View style={styles.mealRow}>
         <View style={[styles.mealIcon, { backgroundColor: color }]}>
             <Text style={[styles.mealPercent, { color: '#fff' }]}>{percent}</Text>

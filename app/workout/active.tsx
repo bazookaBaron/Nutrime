@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Play, Pause, CheckCircle, Clock, Flame, X, RotateCcw, Plus, Calendar } from 'lucide-react-native';
 import { useUser } from '@/context/UserContext';
 import SuccessModal from '@/components/SuccessModal';
+import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
 
@@ -125,6 +126,7 @@ export default function ActiveWorkoutScreen() {
 
     const handleLogSet = () => {
         if (completedSets < exercise.sets) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             const nextCompleted = completedSets + 1;
             setCompletedSets(nextCompleted); // instant UI
             if (currentSet < exercise.sets) {
@@ -138,6 +140,7 @@ export default function ActiveWorkoutScreen() {
     };
 
     const handleComplete = () => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setIsActive(false);
         setPlaying(false);
         setShowSuccessModal(true); // show instantly

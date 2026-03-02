@@ -191,10 +191,10 @@ export const UserProvider = ({ children }) => {
         if (!user) return;
         const allowedFields = [
             'full_name', 'username', 'goal', 'activity_level', 'gender', 'weight', 'height', 'age',
-            'target_weight', 'target_duration_weeks', 'daily_calories', 'meal_split', 'streak',
+            'target_weight', 'target_duration_weeks', 'target_burn', 'daily_calories', 'meal_split', 'streak',
             'last_active_date', 'workout_xp', 'workout_level', 'push_token', 'timezone', 'country', 'state',
         ];
-        const numericFields = ['weight', 'height', 'age', 'target_weight', 'target_duration_weeks', 'daily_calories', 'streak', 'workout_xp', 'workout_level'];
+        const numericFields = ['weight', 'height', 'age', 'target_weight', 'target_duration_weeks', 'target_burn', 'daily_calories', 'streak', 'workout_xp', 'workout_level'];
         const coercedUpdates = {};
         Object.keys(updates).forEach((key) => {
             if (!allowedFields.includes(key)) return;
@@ -244,8 +244,22 @@ export const UserProvider = ({ children }) => {
     const completeOnboarding = async () => {
         if (!userProfile || !user) return;
         const { targetCalories, mealSplit } = calculateTargetsInternal(userProfile);
-        const updates = { daily_calories: targetCalories, meal_split: mealSplit };
+
+        // Calculate daily burn target based on user goal (same logic as step4_result.tsx)
+        const weightDiff = Math.abs((userProfile.weight || 70) - (userProfile.target_weight || 70));
+        const durationWeeks = userProfile.target_duration_weeks || 4;
+        const durationDays = durationWeeks * 7;
+        const totalCaloriesDiff = weightDiff * 7700; // 1 kg = 7700 kcal
+        let target_burn = Math.round(totalCaloriesDiff / durationDays);
+        target_burn = Math.max(200, Math.min(1000, target_burn)); // Cap between 200-1000
+
+        const updates = {
+            daily_calories: targetCalories,
+            meal_split: mealSplit,
+            target_burn: target_burn,
+        };
         await updateProfile(updates);
+
         if (!workoutSchedule || workoutSchedule.length === 0) {
             const startDate = new Date(todayStr);
             const schedule = generateWorkoutSchedule({ ...userProfile, ...updates }, gymExercises, homeExercises, startDate, 1, 5);

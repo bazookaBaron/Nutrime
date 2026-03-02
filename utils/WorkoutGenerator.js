@@ -10,24 +10,25 @@ const calculateCalories = (met, weightKg, durationMinutes) => {
 };
 
 const calculateDailyBurnTarget = (profile) => {
-    // Basic logic to determine daily calorie burn target from exercise
-    // This is a simplification. Real logic might be more complex.
-    // We'll aim for ~300-600 kcal/day depending on goal.
+    // If onboarding generated a specific target_burn, use it entirely
+    if (profile.target_burn && profile.target_burn > 0) {
+        return profile.target_burn;
+    }
 
+    // Fallback logic for legacy profiles
     let baseBurn = 300;
 
-    // Adjust based on goal
     switch (profile.goal) {
         case 'lose_weight':
         case 'lose_fat':
-            baseBurn = 500; // Aggressive target for weight loss
+            baseBurn = 500;
             break;
         case 'gain_muscle':
         case 'build_muscle':
-            baseBurn = 300; // Focus on resistance, not massive calorie burn
+            baseBurn = 300;
             break;
         case 'gain_weight':
-            baseBurn = 250; // Lower Cardio, focus on resistance
+            baseBurn = 250;
             break;
         case 'maintain':
         case 'retain':
@@ -35,7 +36,6 @@ const calculateDailyBurnTarget = (profile) => {
             baseBurn = 300;
     }
 
-    // Adjust based on weight (heavier people burn more easily, so we can scale slightly)
     if (profile.weight > 90) baseBurn += 100;
     if (profile.weight < 60) baseBurn -= 50;
 

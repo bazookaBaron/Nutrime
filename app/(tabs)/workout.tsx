@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Modal, Image, Alert, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Modal, Image, Alert, RefreshControl, InteractionManager, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
@@ -187,7 +187,22 @@ export default function WorkoutScreen() {
         setExerciseToReplace(null);
     };
 
-    if (!userProfile) return <SafeAreaView style={styles.container}><Text style={{ color: 'white', textAlign: 'center', marginTop: 50 }}>Loading profile...</Text></SafeAreaView>;
+    const [renderReady, setRenderReady] = useState(false);
+    useEffect(() => {
+        const task = InteractionManager.runAfterInteractions(() => {
+            setRenderReady(true);
+        });
+        return () => task.cancel();
+    }, []);
+
+    if (!userProfile || !renderReady) {
+        return (
+            <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color="#bef264" />
+                <Text style={{ color: 'white', marginTop: 15 }}>Loading Plan...</Text>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.container}>

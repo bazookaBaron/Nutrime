@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useUser } from '../../context/UserContext';
 import { ArrowLeft, ArrowRight, Target, TrendingUp, Heart, Zap } from 'lucide-react-native';
@@ -17,6 +18,7 @@ export default function Step1Goal() {
     const { updateProfile } = useUser();
     const router = useRouter();
     const posthog = usePostHog();
+    const insets = useSafeAreaInsets();
 
     const handleNext = () => {
         if (selectedGoal) {
@@ -30,7 +32,7 @@ export default function Step1Goal() {
     };
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { paddingTop: insets.top || 20 }]}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <ArrowLeft size={24} color="#fff" />
@@ -96,7 +98,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#0a0a0a',
-        paddingTop: 50,
     },
     header: {
         flexDirection: 'row',

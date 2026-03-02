@@ -59,7 +59,9 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSHealthShareUsageDescription": "This app requires access to your health data to track your daily steps, heart rate, and sleep to provide better fitness insights.",
-        "NSHealthUpdateUsageDescription": "This app requires permission to update your health data."
+        "NSHealthUpdateUsageDescription": "This app requires permission to update your health data.",
+        "NSPhotoLibraryUsageDescription": "This app requires access to your photos to let you upload a profile picture.",
+        "NSCameraUsageDescription": "This app requires access to your camera to let you take a profile picture."
       },
       "entitlements": {
         "com.apple.developer.healthkit": true

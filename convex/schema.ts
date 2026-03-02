@@ -16,6 +16,7 @@ export default defineSchema({
         age: v.optional(v.number()),
         target_weight: v.optional(v.number()),
         target_duration_weeks: v.optional(v.number()),
+        target_burn: v.optional(v.number()),
         daily_calories: v.optional(v.number()),
         meal_split: v.optional(
             v.object({

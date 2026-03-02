@@ -1,699 +1,534 @@
-/**
- * login.tsx — Standalone auth screen
- *
- * Uses Clerk hooks directly. Never calls router.push — routing is reactive and
- * handled entirely by _layout.tsx watching isSignedIn + hasCompletedOnboarding.
- *
- * Flows:
- *  1. Email/password login   (+ optional TOTP 2FA)
- *  2. Email/password sign-up (+ OTP email verification)
- *  3. Google OAuth
- */
-
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, StyleSheet,
     Alert, KeyboardAvoidingView, Platform, ScrollView,
-    ActivityIndicator, Animated,
+    ActivityIndicator, Animated, Keyboard
 } from 'react-native';
-import { useSignIn, useSignUp, useOAuth, useUser as useClerkUser } from '@clerk/clerk-expo';
+import { useSignIn, useSignUp, useOAuth } from '@clerk/clerk-expo';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import { useConvex } from 'convex/react';
-import { api } from '../../convex/_generated/api';
 import { usePostHog } from 'posthog-react-native';
-import { Mail, Lock, User, ShieldCheck, Eye, EyeOff } from 'lucide-react-native';
+import { Mail, Lock, User, ArrowRight, Chrome } from 'lucide-react-native';
 
 WebBrowser.maybeCompleteAuthSession();
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 const showAlert = (title: string, message: string) => {
-    if (Platform.OS === 'web') {
-        window.alert(`${title}\n\n${message}`);
-    } else {
-        Alert.alert(title, message);
-    }
+    if (Platform.OS === 'web') window.alert(`${title}\n\n${message}`);
+    else Alert.alert(title, message);
 };
 
-type Screen = 'login' | 'signup' | 'otp' | 'twofa';
-
-// ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
-
-interface FieldProps {
-    icon: React.ReactNode;
-    placeholder: string;
-    value: string;
-    onChangeText: (t: string) => void;
-    secureTextEntry?: boolean;
-    keyboardType?: 'default' | 'email-address' | 'number-pad';
-    autoCapitalize?: 'none' | 'sentences';
-    autoFocus?: boolean;
-    rightElement?: React.ReactNode;
-}
-
-function Field({
-    icon, placeholder, value, onChangeText,
-    secureTextEntry = false, keyboardType = 'default',
-    autoCapitalize = 'sentences', autoFocus = false, rightElement,
-}: FieldProps) {
-    return (
-        <View style={styles.inputRow}>
-            <View style={styles.inputIcon}>{icon}</View>
-            <TextInput
-                style={styles.input}
-                placeholder={placeholder}
-                placeholderTextColor="#6b7280"
-                value={value}
-                onChangeText={onChangeText}
-                secureTextEntry={secureTextEntry}
-                keyboardType={keyboardType}
-                autoCapitalize={autoCapitalize}
-                autoFocus={autoFocus}
-            />
-            {rightElement}
-        </View>
-    );
-}
-
-// ---------------------------------------------------------------------------
-// Main Screen
-// ---------------------------------------------------------------------------
-export default function LoginScreen() {
+export default function AuthScreen() {
     const posthog = usePostHog();
-    const convex = useConvex();
 
     const { signIn, setActive: setSignInActive, isLoaded: isSignInLoaded } = useSignIn();
     const { signUp, setActive: setSignUpActive, isLoaded: isSignUpLoaded } = useSignUp();
     const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
 
-    // Screen state
-    const [screen, setScreen] = useState<Screen>('login');
+    // UX State
+    const [mode, setMode] = useState<'login' | 'register'>('login');
+    const [step, setStep] = useState<'form' | 'otp'>('form');
 
-    // Form fields
+    // Global Loading State - freezes UI while Clerk API calls process
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    // Form Fields
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [fullName, setFullName] = useState('');
     const [username, setUsername] = useState('');
-    const [code, setCode] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
+    const [otpCode, setOtpCode] = useState('');
 
-    // Loading states
-    const [submitting, setSubmitting] = useState(false);
-    const [googleLoading, setGoogleLoading] = useState(false);
-
-    // -------------------------------------------------------------------------
-    // Ensure Convex profile after successful auth
-    // -------------------------------------------------------------------------
-    const ensureProfile = useCallback(async (
-        userId: string,
-        userEmail?: string | null,
-        name?: string | null,
-        uname?: string | null,
-    ) => {
+    // --- Google OAuth ---
+    const handleGoogle = async () => {
+        setIsProcessing(true);
         try {
-            await convex.mutation(api.users.ensureProfile, {
-                userId,
-                email: userEmail ?? undefined,
-                full_name: name ?? undefined,
-                username: uname ?? undefined,
-            });
-        } catch (err) {
-            console.warn('[LoginScreen] ensureProfile failed (non-fatal):', err);
-        }
-    }, [convex]);
+            const redirectUrl = Linking.createURL('/auth/login');
+            const { createdSessionId, setActive, signUp: googleSignUp } = await startOAuthFlow({ redirectUrl });
 
-    // -------------------------------------------------------------------------
-    // Google OAuth
-    // -------------------------------------------------------------------------
-    const handleGoogleAuth = useCallback(async () => {
-        setGoogleLoading(true);
-        try {
-            // redirectUrl tells Clerk where to deep-link back after the browser flow.
-            // Without this, the OAuth callback hits an unknown route in Expo Router.
-            const redirectUrl = Linking.createURL('/');
-            const { createdSessionId, setActive } = await startOAuthFlow({ redirectUrl });
             if (createdSessionId && setActive) {
+                // Success
                 await setActive({ session: createdSessionId });
                 posthog.capture('user_google_auth');
-                // _layout.tsx will redirect automatically once isSignedIn becomes true.
-                // useEnsureProfile in UserContext handles DB profile creation/lookup.
+                // Deliberately keep isProcessing = true while _layout hands off routing.
+            } else if (googleSignUp?.status === 'missing_requirements') {
+                // Generate username for Clerk
+                const rawName = ((googleSignUp.firstName || '') + (googleSignUp.lastName || '')).replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                const randomId = Math.floor(1000 + Math.random() * 9000).toString();
+                const fallbackUsername = (rawName ? rawName.slice(0, 11) + randomId : `user${randomId}`).toLowerCase();
+
+                const updatePayload: any = { username: fallbackUsername };
+                if (googleSignUp.firstName) updatePayload.firstName = googleSignUp.firstName;
+                if (googleSignUp.lastName) updatePayload.lastName = googleSignUp.lastName;
+
+                const finalResult = await googleSignUp.update(updatePayload);
+
+                if (finalResult.status === 'complete' && finalResult.createdSessionId && setActive) {
+                    await setActive({ session: finalResult.createdSessionId });
+                    posthog.capture('user_google_auth');
+                    // Success, keep isProcessing true
+                } else {
+                    throw new Error(`Unexpected status: ${finalResult.status}`);
+                }
+            } else {
+                throw new Error('Google Sign-In failed or was cancelled.');
             }
         } catch (err: any) {
-            console.error('[LoginScreen] Google OAuth error:', err);
-            showAlert('Google Sign-In Failed', err?.message ?? 'Something went wrong.');
-        } finally {
-            setGoogleLoading(false);
+            console.error('Google Auth Error:', err);
+            // If they just closed the browser, don't show a massive error
+            if (err?.code !== 'session_exists') {
+                showAlert('Authentication Error', err?.errors?.[0]?.longMessage || err?.message || 'Something went wrong.');
+            }
+            setIsProcessing(false);
         }
-    }, [startOAuthFlow]);
+    };
 
-    // -------------------------------------------------------------------------
-    // Email / Password Login
-    // -------------------------------------------------------------------------
-    const handleLogin = async () => {
-        if (!isSignInLoaded || !signIn) return;
-        if (!email.trim() || !password) {
-            showAlert('Missing Fields', 'Please enter your email and password.');
+    // --- Email & Password ---
+    const handleSubmit = async () => {
+        if (step === 'otp') {
+            await handleVerifyOTP();
             return;
         }
-        setSubmitting(true);
+
+        if (mode === 'login') {
+            await handleLogin();
+        } else {
+            await handleRegister();
+        }
+    };
+
+    const handleLogin = async () => {
+        if (!isSignInLoaded) return;
+        if (!email.trim() || !password) return showAlert('Missing Fields', 'Please enter email and password.');
+
+        setIsProcessing(true);
         try {
             const result = await signIn.create({
                 identifier: email.trim().toLowerCase(),
                 password,
             });
 
-            // Debug: log status so we can see exactly what Clerk returns
-            console.log('[Login] Clerk signIn status:', result.status);
-
             if (result.status === 'complete') {
                 await setSignInActive({ session: result.createdSessionId });
                 posthog.identify(email.trim(), { $set: { email: email.trim() } });
                 posthog.capture('user_logged_in', { email: email.trim() });
-            } else if (result.status === 'needs_second_factor') {
-                // This user account has MFA personally enrolled, even though
-                // global MFA is disabled. It must be removed on the specific user
-                // in the Clerk dashboard: Users → [user] → Multi-factor → Remove
-                showAlert(
-                    'MFA Still Active',
-                    'Your account still has MFA enrolled. Go to Clerk Dashboard → Users → select your user → MFA tab → Remove the enrollment. Then try again.'
-                );
-            } else if (result.status === 'needs_first_factor') {
-                setCode('');
-                setScreen('otp');
+                // keep isProcessing true for handoff
             } else {
-                showAlert('Sign In Failed', `Unexpected Clerk status: "${result.status}". Check the debug console for details.`);
+                setIsProcessing(false);
+                showAlert('Login Failed', `Status: ${result.status}`);
             }
         } catch (err: any) {
-            console.error('[LoginScreen] Login error:', err);
-            const msg = err?.errors?.[0]?.longMessage ?? err?.message ?? 'Login failed. Please try again.';
-            posthog.capture('$exception', { $exception_list: [{ type: 'LoginError', value: msg }] });
-            showAlert('Sign In Failed', msg);
-        } finally {
-            setSubmitting(false);
+            setIsProcessing(false);
+            const msg = err?.errors?.[0]?.longMessage || err?.message || 'Login failed.';
+            showAlert('Login Failed', msg);
         }
     };
 
-    // -------------------------------------------------------------------------
-    // TOTP 2FA Verification (for login)
-    // -------------------------------------------------------------------------
-    const handleVerify2FA = async () => {
-        if (!isSignInLoaded || !signIn) return;
-        if (!code.trim()) {
-            showAlert('Error', 'Please enter your 2FA code.');
-            return;
-        }
-        setSubmitting(true);
-        try {
-            const result = await signIn.attemptSecondFactor({ strategy: 'totp', code: code.trim() });
-            if (result.status === 'complete') {
-                await setSignInActive({ session: result.createdSessionId });
-                // ensureProfile handled by useEnsureProfile hook in UserContext
-                posthog.capture('user_logged_in_2fa', { email: email.trim() });
-            } else {
-                showAlert('2FA Failed', `Status: ${result.status}`);
-            }
-        } catch (err: any) {
-            const msg = err?.errors?.[0]?.longMessage ?? err?.message ?? '2FA verification failed.';
-            showAlert('Verification Failed', msg);
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-    // -------------------------------------------------------------------------
-    // Sign Up
-    // -------------------------------------------------------------------------
-    const handleSignUp = async () => {
-        if (!isSignUpLoaded || !signUp) return;
+    const handleRegister = async () => {
+        if (!isSignUpLoaded) return;
         if (!email.trim() || !password || !fullName.trim() || !username.trim()) {
-            showAlert('Missing Fields', 'Please fill in all fields to create an account.');
-            return;
+            return showAlert('Missing Fields', 'Please fill all fields.');
         }
-        if (username.trim().length > 9) {
-            showAlert('Invalid Username', 'Username must be at most 9 characters.');
-            return;
-        }
-        setSubmitting(true);
+
+        setIsProcessing(true);
         try {
-            // Create the sign-up attempt with only email + password.
-            // username / names are saved to Convex after OTP verification.
-            // Passing unsupported fields here causes "No sign up attempt found".
             const result = await signUp.create({
                 emailAddress: email.trim().toLowerCase(),
                 password,
             });
 
             if (result.status === 'complete') {
-                // If Clerk doesn't require verification (settings changed in dashboard)
                 await setSignUpActive({ session: result.createdSessionId });
-                if (result.createdUserId) {
-                    await ensureProfile(
-                        result.createdUserId,
-                        result.emailAddress || email.trim(),
-                        fullName.trim(),
-                        username.trim().toLowerCase(),
-                    );
-                }
-                posthog.capture('user_signed_up_complete', { email: email.trim() });
+                // keep isProcessing true
             } else if (result.status === 'missing_requirements') {
-                // Normal OTP verification flow
                 await result.prepareEmailAddressVerification({ strategy: 'email_code' });
-                posthog.identify(email.trim(), {
-                    $set: { email: email.trim(), full_name: fullName.trim(), username: username.trim() },
-                    $set_once: { signup_date: new Date().toISOString() },
-                });
-                posthog.capture('user_signed_up_needs_otp', { email: email.trim() });
-                setCode('');
-                setScreen('otp');
+                setStep('otp');
+                setIsProcessing(false); // Free UI for OTP input
             } else {
-                showAlert('Sign Up', `Status: ${result.status}`);
+                setIsProcessing(false);
+                showAlert('Error', `Status: ${result.status}`);
             }
         } catch (err: any) {
-            console.error('[LoginScreen] SignUp error:', err);
-            const msg = err?.errors?.[0]?.longMessage ?? err?.message ?? 'Sign up failed. Please try again.';
+            setIsProcessing(false);
+            const msg = err?.errors?.[0]?.longMessage || err?.message || 'Sign up failed.';
             showAlert('Sign Up Failed', msg);
-        } finally {
-            setSubmitting(false);
         }
     };
 
-    // -------------------------------------------------------------------------
-    // OTP Email Verification (for sign-up)
-    // -------------------------------------------------------------------------
     const handleVerifyOTP = async () => {
-        if (!isSignUpLoaded || !signUp) return;
-        if (!code.trim()) {
-            showAlert('Error', 'Please enter the verification code from your email.');
-            return;
-        }
-        setSubmitting(true);
-        try {
-            let result = await signUp.attemptEmailAddressVerification({ code: code.trim() });
+        if (!isSignUpLoaded) return;
+        if (!otpCode.trim()) return showAlert('Missing OTP', 'Please enter the code sent to your email.');
 
-            // After email verification, Clerk may return 'missing_requirements' because
-            // we deferred username/name fields during signUp.create(). We finish the
-            // sign-up by calling update() with those fields now.
+        setIsProcessing(true);
+        try {
+            let result = await signUp.attemptEmailAddressVerification({ code: otpCode.trim() });
+
             if (result.status === 'missing_requirements') {
                 const nameParts = fullName.trim().split(' ');
-                const firstName = nameParts[0] || '';
-                const lastName = nameParts.slice(1).join(' ') || '';
+                const fName = nameParts[0] || '';
+                const lName = nameParts.slice(1).join(' ') || '';
 
                 result = await signUp.update({
                     username: username.trim().toLowerCase(),
-                    firstName,
-                    lastName,
+                    firstName: fName,
+                    lastName: lName,
                 });
             }
 
             if (result.status === 'complete') {
                 await setSignUpActive({ session: result.createdSessionId });
-                if (result.createdUserId) {
-                    await ensureProfile(
-                        result.createdUserId,
-                        result.emailAddress,
-                        fullName.trim(),
-                        username.trim().toLowerCase(),
-                    );
-                }
                 posthog.capture('user_verified_signup', { email: email.trim() });
-                // _layout.tsx will redirect to onboarding
+                // keep isProcessing true
             } else {
-                showAlert('Verification Failed', `Status: ${result.status}`);
+                setIsProcessing(false);
+                showAlert('Error', `Status: ${result.status}`);
             }
         } catch (err: any) {
-            console.error('[LoginScreen] OTP verify error:', err);
-            const msg = err?.errors?.[0]?.longMessage ?? err?.message ?? 'Verification failed.';
+            setIsProcessing(false);
+            const msg = err?.errors?.[0]?.longMessage || err?.message || 'Verification failed.';
             showAlert('Verification Failed', msg);
-        } finally {
-            setSubmitting(false);
         }
     };
 
-    // -------------------------------------------------------------------------
-    // Resend OTP
-    // -------------------------------------------------------------------------
-    const handleResendOTP = async () => {
-        if (!isSignUpLoaded || !signUp) return;
-        try {
-            await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
-            showAlert('Code Sent', 'A new verification code has been sent to your email.');
-        } catch (err: any) {
-            showAlert('Error', err?.message ?? 'Could not resend code.');
-        }
-    };
-
-    // -------------------------------------------------------------------------
-    // Dispatch
-    // -------------------------------------------------------------------------
-    const handleSubmit = () => {
-        switch (screen) {
-            case 'login': return handleLogin();
-            case 'signup': return handleSignUp();
-            case 'otp': return handleVerifyOTP();
-            case 'twofa': return handleVerify2FA();
-        }
-    };
-
-    // -------------------------------------------------------------------------
-    // Copy for each screen
-    // -------------------------------------------------------------------------
-    const copy = {
-        login: { title: 'Welcome Back', subtitle: 'Sign in to continue your journey', cta: 'Sign In' },
-        signup: { title: 'Create Account', subtitle: 'Start your transformation today', cta: 'Create Account' },
-        otp: { title: 'Check Your Email', subtitle: `We sent a code to ${email}`, cta: 'Verify Email' },
-        twofa: { title: 'Two-Factor Auth', subtitle: 'Enter the code from your 2FA app', cta: 'Verify Code' },
-    };
-    const { title, subtitle, cta } = copy[screen];
-    const isLoading = submitting || googleLoading;
-
-    // -------------------------------------------------------------------------
-    // Render
-    // -------------------------------------------------------------------------
     return (
-        <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.container}
-        >
-            <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-            >
-                {/* ---- Header ---- */}
-                <View style={styles.header}>
-                    <View style={styles.logoBg}>
-                        <Text style={styles.logoText}>N</Text>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
+            <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+                <View style={styles.contentWrapper}>
+                    {/* Header Section */}
+                    <View style={styles.header}>
+                        <View style={styles.iconContainer}>
+                            <Text style={styles.iconText}>N</Text>
+                        </View>
+                        <Text style={styles.title}>Nutrient Tracker</Text>
+                        <Text style={styles.subtitle}>
+                            {step === 'otp' ? `We sent a code to ${email}` : 'Log your journey, reach your goals'}
+                        </Text>
                     </View>
-                    <Text style={styles.title}>{title}</Text>
-                    <Text style={styles.subtitle}>{subtitle}</Text>
-                </View>
 
-                {/* ---- Form ---- */}
-                <View style={styles.form}>
+                    {/* Form Section */}
+                    <View style={styles.card}>
+                        {step === 'form' && (
+                            <View style={styles.toggleContainer}>
+                                <TouchableOpacity
+                                    style={[styles.toggleBtn, mode === 'login' && styles.toggleBtnActive]}
+                                    onPress={() => setMode('login')}
+                                >
+                                    <Text style={[styles.toggleText, mode === 'login' && styles.toggleTextActive]}>Sign In</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.toggleBtn, mode === 'register' && styles.toggleBtnActive]}
+                                    onPress={() => setMode('register')}
+                                >
+                                    <Text style={[styles.toggleText, mode === 'register' && styles.toggleTextActive]}>Sign Up</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
 
-                    {/* Google Button — only on login/signup screens */}
-                    {(screen === 'login' || screen === 'signup') && (
-                        <>
-                            <TouchableOpacity
-                                style={[styles.googleButton, isLoading && styles.disabled]}
-                                onPress={handleGoogleAuth}
-                                disabled={isLoading}
-                                activeOpacity={0.8}
-                            >
-                                {googleLoading ? (
-                                    <ActivityIndicator color="#fff" size="small" />
-                                ) : (
+                        {step === 'otp' ? (
+                            <View style={styles.inputGroup}>
+                                <View style={styles.inputField}>
+                                    <Lock color="#6b7280" size={20} />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="6-Digit OTP Code"
+                                        placeholderTextColor="#6b7280"
+                                        value={otpCode}
+                                        onChangeText={setOtpCode}
+                                        keyboardType="number-pad"
+                                        autoFocus
+                                    />
+                                </View>
+                            </View>
+                        ) : (
+                            <View style={styles.inputGroup}>
+                                {mode === 'register' && (
                                     <>
-                                        <View style={styles.googleLogo}>
-                                            <Text style={styles.googleLogoText}>G</Text>
+                                        <View style={styles.inputField}>
+                                            <User color="#6b7280" size={20} />
+                                            <TextInput
+                                                style={styles.input}
+                                                placeholder="Full Name"
+                                                placeholderTextColor="#6b7280"
+                                                value={fullName}
+                                                onChangeText={setFullName}
+                                                autoCapitalize="words"
+                                            />
                                         </View>
-                                        <Text style={styles.googleButtonText}>Continue with Google</Text>
+                                        <View style={styles.inputField}>
+                                            <User color="#6b7280" size={20} />
+                                            <TextInput
+                                                style={styles.input}
+                                                placeholder="Username (e.g. johndoe123)"
+                                                placeholderTextColor="#6b7280"
+                                                value={username}
+                                                onChangeText={(t) => setUsername(t.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().slice(0, 15))}
+                                                autoCapitalize="none"
+                                            />
+                                        </View>
                                     </>
                                 )}
-                            </TouchableOpacity>
-
-                            <View style={styles.divider}>
-                                <View style={styles.dividerLine} />
-                                <Text style={styles.dividerText}>or</Text>
-                                <View style={styles.dividerLine} />
+                                <View style={styles.inputField}>
+                                    <Mail color="#6b7280" size={20} />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Email Address"
+                                        placeholderTextColor="#6b7280"
+                                        value={email}
+                                        onChangeText={setEmail}
+                                        autoCapitalize="none"
+                                        keyboardType="email-address"
+                                    />
+                                </View>
+                                <View style={styles.inputField}>
+                                    <Lock color="#6b7280" size={20} />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Password"
+                                        placeholderTextColor="#6b7280"
+                                        value={password}
+                                        onChangeText={setPassword}
+                                        secureTextEntry
+                                    />
+                                </View>
                             </View>
-                        </>
-                    )}
-
-                    {/* OTP / 2FA code input */}
-                    {(screen === 'otp' || screen === 'twofa') && (
-                        <Field
-                            icon={<ShieldCheck size={20} color="#6b7280" />}
-                            placeholder={screen === 'twofa' ? 'Authenticator Code' : 'Verification Code'}
-                            value={code}
-                            onChangeText={setCode}
-                            keyboardType="number-pad"
-                            autoCapitalize="none"
-                            autoFocus
-                        />
-                    )}
-
-                    {/* Sign-up only fields */}
-                    {screen === 'signup' && (
-                        <>
-                            <Field
-                                icon={<User size={20} color="#6b7280" />}
-                                placeholder="Full Name"
-                                value={fullName}
-                                onChangeText={setFullName}
-                            />
-                            <Field
-                                icon={<User size={20} color="#6b7280" />}
-                                placeholder="Username (max 9 chars)"
-                                value={username}
-                                onChangeText={(text) => setUsername(text.slice(0, 9).toLowerCase().replace(/[^a-z0-9]/g, ''))}
-                                autoCapitalize="none"
-                            />
-                        </>
-                    )}
-
-                    {/* Email + Password — login & signup */}
-                    {(screen === 'login' || screen === 'signup') && (
-                        <>
-                            <Field
-                                icon={<Mail size={20} color="#6b7280" />}
-                                placeholder="Email Address"
-                                value={email}
-                                onChangeText={setEmail}
-                                keyboardType="email-address"
-                                autoCapitalize="none"
-                            />
-                            <Field
-                                icon={<Lock size={20} color="#6b7280" />}
-                                placeholder="Password"
-                                value={password}
-                                onChangeText={setPassword}
-                                secureTextEntry={!showPassword}
-                                autoCapitalize="none"
-                                rightElement={
-                                    <TouchableOpacity onPress={() => setShowPassword((v) => !v)} style={styles.eyeButton}>
-                                        {showPassword
-                                            ? <EyeOff size={18} color="#6b7280" />
-                                            : <Eye size={18} color="#6b7280" />
-                                        }
-                                    </TouchableOpacity>
-                                }
-                            />
-                        </>
-                    )}
-
-                    {/* Submit */}
-                    <TouchableOpacity
-                        style={[styles.submitButton, isLoading && styles.disabled]}
-                        onPress={handleSubmit}
-                        disabled={isLoading}
-                        activeOpacity={0.85}
-                    >
-                        {submitting ? (
-                            <ActivityIndicator color="#000" />
-                        ) : (
-                            <Text style={styles.submitButtonText}>{cta}</Text>
                         )}
-                    </TouchableOpacity>
 
-                    {/* Footer links */}
-                    {screen === 'login' && (
-                        <View style={styles.footer}>
-                            <Text style={styles.footerText}>Don't have an account?  </Text>
-                            <TouchableOpacity onPress={() => { setScreen('signup'); setCode(''); }}>
-                                <Text style={styles.footerLink}>Sign Up</Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
-
-                    {screen === 'signup' && (
-                        <View style={styles.footer}>
-                            <Text style={styles.footerText}>Already have an account?  </Text>
-                            <TouchableOpacity onPress={() => { setScreen('login'); setCode(''); }}>
-                                <Text style={styles.footerLink}>Sign In</Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
-
-                    {screen === 'otp' && (
-                        <View style={styles.otpFooter}>
-                            <TouchableOpacity onPress={() => setScreen('signup')}>
-                                <Text style={styles.footerLink}>← Back to Sign Up</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={handleResendOTP}>
-                                <Text style={styles.footerLink}>Resend Code</Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
-
-                    {screen === 'twofa' && (
-                        <TouchableOpacity style={styles.footer} onPress={() => setScreen('login')}>
-                            <Text style={styles.footerLink}>← Back to Sign In</Text>
+                        <TouchableOpacity
+                            style={[styles.mainButton, isProcessing && styles.mainButtonDisabled]}
+                            onPress={handleSubmit}
+                            disabled={isProcessing}
+                        >
+                            {isProcessing ? (
+                                <ActivityIndicator color="#0f172a" />
+                            ) : (
+                                <>
+                                    <Text style={styles.mainButtonText}>
+                                        {step === 'otp' ? 'Verify Details' : mode === 'login' ? 'Sign In' : 'Create Account'}
+                                    </Text>
+                                    <ArrowRight color="#0f172a" size={20} />
+                                </>
+                            )}
                         </TouchableOpacity>
-                    )}
+
+                        {step === 'form' && (
+                            <View style={styles.oauthSection}>
+                                <View style={styles.divider}>
+                                    <View style={styles.line} />
+                                    <Text style={styles.dividerText}>OR</Text>
+                                    <View style={styles.line} />
+                                </View>
+
+                                <TouchableOpacity
+                                    style={styles.oauthBtn}
+                                    onPress={handleGoogle}
+                                    disabled={isProcessing}
+                                >
+                                    <Chrome color="#fff" size={20} />
+                                    <Text style={styles.oauthText}>Continue with Google</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+
+                        {step === 'otp' && (
+                            <TouchableOpacity style={styles.backBtn} onPress={() => setStep('form')} disabled={isProcessing}>
+                                <Text style={styles.backBtnText}>Change Email or Sign In</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
                 </View>
             </ScrollView>
+
+            {/* Global Loader Overlay if they are navigating away */}
+            {isProcessing && (
+                <View style={styles.processingOverlay}>
+                    <ActivityIndicator size="large" color="#bef264" />
+                    <Text style={styles.processingText}>Authenticating securely...</Text>
+                </View>
+            )}
         </KeyboardAvoidingView>
     );
 }
 
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0a0a0a',
+        backgroundColor: '#0f172a',
     },
     scrollContent: {
         flexGrow: 1,
         justifyContent: 'center',
-        paddingHorizontal: 24,
-        paddingVertical: 40,
+    },
+    contentWrapper: {
+        padding: 24,
+        alignItems: 'center',
     },
     header: {
         alignItems: 'center',
         marginBottom: 40,
+        marginTop: 60,
     },
-    logoBg: {
+    iconContainer: {
         width: 80,
         height: 80,
         borderRadius: 24,
-        backgroundColor: 'rgba(190, 242, 100, 0.12)',
-        borderWidth: 1,
-        borderColor: 'rgba(190, 242, 100, 0.2)',
+        backgroundColor: 'rgba(190, 242, 100, 0.1)',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 24,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(190, 242, 100, 0.2)',
     },
-    logoText: {
+    iconText: {
         fontSize: 36,
-        fontWeight: 'bold',
+        fontWeight: '900',
         color: '#bef264',
     },
     title: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: '#fff',
+        fontSize: 32,
+        fontWeight: '800',
+        color: '#f8fafc',
         marginBottom: 8,
         letterSpacing: -0.5,
     },
     subtitle: {
-        fontSize: 15,
-        color: '#6b7280',
+        fontSize: 16,
+        color: '#94a3b8',
         textAlign: 'center',
-        paddingHorizontal: 20,
-        lineHeight: 22,
     },
-    form: {
+    card: {
         width: '100%',
+        backgroundColor: '#1e293b',
+        borderRadius: 32,
+        padding: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        elevation: 10,
+        borderWidth: 1,
+        borderColor: '#334155',
     },
-    googleButton: {
+    toggleContainer: {
+        flexDirection: 'row',
+        backgroundColor: '#0f172a',
+        borderRadius: 16,
+        padding: 4,
+        marginBottom: 24,
+    },
+    toggleBtn: {
+        flex: 1,
+        paddingVertical: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 12,
+    },
+    toggleBtnActive: {
+        backgroundColor: '#1e293b',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    toggleText: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#64748b',
+    },
+    toggleTextActive: {
+        color: '#f8fafc',
+    },
+    inputGroup: {
+        gap: 16,
+        marginBottom: 24,
+    },
+    inputField: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#1e1e1e',
-        borderRadius: 14,
+        backgroundColor: '#0f172a',
+        borderRadius: 16,
+        paddingHorizontal: 16,
         height: 56,
-        marginBottom: 20,
         borderWidth: 1,
-        borderColor: '#2e2e2e',
-        gap: 12,
+        borderColor: '#334155',
     },
-    googleLogo: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        backgroundColor: '#fff',
+    input: {
+        flex: 1,
+        color: '#f8fafc',
+        fontSize: 16,
+        marginLeft: 12,
+    },
+    mainButton: {
+        backgroundColor: '#bef264',
+        borderRadius: 16,
+        height: 56,
+        flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
+        gap: 8,
     },
-    googleLogoText: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: '#4285F4',
+    mainButtonDisabled: {
+        backgroundColor: '#84cc16',
+        opacity: 0.7,
     },
-    googleButtonText: {
-        color: '#fff',
+    mainButtonText: {
+        color: '#0f172a',
         fontSize: 16,
-        fontWeight: '600',
+        fontWeight: '700',
+    },
+    oauthSection: {
+        marginTop: 24,
     },
     divider: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 20,
-        gap: 12,
+        marginBottom: 24,
     },
-    dividerLine: {
+    line: {
         flex: 1,
         height: 1,
-        backgroundColor: '#1e1e1e',
+        backgroundColor: '#334155',
     },
     dividerText: {
-        color: '#4b5563',
-        fontSize: 14,
+        color: '#64748b',
+        paddingHorizontal: 16,
+        fontSize: 12,
+        fontWeight: '700',
     },
-    inputRow: {
+    oauthBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#111',
-        borderRadius: 14,
-        marginBottom: 12,
-        paddingHorizontal: 16,
+        justifyContent: 'center',
+        backgroundColor: '#334155',
+        borderRadius: 16,
         height: 56,
-        borderWidth: 1,
-        borderColor: '#1e1e1e',
+        gap: 12,
     },
-    inputIcon: {
-        marginRight: 12,
-    },
-    input: {
-        flex: 1,
+    oauthText: {
         color: '#fff',
         fontSize: 16,
-    },
-    eyeButton: {
-        padding: 4,
-    },
-    submitButton: {
-        backgroundColor: '#bef264',
-        borderRadius: 14,
-        height: 56,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginTop: 8,
-        marginBottom: 20,
-    },
-    submitButtonText: {
-        color: '#000',
-        fontSize: 17,
-        fontWeight: 'bold',
-        letterSpacing: 0.3,
-    },
-    disabled: {
-        opacity: 0.6,
-    },
-    footer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    otpFooter: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    footerText: {
-        color: '#6b7280',
-        fontSize: 14,
-    },
-    footerLink: {
-        color: '#bef264',
-        fontSize: 14,
         fontWeight: '600',
     },
+    backBtn: {
+        marginTop: 20,
+        alignItems: 'center',
+    },
+    backBtnText: {
+        color: '#94a3b8',
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    processingOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 999,
+    },
+    processingText: {
+        color: '#f8fafc',
+        marginTop: 16,
+        fontSize: 16,
+        fontWeight: '600',
+    }
 });

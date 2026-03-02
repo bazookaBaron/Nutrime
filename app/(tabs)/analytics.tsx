@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
     View, Text, StyleSheet, ScrollView,
-    TouchableOpacity, Modal, ActivityIndicator, LayoutChangeEvent,
+    TouchableOpacity, Modal, ActivityIndicator, LayoutChangeEvent, InteractionManager
 } from 'react-native';
 import { BarChart } from 'react-native-gifted-charts';
 import { useFood } from '../../context/FoodContext';
@@ -137,8 +137,16 @@ export default function Analytics() {
         }
     }, [calendarStart]);
 
-    // ── Loading ────────────────────────────────────────────────────────────────
-    if (isLoading) {
+    // ── Loading & Deferral ─────────────────────────────────────────────────────
+    const [renderReady, setRenderReady] = useState(false);
+    useEffect(() => {
+        const task = InteractionManager.runAfterInteractions(() => {
+            setRenderReady(true);
+        });
+        return () => task.cancel();
+    }, []);
+
+    if (isLoading || !renderReady) {
         return (
             <View style={[styles.container, styles.centered]}>
                 <ActivityIndicator size="large" color="#bef264" />

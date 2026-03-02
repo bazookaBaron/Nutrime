@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useUser } from '../../context/UserContext';
 import { ArrowLeft, ArrowRight } from 'lucide-react-native';
@@ -24,6 +25,7 @@ export default function Step2Stats() {
 
     const { updateProfile } = useUser();
     const router = useRouter();
+    const insets = useSafeAreaInsets();
 
     const handleNext = () => {
         if (weight && height && age && country) {
@@ -41,7 +43,10 @@ export default function Step2Stats() {
     };
 
     return (
-        <View style={styles.container}>
+        <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={[styles.container, { paddingTop: insets.top || 20 }]}
+        >
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <ArrowLeft size={24} color="#fff" />
@@ -153,7 +158,7 @@ export default function Step2Stats() {
                     <ArrowRight size={20} color={!isFormValid ? '#6b7280' : '#000'} />
                 </TouchableOpacity>
             </View>
-        </View>
+        </KeyboardAvoidingView>
     );
 }
 
@@ -161,7 +166,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#0a0a0a',
-        paddingTop: 50,
     },
     header: {
         flexDirection: 'row',

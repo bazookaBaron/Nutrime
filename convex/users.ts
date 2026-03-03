@@ -81,14 +81,34 @@ export const updateProfile = mutation({
                 ...cleanedUpdates,
                 updated_at: new Date().toISOString(),
             });
-            return existing._id;
         } else {
-            return await ctx.db.insert("profiles", {
+            await ctx.db.insert("profiles", {
                 user_id: args.userId,
                 ...cleanedUpdates,
                 updated_at: new Date().toISOString(),
             });
         }
+
+        // ── Sync to Leaderboard if exists ──
+        const lbEntry = await ctx.db
+            .query("leaderboards")
+            .withIndex("by_user_id", (q) => q.eq("user_id", args.userId))
+            .unique();
+
+        if (lbEntry) {
+            const lbUpdates: any = {};
+            if (cleanedUpdates.username !== undefined) lbUpdates.username = cleanedUpdates.username;
+            if (cleanedUpdates.state !== undefined) lbUpdates.state = cleanedUpdates.state;
+            if (cleanedUpdates.country !== undefined) lbUpdates.country = cleanedUpdates.country;
+            if (cleanedUpdates.streak !== undefined) lbUpdates.streak = cleanedUpdates.streak;
+            if (cleanedUpdates.profile_image_url !== undefined) lbUpdates.profile_image_url = cleanedUpdates.profile_image_url;
+
+            if (Object.keys(lbUpdates).length > 0) {
+                await ctx.db.patch(lbEntry._id, lbUpdates);
+            }
+        }
+
+        return existing?._id || args.userId;
     },
 });
 
@@ -199,6 +219,7 @@ export const incrementXP = mutation({
                 total_xp: newXp,
                 state: existing.state || "",
                 country: existing.country || "",
+                streak: existing.streak || 0,
                 profile_image_url: existing.profile_image_url,
             };
 

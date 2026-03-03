@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Play, Pause, CheckCircle, Clock, Flame, X, RotateCcw, Plus, Calendar } from 'lucide-react-native';
 import { useUser } from '@/context/UserContext';
 import SuccessModal from '@/components/SuccessModal';
+import LottieAnimation from '@/components/Animation/LottieAnimation';
 import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
@@ -62,6 +63,7 @@ export default function ActiveWorkoutScreen() {
     // Set/Rep state
     const [currentSet, setCurrentSet] = useState(exercise.completed_sets + 1);
     const [completedSets, setCompletedSets] = useState(exercise.completed_sets);
+    const [showLogEffect, setShowLogEffect] = useState(false);
 
     // Save progress helper
     const saveProgress = useCallback((forceElapsedMs?: number) => {
@@ -150,6 +152,8 @@ export default function ActiveWorkoutScreen() {
     const handleLogSet = () => {
         if (completedSets < exercise.sets) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            setShowLogEffect(true);
+            setTimeout(() => setShowLogEffect(false), 800);
             const nextCompleted = completedSets + 1;
             setCompletedSets(nextCompleted); // instant UI
             if (currentSet < exercise.sets) {
@@ -234,6 +238,14 @@ export default function ActiveWorkoutScreen() {
                             <Text style={styles.logSetText}>
                                 {completedSets === exercise.sets ? 'All Sets Logged' : `Log Set ${currentSet}`}
                             </Text>
+                            {showLogEffect && (
+                                <View style={styles.logEffectOverlay}>
+                                    <LottieAnimation
+                                        source={{ uri: 'https://lottie.host/80517861-6893-4556-912e-161805566089/L8Hl27v6jG.json' }}
+                                        style={{ width: 80, height: 80 }}
+                                    />
+                                </View>
+                            )}
                         </TouchableOpacity>
                     </View>
                 ) : (
@@ -485,5 +497,12 @@ const styles = StyleSheet.create({
         color: 'rgba(250, 204, 21, 0.8)',
         fontWeight: '600',
         textAlign: 'left',
+    },
+    logEffectOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(190, 242, 100, 0.4)',
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 });

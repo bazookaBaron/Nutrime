@@ -89,6 +89,7 @@ export const create = mutation({
         start_time: v.string(),
         end_time: v.string(),
         participants_count: v.optional(v.number()),
+        duration_days: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
         const { participants_count, ...rest } = args;

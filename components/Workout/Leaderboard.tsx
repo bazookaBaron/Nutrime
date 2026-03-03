@@ -13,8 +13,21 @@ interface LeaderboardEntry {
     username: string;
     workout_xp: number;
     workout_level: number;
+    streak?: number;
+    country?: string;
     profile_image_url?: string;
 }
+
+const COUNTRY_FLAGS: Record<string, string> = {
+    'India': '🇮🇳',
+    'United States': '🇺🇸',
+    'United Kingdom': '🇬🇧',
+    'Canada': '🇨🇦',
+    'Australia': '🇦🇺',
+    'Germany': '🇩🇪',
+    'USA': '🇺🇸',
+    'UK': '🇬🇧',
+};
 
 interface LeaderboardProps {
     currentUserId: string;
@@ -95,7 +108,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId, userCountry, u
 
     const loading = top10 === undefined;
     const data = {
-        top10: top10 || [],
+        top10: (top10 || []).slice(0, 10),
         currentUserEntry: myEntry || null
     };
 
@@ -113,8 +126,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId, userCountry, u
         const isCurrentUser = item.user_id === currentUserId;
         const isTop3 = item.rank >= 1 && item.rank <= 3;
         const rankStyle = isTop3 ? RANK_COLORS[item.rank] : null;
-        const isUserRow = !isCurrentUserInTop10 && isCurrentUser && index === data.top10.length;
+        const isUserRow = !isCurrentUserInTop10 && isCurrentUser && index === displayData.length - 1;
         const bgColor = avatarColor(item.user_id);
+        const flag = item.country ? COUNTRY_FLAGS[item.country] : null;
 
         return (
             <Pressable
@@ -168,15 +182,29 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId, userCountry, u
                 </View>
 
                 <View style={styles.userInfo}>
-                    <Text style={[
-                        styles.username,
-                        isTop3 && { color: '#FFF', fontWeight: '700' },
-                        isCurrentUser && !isTop3 && styles.textCurrent,
-                    ]} numberOfLines={1}>
-                        {item.username}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Text style={[
+                            styles.username,
+                            isTop3 && { color: '#FFF', fontWeight: '700' },
+                            isCurrentUser && !isTop3 && styles.textCurrent,
+                        ]} numberOfLines={1}>
+                            {item.username}
+                        </Text>
+                        {flag && <Text style={{ fontSize: 12 }}>{flag}</Text>}
                         {isCurrentUser && <Text style={styles.youBadge}> (you)</Text>}
-                    </Text>
-                    <Text style={styles.levelText}>Level {item.workout_level}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={styles.levelText}>Lv {item.workout_level}</Text>
+                        {(item.streak ?? 0) > 0 && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                                <Image
+                                    source={{ uri: 'https://cdn-icons-png.flaticon.com/512/785/785116.png' }}
+                                    style={{ width: 10, height: 10 }}
+                                />
+                                <Text style={[styles.levelText, { color: '#f97316' }]}>{item.streak}</Text>
+                            </View>
+                        )}
+                    </View>
                 </View>
 
                 <Text style={[
@@ -252,45 +280,12 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId, userCountry, u
                                 showsVerticalScrollIndicator={false}
                                 contentContainerStyle={styles.scrollContent}
                             >
-                                {data.top10.map((item, index) => renderItem({ item, index }))}
+                                {displayData.map((item, index) => renderItem({ item, index }))}
                             </ScrollView>
                         </View>
                     </View>
                 )}
             </View>
-
-            {/* Sticky Bottom User Row */}
-            {!loading && data.currentUserEntry && (
-                <View style={styles.stickyUserRow}>
-                    <View style={styles.neonCard}>
-                        <View style={styles.rankContainer}>
-                            <Text style={styles.rankTextSticky}>#{data.currentUserEntry.rank}</Text>
-                        </View>
-
-                        <View style={styles.avatarSticky}>
-                            {data.currentUserEntry.profile_image_url ? (
-                                <Image style={styles.avatarStickyImage} source={{ uri: data.currentUserEntry.profile_image_url }} />
-                            ) : (
-                                <Text style={styles.avatarInitialsSticky}>
-                                    {initials(data.currentUserEntry.username)}
-                                </Text>
-                            )}
-                        </View>
-
-                        <View style={styles.userInfo}>
-                            <Text style={styles.usernameSticky} numberOfLines={1}>
-                                {data.currentUserEntry.username}
-                                <Text style={styles.youLabel}> (YOU)</Text>
-                            </Text>
-                            <Text style={styles.levelTextSticky}>Level {data.currentUserEntry.workout_level}</Text>
-                        </View>
-
-                        <Text style={styles.xpTextSticky}>
-                            {data.currentUserEntry.workout_xp.toLocaleString()} XP
-                        </Text>
-                    </View>
-                </View>
-            )}
 
             {/* Detail Modal */}
             {hoveredEntry && (
@@ -345,6 +340,19 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId, userCountry, u
                                             <Text style={styles.chipStatValue}>{hoveredEntry.workout_level}</Text>
                                             <Text style={styles.chipStatLabel}>Level</Text>
                                         </View>
+                                        {(hoveredEntry.streak ?? 0) > 0 && (
+                                            <>
+                                                <View style={styles.chipStatDivider} />
+                                                <View style={styles.chipStat}>
+                                                    <Image
+                                                        source={{ uri: 'https://cdn-icons-png.flaticon.com/512/785/785116.png' }}
+                                                        style={{ width: 14, height: 14 }}
+                                                    />
+                                                    <Text style={styles.chipStatValue}>{hoveredEntry.streak}</Text>
+                                                    <Text style={styles.chipStatLabel}>Streak</Text>
+                                                </View>
+                                            </>
+                                        )}
                                     </View>
                                 </View>
                             </TouchableWithoutFeedback>
@@ -356,7 +364,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId, userCountry, u
     );
 };
 
-const LIST_HEIGHT = 420; // Approx enough for 8 entries
+const LIST_HEIGHT = 480; // Enough for 10-11 entries comfortably
 
 const styles = StyleSheet.create({
     container: {
@@ -475,10 +483,16 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     entryRowCurrent: {
-        backgroundColor: 'rgba(255,255,255,0.03)',
+        backgroundColor: 'rgba(190, 242, 100, 0.08)',
+        borderColor: 'rgba(190, 242, 100, 0.2)',
+        borderWidth: 1,
     },
     userRowSeparator: {
-        // No longer using separator in the scroll view
+        marginTop: 12,
+        borderTopWidth: 2,
+        borderTopColor: '#222',
+        borderStyle: 'dashed',
+        paddingTop: 12,
     },
     rankContainer: {
         width: 32,

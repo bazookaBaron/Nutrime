@@ -237,7 +237,7 @@ export const ChallengesProvider = ({ children }) => {
     const createChallenge = async (challengeData) => {
         if (isMock) {
             const newMock = { ...challengeData, id: Math.random().toString(), participants_count: 0, status: 'active' };
-            setChallenges(prev => [...prev, newMock]);
+            setLocalChallenges(prev => [...prev, newMock]);
             return newMock;
         }
 
@@ -246,7 +246,7 @@ export const ChallengesProvider = ({ children }) => {
             const data = { ...challengeData, _id: newId, id: newId };
             const error = null;
 
-            setChallenges(prev => [...prev, data]);
+            setLocalChallenges(prev => [...prev, data]);
 
             // Auto-join the creator
             await joinChallenge(data.id);

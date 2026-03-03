@@ -15,6 +15,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { PieChart } from 'react-native-gifted-charts';
 import AnimatedProgressBar from '../../components/AnimatedProgressBar';
+import LottieAnimation from '../../components/Animation/LottieAnimation';
 import { getTodayISODate } from '../../utils/DateUtils';
 
 const { width } = Dimensions.get('window');
@@ -40,6 +41,17 @@ export default function Dashboard() {
   useEffect(() => {
     setSelectedDate(todayStr);
   }, [todayStr]);
+
+  const [showXPAnim, setShowXPAnim] = useState(false);
+  const prevXP = React.useRef(userProfile?.xp || 0);
+
+  useEffect(() => {
+    if (userProfile?.xp > prevXP.current) {
+      setShowXPAnim(true);
+      setTimeout(() => setShowXPAnim(false), 2000);
+    }
+    prevXP.current = userProfile?.xp || 0;
+  }, [userProfile?.xp]);
 
   // Generate last 5 days for date selector
   const days = useMemo(() => {
@@ -417,6 +429,16 @@ export default function Dashboard() {
           }
         </ScrollView>
 
+        {showXPAnim && (
+          <View style={styles.xpOverlay}>
+            <LottieAnimation
+              source={{ uri: 'https://lottie.host/f44b2046-7c0a-42cd-9f7a-8f673562e032/star.json' }}
+              style={{ width: 150, height: 150 }}
+              onAnimationFinish={() => setShowXPAnim(false)}
+            />
+            <Text style={styles.xpText}>+ XP GAINED!</Text>
+          </View>
+        )}
       </ScrollView >
     </View >
   );
@@ -830,5 +852,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
+  },
+  xpOverlay: {
+    position: 'absolute',
+    top: '20%',
+    alignSelf: 'center',
+    alignItems: 'center',
+    zIndex: 10000,
+    pointerEvents: 'none',
+  },
+  xpText: {
+    color: '#bef264',
+    fontSize: 18,
+    fontWeight: 'bold',
+    top: -30,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
 });

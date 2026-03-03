@@ -54,6 +54,8 @@ export const getLeaderboard = query({
                 username: entry.username,
                 workout_xp: entry.total_xp,
                 workout_level: calculateLevel(entry.total_xp),
+                streak: entry.streak || profile?.streak || 0,
+                country: entry.country,
                 profile_image_url: profile?.profile_image_url,
             });
         }
@@ -98,6 +100,8 @@ export const getUserRank = query({
             username: userEntry.username,
             workout_xp: userEntry.total_xp,
             workout_level: calculateLevel(userEntry.total_xp),
+            streak: userEntry.streak || profile?.streak || 0,
+            country: userEntry.country,
             profile_image_url: profile?.profile_image_url,
         };
     },

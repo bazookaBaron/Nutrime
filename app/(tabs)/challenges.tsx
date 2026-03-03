@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import { useChallenges } from '../../context/ChallengesContext';
+import LottieAnimation from '../../components/Animation/LottieAnimation';
 import {
     Plus, Trophy, X, AlertCircle, Zap, Users, Clock, Target,
     Droplets, Footprints, UtensilsCrossed, Moon, CheckSquare, ChevronDown, ChevronUp, SlidersHorizontal
@@ -148,9 +149,13 @@ export default function ChallengesScreen() {
     const [catFilter, setCatFilter] = useState('all');
     const [xpRange, setXpRange] = useState<[number, number]>([0, 1000]);
 
-    useEffect(() => {
-        if (isFocused) { fetchChallenges(); }
-    }, [isFocused]);
+    const [showSuccessAnim, setShowSuccessAnim] = useState(false);
+
+    const handleJoin = async (id: string) => {
+        await joinChallenge(id);
+        setShowSuccessAnim(true);
+        setTimeout(() => setShowSuccessAnim(false), 2000);
+    };
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
@@ -391,7 +396,7 @@ export default function ChallengesScreen() {
                                             posthog.capture('challenge_joined', {
                                                 challenge_id: sc.chal.id, challenge_type: sc.chal.type, xp_reward: sc.chal.xp_reward
                                             });
-                                            joinChallenge(sc.chal.id);
+                                            handleJoin(sc.chal.id);
                                             setModalVisible(false);
                                         }}
                                     >
@@ -436,11 +441,27 @@ export default function ChallengesScreen() {
                     </ScrollView>
                 </View>
             </Modal>
+            {showSuccessAnim && (
+                <View style={styles.successOverlay}>
+                    <LottieAnimation
+                        source={{ uri: 'https://lottie.host/80517861-6893-4556-912e-161805566089/L8Hl27v6jG.json' }}
+                        style={{ width: 200, height: 200 }}
+                        onAnimationFinish={() => setShowSuccessAnim(false)}
+                    />
+                </View>
+            )}
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
+    successOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 9999,
+    },
     container: { flex: 1, backgroundColor: '#111827', paddingTop: 60 },
     content: { paddingHorizontal: 20, paddingBottom: 40 },
 

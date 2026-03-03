@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import * as React from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Animated, Easing } from 'react-native';
-import { CheckCircle, Flame } from 'lucide-react-native';
+import { Flame } from 'lucide-react-native';
+import LottieAnimation from './Animation/LottieAnimation';
 
 interface SuccessModalProps {
     visible: boolean;
@@ -10,10 +11,10 @@ interface SuccessModalProps {
 }
 
 export default function SuccessModal({ visible, title, caloriesBurned, onClose }: SuccessModalProps) {
-    const scaleAnim = useRef(new Animated.Value(0.8)).current;
-    const opacityAnim = useRef(new Animated.Value(0)).current;
+    const scaleAnim = React.useRef(new Animated.Value(0.8)).current;
+    const opacityAnim = React.useRef(new Animated.Value(0)).current;
 
-    useEffect(() => {
+    React.useEffect(() => {
         if (visible) {
             Animated.parallel([
                 Animated.timing(scaleAnim, {
@@ -46,8 +47,19 @@ export default function SuccessModal({ visible, title, caloriesBurned, onClose }
                     opacity: opacityAnim,
                     transform: [{ scale: scaleAnim }]
                 }]}>
-                    <View style={styles.iconContainer}>
-                        <CheckCircle size={48} color="#bef264" />
+                    <View style={styles.animationContainer}>
+                        <LottieAnimation
+                            source={{ uri: 'https://lottie.host/80517861-6893-4556-912e-161805566089/L8Hl27v6jG.json' }} // Modern checkmark
+                            style={styles.lottie}
+                        />
+                    </View>
+
+                    <View style={styles.confettiContainer}>
+                        <LottieAnimation
+                            source={{ uri: 'https://lottie.host/fa04256c-0355-4424-b15f-559d877e8ea6/confetti.json' }}
+                            style={styles.confetti}
+                            loop={true}
+                        />
                     </View>
 
                     <Text style={styles.title}>{title}</Text>
@@ -94,14 +106,25 @@ const styles = StyleSheet.create({
         shadowRadius: 20,
         elevation: 10,
     },
-    iconContainer: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: 'rgba(190, 242, 100, 0.1)',
+    animationContainer: {
+        width: 120,
+        height: 120,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 10,
+    },
+    lottie: {
+        width: 120,
+        height: 120,
+    },
+    confettiContainer: {
+        ...StyleSheet.absoluteFillObject,
+        pointerEvents: 'none',
+        zIndex: 999,
+    },
+    confetti: {
+        width: '100%',
+        height: '100%',
     },
     title: {
         fontSize: 24,

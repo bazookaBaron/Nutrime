@@ -97,6 +97,7 @@ export default defineSchema({
         end_time: v.string(),
         status: v.string(), // e.g. 'active'
         participants_count: v.optional(v.number()),
+        duration_days: v.optional(v.number()),
         created_at: v.optional(v.string()),
     }).index("by_status", ["status"]),
 
@@ -117,6 +118,7 @@ export default defineSchema({
         total_xp: v.number(),
         state: v.string(),
         country: v.string(),
+        streak: v.optional(v.number()),
         profile_image_url: v.optional(v.string()),
     })
         .index("by_user_id", ["user_id"])

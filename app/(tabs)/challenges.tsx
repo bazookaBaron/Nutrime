@@ -149,12 +149,20 @@ export default function ChallengesScreen() {
     const [catFilter, setCatFilter] = useState('all');
     const [xpRange, setXpRange] = useState<[number, number]>([0, 1000]);
 
-    const [showSuccessAnim, setShowSuccessAnim] = useState(false);
-
     const handleJoin = async (id: string) => {
-        await joinChallenge(id);
-        setShowSuccessAnim(true);
-        setTimeout(() => setShowSuccessAnim(false), 2000);
+        try {
+            // 1. Close modal FIRST to avoid UI clash
+            setModalVisible(false);
+
+            // 2. Small delay to let modal unmount
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            // 3. Trigger join
+            await joinChallenge(id);
+            // No animation, just refresh or let context handle it
+        } catch (e) {
+            console.error("Error joining:", e);
+        }
     };
 
     const onRefresh = useCallback(async () => {
@@ -397,7 +405,6 @@ export default function ChallengesScreen() {
                                                 challenge_id: sc.chal.id, challenge_type: sc.chal.type, xp_reward: sc.chal.xp_reward
                                             });
                                             handleJoin(sc.chal.id);
-                                            setModalVisible(false);
                                         }}
                                     >
                                         <Text style={styles.modalJoinButtonText}>Join Challenge</Text>
@@ -441,15 +448,7 @@ export default function ChallengesScreen() {
                     </ScrollView>
                 </View>
             </Modal>
-            {showSuccessAnim && (
-                <View style={styles.successOverlay}>
-                    <LottieAnimation
-                        source={{ uri: 'https://lottie.host/80517861-6893-4556-912e-161805566089/L8Hl27v6jG.json' }}
-                        style={{ width: 200, height: 200 }}
-                        onAnimationFinish={() => setShowSuccessAnim(false)}
-                    />
-                </View>
-            )}
+            {/* Success animation removed to prevent Android crashes */}
         </SafeAreaView>
     );
 }

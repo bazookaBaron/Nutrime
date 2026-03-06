@@ -68,10 +68,6 @@ export default function RadarNutrientChart({ actual, recommended, size = 260 }: 
                     <View style={[styles.swatch, { backgroundColor: 'rgba(190,242,100,0.35)', borderColor: '#bef264' }]} />
                     <Text style={styles.legendText}>Actual intake</Text>
                 </View>
-                <View style={styles.legendItem}>
-                    <View style={[styles.swatch, { backgroundColor: 'rgba(59,130,246,0.15)', borderColor: '#3b82f6' }]} />
-                    <Text style={styles.legendText}>Recommended</Text>
-                </View>
             </View>
 
             <View style={{ alignItems: 'center', overflow: 'hidden' }}>
@@ -112,14 +108,6 @@ export default function RadarNutrientChart({ actual, recommended, size = 260 }: 
                         );
                     })}
 
-                    {/* Recommended polygon */}
-                    <Polygon
-                        points={recPoints}
-                        fill="rgba(59,130,246,0.08)"
-                        stroke="#3b82f6"
-                        strokeWidth={1.5}
-                        strokeDasharray="4 3"
-                    />
 
                     {/* Actual polygon */}
                     <Polygon
@@ -155,15 +143,6 @@ export default function RadarNutrientChart({ actual, recommended, size = 260 }: 
                                     textAnchor={textAnchor}
                                 >
                                     {LABELS[i]}
-                                </SvgText>
-                                <SvgText
-                                    x={x}
-                                    y={y + 6}
-                                    fill="#6b7280"
-                                    fontSize={8}
-                                    textAnchor={textAnchor}
-                                >
-                                    {rdv}{meta.unit}
                                 </SvgText>
                                 {/* Dot at actual value on axis */}
                                 {(() => {

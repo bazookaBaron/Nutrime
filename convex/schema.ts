@@ -81,6 +81,10 @@ export default defineSchema({
         protein: v.number(),
         carbs: v.number(),
         fat: v.number(),
+        cholesterol: v.optional(v.number()),
+        iron: v.optional(v.number()),
+        magnesium: v.optional(v.number()),
+        calcium: v.optional(v.number()),
         meal_type: v.string(),
         created_at: v.optional(v.string()),
     }).index("by_user_id", ["user_id"])

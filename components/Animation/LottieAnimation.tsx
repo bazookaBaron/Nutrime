@@ -21,11 +21,23 @@ const LottieAnimation: React.FC<LottieAnimationProps> = ({
 }) => {
     const animation = useRef<LottieView>(null);
 
+    const [hasError, setHasError] = React.useState(false);
+
     useEffect(() => {
-        if (autoPlay) {
-            animation.current?.play();
-        }
-    }, [autoPlay]);
+        if (hasError) return;
+        // Use a small timeout to ensure the native view is fully mounted before playing
+        const timer = setTimeout(() => {
+            if (autoPlay && animation.current) {
+                animation.current.play();
+            }
+        }, 150);
+        return () => clearTimeout(timer);
+    }, [autoPlay, hasError]);
+
+    if (hasError) {
+        // Fallback if Lottie crashes or fails to load
+        return <View style={[styles.container, style]} />;
+    }
 
     return (
         <View style={[styles.container, style]}>
@@ -34,9 +46,12 @@ const LottieAnimation: React.FC<LottieAnimationProps> = ({
                 source={source}
                 autoPlay={autoPlay}
                 loop={loop}
-                style={StyleSheet.absoluteFill}
+                style={styles.lottie}
                 onAnimationFinish={onAnimationFinish}
+                onAnimationFailure={() => setHasError(true)}
                 speed={speed}
+                renderMode="SOFTWARE"
+                hardwareAccelerationAndroid={false}
             />
         </View>
     );
@@ -44,11 +59,14 @@ const LottieAnimation: React.FC<LottieAnimationProps> = ({
 
 const styles = StyleSheet.create({
     container: {
-        width: 100,
-        height: 100,
         justifyContent: 'center',
         alignItems: 'center',
+        overflow: 'hidden',
     },
+    lottie: {
+        width: '100%',
+        height: '100%',
+    }
 });
 
 export default LottieAnimation;

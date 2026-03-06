@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useFood } from '../../context/FoodContext';
 import { useUser } from '../../context/UserContext';
@@ -40,12 +40,15 @@ export default function AddFood() {
         fetchSummary();
     }, [dailyLog, todayStr, mealName]);
 
-    const handleSearch = (text) => {
-        setSearchQuery(text);
+    const searchTimeout = useRef<any>(null);
+    const [isSearching, setIsSearching] = useState(false);
+
+    const performSearch = useCallback((text: string) => {
         if (text.length > 0) {
+            setIsSearching(true);
             const query = text.toLowerCase();
             const results = foodDatabase
-                .filter(item => item.name.toLowerCase().includes(query))
+                .filter(item => item.name && item.name.toLowerCase().includes(query))
                 .map(item => {
                     const itemName = item.name.toLowerCase();
                     let score = 0;
@@ -59,10 +62,33 @@ export default function AddFood() {
                 .slice(0, 50);
 
             setFilteredFood(results);
+            setIsSearching(false);
         } else {
             setFilteredFood([]);
         }
+    }, [foodDatabase]);
+
+    const handleSearch = (text: string) => {
+        setSearchQuery(text);
+        if (searchTimeout.current) {
+            clearTimeout(searchTimeout.current);
+        }
+
+        if (text.length === 0) {
+            setFilteredFood([]);
+            return;
+        }
+
+        searchTimeout.current = setTimeout(() => {
+            performSearch(text);
+        }, 300);
     };
+
+    useEffect(() => {
+        return () => {
+            if (searchTimeout.current) clearTimeout(searchTimeout.current);
+        };
+    }, []);
 
     const handleAddFood = (item: any, qty: number) => {
         // Fire and forget so optimistic UI updates instantly
@@ -78,7 +104,7 @@ export default function AddFood() {
         });
     };
 
-    const FoodListItem = ({ item }) => {
+    const FoodListItem = React.memo(({ item }: { item: any }) => {
         const [quantity, setQuantity] = useState(1);
         const [added, setAdded] = useState(false);
         const increment = () => setQuantity(q => q + 1);
@@ -95,7 +121,7 @@ export default function AddFood() {
                 <View style={styles.resultInfo}>
                     <Text style={styles.resultName}>{item.name}</Text>
                     <Text style={styles.resultDetails}>
-                        {item.calories * quantity} kcal • {quantity} {item.serving_size || 'serving'}
+                        {Math.round((item.calories || 0) * quantity)} kcal • {quantity} {item.unit || item.serving_size || 'serving'}
                     </Text>
                 </View>
 
@@ -123,7 +149,7 @@ export default function AddFood() {
                 </View>
             </View>
         );
-    };
+    });
 
 
     const dailyTarget = nutritionTargets.calories || 2000;

@@ -56,10 +56,14 @@ export const FoodProvider = ({ children }) => {
             user_id: user.id,
             date: today,
             food_name: quantity > 1 ? `${baseName} (x${quantity})` : baseName,
-            calories: (food.calories || food.nf_calories) * multiplier,
-            protein: (food.protein || food.nf_protein) * multiplier,
-            carbs: (food.carbs || food.nf_total_carbohydrate) * multiplier,
-            fat: (food.fat || food.nf_total_fat) * multiplier,
+            calories: (food.calories || food.nf_calories || 0) * multiplier,
+            protein: (food.protein || food.nf_protein || 0) * multiplier,
+            carbs: (food.carbs || food.nf_total_carbohydrate || 0) * multiplier,
+            fat: (food.fat || food.nf_total_fat || 0) * multiplier,
+            cholesterol: (food.cholesterol || 0) * multiplier,
+            iron: (food.iron || 0) * multiplier,
+            magnesium: (food.magnesium || 0) * multiplier,
+            calcium: (food.calcium || 0) * multiplier,
             meal_type: mealType,
         };
 
@@ -104,7 +108,11 @@ export const FoodProvider = ({ children }) => {
             protein: acc.protein + (Number(item.protein) || 0),
             carbs: acc.carbs + (Number(item.carbs) || 0),
             fat: acc.fat + (Number(item.fat) || 0),
-        }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+            cholesterol: acc.cholesterol + (Number(item.cholesterol) || 0),
+            iron: acc.iron + (Number(item.iron) || 0),
+            magnesium: acc.magnesium + (Number(item.magnesium) || 0),
+            calcium: acc.calcium + (Number(item.calcium) || 0),
+        }), { calories: 0, protein: 0, carbs: 0, fat: 0, cholesterol: 0, iron: 0, magnesium: 0, calcium: 0 });
     };
 
     const getMTDSummary = () => {
@@ -118,7 +126,11 @@ export const FoodProvider = ({ children }) => {
             protein: acc.protein + (Number(item.protein) || 0),
             carbs: acc.carbs + (Number(item.carbs) || 0),
             fat: acc.fat + (Number(item.fat) || 0),
-        }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+            cholesterol: acc.cholesterol + (Number(item.cholesterol) || 0),
+            iron: acc.iron + (Number(item.iron) || 0),
+            magnesium: acc.magnesium + (Number(item.magnesium) || 0),
+            calcium: acc.calcium + (Number(item.calcium) || 0),
+        }), { calories: 0, protein: 0, carbs: 0, fat: 0, cholesterol: 0, iron: 0, magnesium: 0, calcium: 0 });
     };
 
     const getLast7DaysCalories = () => {

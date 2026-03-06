@@ -53,7 +53,7 @@ export const ChallengesProvider = ({ children }) => {
             const summary = getDailySummary(today);
             verifyChallenges([], waterIntake, summary.calories);
         }
-    }, [waterIntake, dailyLog, challenges.length, todayStr]);
+    }, [waterIntake, dailyLog, challenges.length, userChallenges.length, todayStr, user, loading]);
 
     const fetchChallenges = async () => {
         // No longer needed due to useQuery, but kept for interface compatibility if needed elsewhere
@@ -89,7 +89,6 @@ export const ChallengesProvider = ({ children }) => {
 
         try {
             await convex.mutation(api.challenges.join, { userId: user.id, challengeId });
-            // Verification will trigger via useEffect when data syncs
         } catch (e) {
             console.error("Error joining challenge:", e);
             Alert.alert("Failed to join challenge");
@@ -98,6 +97,7 @@ export const ChallengesProvider = ({ children }) => {
             setLocalChallenges(prev => prev.map(c =>
                 c.id === challengeId ? { ...c, participants_count: (c.participants_count || 0) - 1 } : c
             ));
+            throw e; // RE-THROW for screen-level catch
         }
     };
 
@@ -206,8 +206,15 @@ export const ChallengesProvider = ({ children }) => {
 
             if (isCompleted) {
                 anyCompleted = true;
-                console.log(`Challenge Completed: ${challenge.title}`);
-                Alert.alert("Challenge Completed! 🎉", `You completed '${challenge.title}' and earned ${challenge.xp_reward} XP!`);
+
+                // If it's a "custom" challenge being verified for the first time, or if we just joined,
+                // we might want to avoid an immediate alert that clashes with the "Join Success" UI.
+                const isInstantCompletion = uc.id.toString().startsWith('temp-');
+
+                if (!isInstantCompletion) {
+                    console.log(`Challenge Completed: ${challenge.title}`);
+                    Alert.alert("Challenge Completed! 🎉", `You completed '${challenge.title}' and earned ${challenge.xp_reward} XP!`);
+                }
 
                 // Reward XP
                 if (userAddXP) {

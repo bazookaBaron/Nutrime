@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { NutrientTotals, NUTRIENT_META, RECOMMENDED_DAILY, rawPercent } from '../utils/analyticsUtils';
+import { NutrientTotals, NUTRIENT_META, RECOMMENDED_DAILY } from '../utils/analyticsUtils';
 
 interface Props {
     actual: NutrientTotals;
-    /** Override recommended values (e.g. from user targets for protein/carbs/fat). */
+    /** Simplified view: actuals only, no target comparison. */
     recommended?: Partial<NutrientTotals>;
 }
 
@@ -16,10 +16,11 @@ export default function NutrientProgressBars({ actual, recommended }: Props) {
             {NUTRIENT_META.map(nutrient => {
                 const consumed = actual[nutrient.key] ?? 0;
                 const target = targets[nutrient.key] ?? RECOMMENDED_DAILY[nutrient.key];
-                const pct = rawPercent(consumed, target);
-                const isOver = pct > 1;
-                const barPct = Math.min(pct, 1);
-                const displayPct = Math.round(pct * 100);
+
+                // Use a generous visual max so the bar represents the value 
+                // but never hits the end, and doesn't imply a "goal completion".
+                const visualMax = target * 2.5;
+                const barPct = Math.min(consumed / visualMax, 0.95);
 
                 return (
                     <View key={nutrient.key} style={styles.row}>
@@ -30,20 +31,10 @@ export default function NutrientProgressBars({ actual, recommended }: Props) {
                                 <Text style={styles.name}>{nutrient.label}</Text>
                             </View>
                             <View style={styles.valueBlock}>
-                                <Text style={[styles.consumed, isOver && styles.overText]}>
+                                <Text style={styles.consumed}>
                                     {consumed}
                                     <Text style={styles.unit}>{nutrient.unit}</Text>
                                 </Text>
-                                <Text style={styles.separator}>/</Text>
-                                <Text style={styles.target}>
-                                    {target}
-                                    <Text style={styles.unit}>{nutrient.unit}</Text>
-                                </Text>
-                                <View style={[styles.badge, { backgroundColor: isOver ? 'rgba(239,68,68,0.15)' : nutrient.bgColor }]}>
-                                    <Text style={[styles.badgeText, { color: isOver ? '#ef4444' : nutrient.color }]}>
-                                        {displayPct}%{isOver ? ' !' : ''}
-                                    </Text>
-                                </View>
                             </View>
                         </View>
 
@@ -54,7 +45,7 @@ export default function NutrientProgressBars({ actual, recommended }: Props) {
                                     styles.fill,
                                     {
                                         width: `${barPct * 100}%`,
-                                        backgroundColor: isOver ? '#ef4444' : nutrient.color,
+                                        backgroundColor: nutrient.color,
                                     },
                                 ]}
                             />
@@ -103,31 +94,10 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#fff',
     },
-    overText: {
-        color: '#ef4444',
-    },
-    separator: {
-        color: '#4b5563',
-        fontSize: 12,
-    },
-    target: {
-        fontSize: 12,
-        color: '#9ca3af',
-    },
     unit: {
         fontSize: 10,
         color: '#6b7280',
         fontWeight: 'normal',
-    },
-    badge: {
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 8,
-        marginLeft: 2,
-    },
-    badgeText: {
-        fontSize: 10,
-        fontWeight: 'bold',
     },
     track: {
         height: 5,

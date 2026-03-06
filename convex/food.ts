@@ -22,6 +22,10 @@ export const addLog = mutation({
         protein: v.number(),
         carbs: v.number(),
         fat: v.number(),
+        cholesterol: v.optional(v.number()),
+        iron: v.optional(v.number()),
+        magnesium: v.optional(v.number()),
+        calcium: v.optional(v.number()),
         meal_type: v.string(),
     },
     handler: async (ctx, args) => {
@@ -51,6 +55,10 @@ export const addLog = mutation({
                 protein: Number((existing.protein + args.protein).toFixed(1)),
                 carbs: Number((existing.carbs + args.carbs).toFixed(1)),
                 fat: Number((existing.fat + args.fat).toFixed(1)),
+                cholesterol: Number(((existing.cholesterol || 0) + (args.cholesterol || 0)).toFixed(1)),
+                iron: Number(((existing.iron || 0) + (args.iron || 0)).toFixed(2)),
+                magnesium: Number(((existing.magnesium || 0) + (args.magnesium || 0)).toFixed(1)),
+                calcium: Number(((existing.calcium || 0) + (args.calcium || 0)).toFixed(1)),
             });
         }
 

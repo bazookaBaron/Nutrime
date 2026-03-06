@@ -265,7 +265,7 @@ export default function Analytics() {
                     <View style={styles.cardHeader}>
                         <View>
                             <Text style={styles.cardTitle}>Nutrient Breakdown</Text>
-                            <Text style={styles.cardSubtitle}>vs recommended daily intake</Text>
+                            <Text style={styles.cardSubtitle}>Daily consumed totals</Text>
                         </View>
                     </View>
                     <View style={{ marginTop: 12 }}>
@@ -281,7 +281,7 @@ export default function Analytics() {
                     <View style={styles.cardHeader}>
                         <View>
                             <Text style={styles.cardTitle}>Nutrient Radar</Text>
-                            <Text style={styles.cardSubtitle}>Actual vs recommended by category</Text>
+                            <Text style={styles.cardSubtitle}>Your intake by category</Text>
                         </View>
                     </View>
                     <View style={{ marginTop: 8 }}>

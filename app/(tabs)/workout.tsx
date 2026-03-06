@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Modal, Image, Alert, RefreshControl, InteractionManager, ActivityIndicator } from 'react-native';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Modal, Image, Alert, RefreshControl, InteractionManager, ActivityIndicator, Animated, Easing } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
@@ -12,6 +12,31 @@ import { usePostHog } from 'posthog-react-native';
 import AnimatedProgressBar from '@/components/AnimatedProgressBar';
 
 const { width } = Dimensions.get('window');
+
+const PulsatingDot = ({ color = '#000' }) => {
+    const pulse = useRef(new Animated.Value(1)).current;
+
+    useEffect(() => {
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(pulse, {
+                    toValue: 1.4,
+                    duration: 800,
+                    easing: Easing.inOut(Easing.ease),
+                    useNativeDriver: true,
+                }),
+                Animated.timing(pulse, {
+                    toValue: 1,
+                    duration: 800,
+                    easing: Easing.inOut(Easing.ease),
+                    useNativeDriver: true,
+                }),
+            ])
+        ).start();
+    }, []);
+
+    return <Animated.View style={[styles.todayIndicator, { backgroundColor: color, transform: [{ scale: pulse }] }]} />;
+};
 
 export default function WorkoutScreen() {
     const router = useRouter();
@@ -266,10 +291,16 @@ export default function WorkoutScreen() {
                             const isSelected = index === selectedDayIndex;
                             const isToday = day.date === today;
                             const [y, m, d] = day.date.split('-');
-                            const formattedDay = new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+                            const dateObj = new Date(Number(y), Number(m) - 1, Number(d));
+                            const formattedDay = dateObj.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+                            const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+
                             return (
                                 <TouchableOpacity key={day.id || index} onPress={() => setSelectedDayIndex(index)} style={[styles.dayChip, isSelected && styles.dayChipSelected, isToday && !isSelected && styles.dayChipToday, !isToday && !isSelected && styles.dayChipDimmed, day.completed && styles.dayChipCompleted]}>
-                                    <View style={styles.dayHeader}><Text style={[styles.dayChipText, isSelected && styles.dayChipTextSelected]}>Day {day.day_number}</Text>{isToday && <View style={styles.todayIndicator} />}</View>
+                                    <View style={styles.dayHeader}>
+                                        <Text style={[styles.dayChipText, isSelected && styles.dayChipTextSelected]}>{dayName}</Text>
+                                        {isToday && <PulsatingDot color={isSelected ? '#000' : '#bef264'} />}
+                                    </View>
                                     <Text style={[styles.dayChipDate, isSelected && styles.dayChipTextSelected]}>{formattedDay}</Text>
                                     <Text style={[styles.dayChipFocus, isSelected && styles.dayChipFocusSelected]}>{day.focus}</Text>
                                 </TouchableOpacity>
@@ -378,7 +409,7 @@ const styles = StyleSheet.create({
     dayChipDimmed: { opacity: 0.5 },
     dayChipCompleted: { borderColor: '#bef264', backgroundColor: 'rgba(190,242,100,0.08)' },
     dayHeader: { flexDirection: 'row', alignItems: 'center' },
-    todayIndicator: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#bef264', marginLeft: 4 },
+    todayIndicator: { width: 6, height: 6, borderRadius: 3, marginLeft: 4 },
     dayChipText: { fontSize: 14, fontWeight: 'bold', color: '#FFF' },
     dayChipTextSelected: { color: '#000' },
     dayChipDate: { fontSize: 12, color: '#888', marginTop: 2 },

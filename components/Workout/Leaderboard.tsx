@@ -108,7 +108,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId, userCountry, u
 
     const loading = top10 === undefined;
     const data = {
-        top10: (top10 || []).slice(0, 10),
+        top10: (top10 || []).slice(0, 50),
         currentUserEntry: myEntry || null
     };
 
@@ -141,7 +141,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId, userCountry, u
                         borderRadius: 14,
                         paddingVertical: 12,
                     },
-                    isCurrentUser && !isTop3 && styles.entryRowCurrent,
+                    isCurrentUser && styles.entryRowCurrent,
                     isUserRow && styles.userRowSeparator,
                 ]}
             >
@@ -364,7 +364,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId, userCountry, u
     );
 };
 
-const LIST_HEIGHT = 480; // Enough for 10-11 entries comfortably
+const LIST_HEIGHT = 500; // Enough for a good list view before scrolling is needed
 
 const styles = StyleSheet.create({
     container: {
@@ -483,9 +483,9 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     entryRowCurrent: {
-        backgroundColor: 'rgba(190, 242, 100, 0.08)',
-        borderColor: 'rgba(190, 242, 100, 0.2)',
-        borderWidth: 1,
+        backgroundColor: 'rgba(190, 242, 100, 0.12)',
+        borderColor: '#bef264',
+        borderWidth: 1.5,
     },
     userRowSeparator: {
         marginTop: 12,

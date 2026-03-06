@@ -2,10 +2,17 @@ import { Tabs } from 'expo-router';
 import React from 'react';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Home, PlusCircle, BarChart2, User, Dumbbell, Trophy } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+
+  const tabHapticListener = {
+    tabPress: () => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    },
+  };
 
   return (
     <Tabs
@@ -23,6 +30,7 @@ export default function TabLayout() {
           title: 'Dashboard',
           tabBarIcon: ({ color }) => <Home size={24} color={color} />,
         }}
+        listeners={tabHapticListener}
       />
       <Tabs.Screen
         name="add"
@@ -38,6 +46,7 @@ export default function TabLayout() {
           title: 'Workout',
           tabBarIcon: ({ color }) => <Dumbbell size={24} color={color} />,
         }}
+        listeners={tabHapticListener}
       />
       <Tabs.Screen
         name="challenges"
@@ -45,6 +54,7 @@ export default function TabLayout() {
           title: 'Challenges',
           tabBarIcon: ({ color }) => <Trophy size={24} color={color} />,
         }}
+        listeners={tabHapticListener}
       />
       <Tabs.Screen
         name="create-challenge"
@@ -58,6 +68,7 @@ export default function TabLayout() {
           title: 'Analytics',
           tabBarIcon: ({ color }) => <BarChart2 size={24} color={color} />,
         }}
+        listeners={tabHapticListener}
       />
       <Tabs.Screen
         name="profile"
@@ -65,6 +76,7 @@ export default function TabLayout() {
           title: 'Profile',
           tabBarIcon: ({ color }) => <User size={24} color={color} />,
         }}
+        listeners={tabHapticListener}
       />
     </Tabs>
   );

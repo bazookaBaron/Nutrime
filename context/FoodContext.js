@@ -92,18 +92,22 @@ export const FoodProvider = ({ children }) => {
         }
 
         // Optimistic UI update
-        const optimisticEntry = { ...newEntry, id: 'temp-' + Date.now() };
+        const tempId = 'temp-' + Date.now();
+        const optimisticEntry = { ...newEntry, id: tempId, _id: tempId };
         setDailyLog(prev => [optimisticEntry, ...prev]);
 
-        try {
-            const insertedId = await convex.mutation(api.food.addLog, newEntry);
-            const realEntry = { ...newEntry, _id: insertedId, id: insertedId };
-            setDailyLog(prev => prev.map(item => item.id === optimisticEntry.id ? realEntry : item));
-        } catch (e) {
-            console.error("Error adding food log", e);
-            setDailyLog(prev => prev.filter(item => item.id !== optimisticEntry.id));
-            showAlert("Log Error", "Failed to save entry");
-        }
+        // Background database synchronization
+        setTimeout(async () => {
+            try {
+                const insertedId = await convex.mutation(api.food.addLog, newEntry);
+                const realEntry = { ...newEntry, _id: insertedId, id: insertedId };
+                setDailyLog(prev => prev.map(item => item.id === tempId ? realEntry : item));
+            } catch (e) {
+                console.error("Error adding food log in background:", e);
+                setDailyLog(prev => prev.filter(item => item.id !== tempId));
+                showAlert("Log Error", "Failed to save entry");
+            }
+        }, 0);
     };
 
     const removeFoodFromLog = async (id) => {

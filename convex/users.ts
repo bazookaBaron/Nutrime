@@ -232,6 +232,35 @@ export const incrementXP = mutation({
     },
 });
 
+export const ensureLeaderboard = mutation({
+    args: { userId: v.string() },
+    handler: async (ctx, args) => {
+        const profile = await ctx.db
+            .query("profiles")
+            .withIndex("by_user_id", (q) => q.eq("user_id", args.userId))
+            .unique();
+
+        if (!profile) return;
+
+        const lbEntry = await ctx.db
+            .query("leaderboards")
+            .withIndex("by_user_id", (q) => q.eq("user_id", args.userId))
+            .unique();
+
+        if (!lbEntry) {
+            await ctx.db.insert("leaderboards", {
+                user_id: args.userId,
+                username: profile.username || profile.full_name || "Anonymous",
+                total_xp: profile.workout_xp || 0,
+                state: profile.state || "",
+                country: profile.country || "",
+                streak: profile.streak || 0,
+                profile_image_url: profile.profile_image_url,
+            });
+        }
+    },
+});
+
 export const generateUploadUrl = mutation({
     handler: async (ctx) => {
         return await ctx.storage.generateUploadUrl();

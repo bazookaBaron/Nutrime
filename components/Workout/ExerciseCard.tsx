@@ -16,6 +16,7 @@ interface Exercise {
     predicted_sets?: number;
     actual_calories_burned?: number;
     is_completed?: string;
+    exerciseType?: string;
 }
 
 interface ExerciseCardProps {
@@ -48,6 +49,7 @@ const ExerciseCard = ({ exercise, onComplete, onReplace, onStart, isCompleted, d
     const totalSets = exercise.predicted_sets || 3;
     const isDone = exercise.is_completed === 'true';
     const isPartial = exercise.is_completed === 'partial';
+    const isDurationExercise = exercise.exerciseType !== 'Set/Rep';
     const hasPartialProgress = isPartial || (completedSets > 0 && completedSets < totalSets);
     const levelColor = LEVEL_COLORS[exercise.level] || '#888';
 
@@ -76,7 +78,9 @@ const ExerciseCard = ({ exercise, onComplete, onReplace, onStart, isCompleted, d
                     {/* Progress pill */}
                     {hasPartialProgress && !isDone && (
                         <View style={styles.progressBadge}>
-                            <Text style={styles.progressText}>{completedSets}/{totalSets} sets</Text>
+                            <Text style={styles.progressText}>
+                                {isDurationExercise ? 'Pending' : `${completedSets}/${totalSets} sets`}
+                            </Text>
                         </View>
                     )}
                 </View>
@@ -117,7 +121,7 @@ const ExerciseCard = ({ exercise, onComplete, onReplace, onStart, isCompleted, d
                 <View style={styles.statDivider} />
                 <View style={styles.statItem}>
                     <Layers size={13} color="#a78bfa" />
-                    <Text style={styles.statValue}>{totalSets}</Text>
+                    <Text style={styles.statValue}>{isDurationExercise ? 0 : totalSets}</Text>
                     <Text style={styles.statLabel}>sets</Text>
                 </View>
             </View>
@@ -125,7 +129,9 @@ const ExerciseCard = ({ exercise, onComplete, onReplace, onStart, isCompleted, d
             {/* No thumbnail partial progress */}
             {!thumbnailUrl && hasPartialProgress && !isDone && (
                 <View style={styles.textProgressRow}>
-                    <Text style={styles.textProgress}>{completedSets}/{totalSets} sets done — keep going!</Text>
+                    <Text style={styles.textProgress}>
+                        {isDurationExercise ? 'Pending — keep going!' : `${completedSets}/${totalSets} sets done — keep going!`}
+                    </Text>
                 </View>
             )}
 

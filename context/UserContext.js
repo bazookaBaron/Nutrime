@@ -312,93 +312,112 @@ export const UserProvider = ({ children }) => {
 
     const completeExercise = async (dayNumber, exerciseId, mode = 'Gym', actualCalories = null, completedSets = null, elapsedSeconds = null) => {
         if (!user || !userProfile) return;
-        let dayId = null;
-        let dayToUpdate = null;
-        const newSchedule = workoutSchedule.map((day) => {
-            if (day.day_number !== dayNumber) return day;
-            dayId = day.id;
-            const completions = day.completed_exercises || [];
-            const modeKey = mode.toLowerCase();
-            const session = { ...day[modeKey] };
-            const exIndex = session.exercises.findIndex((ex) => (ex.instance_id || ex.name) === exerciseId);
-            const exerciseObj = session.exercises[exIndex];
-            const targetSets = exerciseObj?.predicted_sets || 3;
-            let updatedCompletions = [...completions];
-            const alreadyDone = completions.includes(exerciseId);
+        let captureDayToUpdate = null;
+        let captureDayId = null;
+        let captureXpChange = 0;
 
-            if (completedSets === null && elapsedSeconds === null) {
-                // Toggle complete
-                const becomingDone = !alreadyDone;
-                updatedCompletions = alreadyDone ? completions.filter((id) => id !== exerciseId) : [...completions, exerciseId];
-                session.exercises = session.exercises.map((ex, idx) =>
-                    idx === exIndex ? { ...ex, is_completed: becomingDone ? 'true' : 'no', completed_sets: becomingDone ? targetSets : 0 } : ex
-                );
-            } else {
-                // Specific update
-                session.exercises = session.exercises.map((ex, idx) => {
-                    if (idx !== exIndex) return ex;
+        setLocalWorkoutSchedule(prevSchedule => {
+            const newSchedule = prevSchedule.map((day) => {
+                if (day.day_number !== dayNumber) return day;
+                captureDayId = day.id;
+                const completions = day.completed_exercises || [];
+                const modeKey = mode.toLowerCase();
+                const session = { ...day[modeKey] };
+                const exIndex = session.exercises.findIndex((ex) => (ex.instance_id || ex.name) === exerciseId);
+                const exerciseObj = session.exercises[exIndex];
+                const targetSets = exerciseObj?.predicted_sets || 3;
+                let updatedCompletions = [...completions];
+                const alreadyDone = completions.includes(exerciseId);
 
-                    const newSets = completedSets !== null ? completedSets : ex.completed_sets;
-                    const newElapsed = elapsedSeconds !== null ? elapsedSeconds : ex.elapsed_seconds;
+                if (completedSets === null && elapsedSeconds === null && actualCalories === null) {
+                    // Toggle complete
+                    const becomingDone = !alreadyDone;
+                    captureXpChange = becomingDone ? 10 : -10;
+                    updatedCompletions = alreadyDone ? completions.filter((id) => id !== exerciseId) : [...completions, exerciseId];
+                    session.exercises = session.exercises.map((ex, idx) =>
+                        idx === exIndex ? {
+                            ...ex,
+                            is_completed: becomingDone ? 'true' : 'no',
+                            completed_sets: becomingDone ? targetSets : (ex.completed_sets || 0),
+                            elapsed_seconds: ex.elapsed_seconds || 0,
+                            actual_calories_burned: ex.actual_calories_burned || 0
+                        } : ex
+                    );
+                } else {
+                    // Specific update (from timer/logger)
+                    session.exercises = session.exercises.map((ex, idx) => {
+                        if (idx !== exIndex) return ex;
 
-                    const status = newSets >= targetSets ? 'true' : (newSets > 0 || (newElapsed && newElapsed > 0)) ? 'partial' : 'no';
+                        const newSets = completedSets !== null ? completedSets : (ex.completed_sets || 0);
+                        const newElapsed = elapsedSeconds !== null ? elapsedSeconds : (ex.elapsed_seconds || 0);
+                        const newCalories = actualCalories !== null ? actualCalories : (ex.actual_calories_burned || 0);
 
-                    if (status === 'true' && !alreadyDone) updatedCompletions = [...completions, exerciseId];
-                    else if (status !== 'true' && alreadyDone) updatedCompletions = completions.filter(id => id !== exerciseId);
+                        const status = newSets >= targetSets ? 'true' : (newSets > 0 || newElapsed > 0) ? 'partial' : 'no';
 
-                    return {
-                        ...ex,
-                        actual_calories_burned: actualCalories ?? ex.actual_calories_burned,
-                        completed_sets: newSets,
-                        elapsed_seconds: newElapsed,
-                        is_completed: status
-                    };
+                        if (status === 'true' && !alreadyDone) {
+                            updatedCompletions = [...completions, exerciseId];
+                            captureXpChange = 10;
+                        } else if (status !== 'true' && alreadyDone) {
+                            updatedCompletions = completions.filter(id => id !== exerciseId);
+                            captureXpChange = -10;
+                        }
+
+                        return {
+                            ...ex,
+                            actual_calories_burned: newCalories,
+                            completed_sets: newSets,
+                            elapsed_seconds: newElapsed,
+                            is_completed: status
+                        };
+                    });
+                }
+
+                const isAllDone = session.exercises.every((ex) => {
+                    const id = ex.instance_id || ex.name;
+                    return updatedCompletions.includes(id) || ex.is_completed === 'true';
                 });
-            }
-
-            const isAllDone = session.exercises.every((ex) => {
-                const id = ex.instance_id || ex.name;
-                return updatedCompletions.includes(id) || ex.is_completed === 'true';
+                captureDayToUpdate = { ...day, [modeKey]: session, completed_exercises: updatedCompletions, completed: isAllDone };
+                return captureDayToUpdate;
             });
-            dayToUpdate = { ...day, [modeKey]: session, completed_exercises: updatedCompletions, completed: isAllDone };
-            return dayToUpdate;
+            return newSchedule;
         });
 
-        setLocalWorkoutSchedule(newSchedule);
-        if (!dayId) return;
-
-        try {
-            await convex.mutation(api.workouts.updatePlan, {
-                id: dayId,
-                updates: {
-                    plan_data: {
-                        gym: dayToUpdate.gym,
-                        home: dayToUpdate.home,
-                        focus: dayToUpdate.focus,
-                        target_calories: dayToUpdate.target_calories,
-                        completed_exercises: dayToUpdate.completed_exercises
+        // Background database synchronization using the captured state to ensure consistency
+        setTimeout(async () => {
+            if (!captureDayId || !captureDayToUpdate) return;
+            try {
+                await convex.mutation(api.workouts.updatePlan, {
+                    id: captureDayId,
+                    updates: {
+                        plan_data: {
+                            gym: captureDayToUpdate.gym,
+                            home: captureDayToUpdate.home,
+                            focus: captureDayToUpdate.focus,
+                            target_calories: captureDayToUpdate.target_calories,
+                            completed_exercises: captureDayToUpdate.completed_exercises
+                        },
+                        is_completed: captureDayToUpdate.completed,
                     },
-                    is_completed: dayToUpdate.completed,
-                },
-            });
+                });
 
-            let totalCaloriesBurned = 0;
-            const allExercises = [...(dayToUpdate.gym?.exercises || []), ...(dayToUpdate.home?.exercises || [])];
-            dayToUpdate.completed_exercises.forEach((id) => {
-                const ex = allExercises.find((e) => (e.instance_id || e.name) === id);
-                if (ex) totalCaloriesBurned += ex.actual_calories_burned || ex.predicted_calories_burn || 0;
-            });
-            await convex.mutation(api.users.updateDailyStats, {
-                userId: user.id, date: dayToUpdate.date,
-                updates: { calories_burned: Math.round(totalCaloriesBurned), daily_exercise_completions: dayToUpdate.completed_exercises },
-            });
-            // XP only on full completion toggle or set increment
-            if (completedSets !== null || (completedSets === null && elapsedSeconds === null)) {
-                addXP(10);
+                let totalCaloriesBurned = 0;
+                const allExercises = [...(captureDayToUpdate.gym?.exercises || []), ...(captureDayToUpdate.home?.exercises || [])];
+                captureDayToUpdate.completed_exercises.forEach((id) => {
+                    const ex = allExercises.find((e) => (e.instance_id || e.name) === id);
+                    if (ex) totalCaloriesBurned += ex.actual_calories_burned || ex.predicted_calories_burn || 0;
+                });
+                await convex.mutation(api.users.updateDailyStats, {
+                    userId: user.id, date: captureDayToUpdate.date,
+                    updates: { calories_burned: Math.round(totalCaloriesBurned), daily_exercise_completions: captureDayToUpdate.completed_exercises },
+                });
+                // XP change if applicable
+                if (captureXpChange !== 0) {
+                    addXP(captureXpChange);
+                }
+            } catch (err) {
+                console.error('[UserContext] Failed to save exercise in background:', err);
             }
-        } catch (err) {
-            console.error('[UserContext] Failed to save exercise:', err);
-        }
+        }, 0);
     };
 
     const replaceExercise = async (dayNumber, oldId, newExercise, mode = 'Gym') => {

@@ -173,7 +173,7 @@ export default function Dashboard() {
       >
 
         {/* Header */}
-        <View style={[styles.header, { paddingTop: insets.top || 20 }]}>
+        <View style={[styles.header, { paddingTop: (insets.top || 20) + 20 }]}>
           <View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               {greetingIcon}

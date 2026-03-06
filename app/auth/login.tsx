@@ -30,14 +30,15 @@ export default function AuthScreen() {
     const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
 
     // UX State
-    const [mode, setMode] = useState<'login' | 'register'>('login');
-    const [step, setStep] = useState<'form' | 'otp'>('form');
+    const [mode, setMode] = useState<'login' | 'register' | 'forgot_password'>('login');
+    const [step, setStep] = useState<'form' | 'otp' | 'new_password'>('form');
 
     // Reset forms when switching modes
-    const toggleMode = (newMode: 'login' | 'register') => {
+    const toggleMode = (newMode: 'login' | 'register' | 'forgot_password') => {
         setMode(newMode);
         setStep('form');
         setOtpCode('');
+        setNewPassword('');
         setIsProcessing(false);
     };
 
@@ -50,6 +51,7 @@ export default function AuthScreen() {
     const [fullName, setFullName] = useState('');
     const [username, setUsername] = useState('');
     const [otpCode, setOtpCode] = useState('');
+    const [newPassword, setNewPassword] = useState('');
 
     // --- Google OAuth ---
     const handleGoogle = async () => {
@@ -102,10 +104,17 @@ export default function AuthScreen() {
             return;
         }
 
+        if (step === 'new_password') {
+            await handleResetPassword();
+            return;
+        }
+
         if (mode === 'login') {
             await handleLogin();
-        } else {
+        } else if (mode === 'register') {
             await handleRegister();
+        } else if (mode === 'forgot_password') {
+            await handleForgotPassword();
         }
     };
 
@@ -162,6 +171,25 @@ export default function AuthScreen() {
         }
     };
 
+    const handleForgotPassword = async () => {
+        if (!isSignInLoaded) return;
+        if (!email.trim()) return showAlert('Missing Field', 'Please enter your email address.');
+
+        setIsProcessing(true);
+        try {
+            await signIn.create({
+                strategy: "reset_password_email_code",
+                identifier: email.trim().toLowerCase(),
+            });
+            setStep('otp');
+            setIsProcessing(false);
+        } catch (err: any) {
+            setIsProcessing(false);
+            const msg = err?.errors?.[0]?.longMessage || err?.message || 'Failed to initiate password reset.';
+            showAlert('Error', msg);
+        }
+    };
+
     const handleRegister = async () => {
         if (!isSignUpLoaded) return;
         if (!email.trim() || !password || !fullName.trim() || !username.trim()) {
@@ -192,7 +220,20 @@ export default function AuthScreen() {
 
         setIsProcessing(true);
         try {
-            if (mode === 'login') {
+            if (mode === 'forgot_password') {
+                const result = await signIn.attemptFirstFactor({
+                    strategy: 'reset_password_email_code',
+                    code: otpCode.trim()
+                });
+
+                if (result.status === 'needs_new_password') {
+                    setStep('new_password');
+                    setIsProcessing(false);
+                } else {
+                    setIsProcessing(false);
+                    showAlert('Error', `Unexpected status: ${result.status}`);
+                }
+            } else if (mode === 'login') {
                 // Handle Sign In MFA/Verification
                 // Try second factor first (MFA)
                 let result;
@@ -248,6 +289,43 @@ export default function AuthScreen() {
         }
     };
 
+    const handleResetPassword = async () => {
+        if (!isSignInLoaded) return;
+        if (!newPassword.trim()) return showAlert('Missing Field', 'Please enter a new password.');
+
+        setIsProcessing(true);
+        try {
+            const result = await signIn.resetPassword({
+                password: newPassword
+            });
+
+            if (result.status === 'complete') {
+                await setSignInActive({ session: result.createdSessionId });
+                posthog.capture('user_password_reset');
+                // keep isProcessing true for handoff
+            } else if (result.status === 'needs_second_factor') {
+                // E.g. 2FA enabled, they have to verify after changing password
+                const secondFactor = result.supportedSecondFactors?.find((f: any) => f.strategy === 'email_code') as any;
+                if (secondFactor) {
+                    await signIn.prepareSecondFactor({ strategy: 'email_code' });
+                    setMode('login'); // Switch to login mode to finish MFA
+                    setStep('otp');
+                    setOtpCode(''); // Clear old OTP string
+                } else {
+                    showAlert('Authentication Error', 'No supported 2FA method found.');
+                }
+                setIsProcessing(false);
+            } else {
+                setIsProcessing(false);
+                showAlert('Error', `Unexpected status: ${result.status}`);
+            }
+        } catch (err: any) {
+            setIsProcessing(false);
+            const msg = err?.errors?.[0]?.longMessage || err?.message || 'Failed to reset password.';
+            showAlert('Error', msg);
+        }
+    };
+
     return (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
             <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
@@ -259,13 +337,16 @@ export default function AuthScreen() {
                         </View>
                         <Text style={styles.title}>Nutrient Tracker</Text>
                         <Text style={styles.subtitle}>
-                            {step === 'otp' ? `We sent a code to ${email}` : 'Log your journey, reach your goals'}
+                            {step === 'otp' ? `We sent a code to ${email}` :
+                                step === 'new_password' ? 'Create a new secure password' :
+                                    mode === 'forgot_password' ? 'Reset your password to regain access' :
+                                        'Log your journey, reach your goals'}
                         </Text>
                     </View>
 
                     {/* Form Section */}
                     <View style={styles.card}>
-                        {step === 'form' && (
+                        {step === 'form' && mode !== 'forgot_password' && (
                             <View style={styles.toggleContainer}>
                                 <TouchableOpacity
                                     style={[styles.toggleBtn, mode === 'login' && styles.toggleBtnActive]}
@@ -282,7 +363,22 @@ export default function AuthScreen() {
                             </View>
                         )}
 
-                        {step === 'otp' ? (
+                        {step === 'new_password' ? (
+                            <View style={styles.inputGroup}>
+                                <View style={styles.inputField}>
+                                    <Lock color="#6b7280" size={20} />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="New Password"
+                                        placeholderTextColor="#6b7280"
+                                        value={newPassword}
+                                        onChangeText={setNewPassword}
+                                        secureTextEntry
+                                        autoFocus
+                                    />
+                                </View>
+                            </View>
+                        ) : step === 'otp' ? (
                             <View style={styles.inputGroup}>
                                 <View style={styles.inputField}>
                                     <Lock color="#6b7280" size={20} />
@@ -337,17 +433,24 @@ export default function AuthScreen() {
                                         keyboardType="email-address"
                                     />
                                 </View>
-                                <View style={styles.inputField}>
-                                    <Lock color="#6b7280" size={20} />
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Password"
-                                        placeholderTextColor="#6b7280"
-                                        value={password}
-                                        onChangeText={setPassword}
-                                        secureTextEntry
-                                    />
-                                </View>
+                                {mode !== 'forgot_password' && (
+                                    <View style={styles.inputField}>
+                                        <Lock color="#6b7280" size={20} />
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="Password"
+                                            placeholderTextColor="#6b7280"
+                                            value={password}
+                                            onChangeText={setPassword}
+                                            secureTextEntry
+                                        />
+                                    </View>
+                                )}
+                                {mode === 'login' && (
+                                    <TouchableOpacity style={styles.forgotBtn} onPress={() => toggleMode('forgot_password')} disabled={isProcessing}>
+                                        <Text style={styles.forgotBtnText}>Forgot Password?</Text>
+                                    </TouchableOpacity>
+                                )}
                             </View>
                         )}
 
@@ -361,7 +464,10 @@ export default function AuthScreen() {
                             ) : (
                                 <>
                                     <Text style={styles.mainButtonText}>
-                                        {step === 'otp' ? 'Verify Details' : mode === 'login' ? 'Sign In' : 'Create Account'}
+                                        {step === 'otp' ? 'Verify Details' :
+                                            step === 'new_password' ? 'Reset Password' :
+                                                mode === 'forgot_password' ? 'Send Reset Link' :
+                                                    mode === 'login' ? 'Sign In' : 'Create Account'}
                                     </Text>
                                     <ArrowRight color="#0f172a" size={20} />
                                 </>
@@ -387,9 +493,9 @@ export default function AuthScreen() {
                             </View>
                         )}
 
-                        {step === 'otp' && (
-                            <TouchableOpacity style={styles.backBtn} onPress={() => setStep('form')} disabled={isProcessing}>
-                                <Text style={styles.backBtnText}>Change Email or Sign In</Text>
+                        {(step === 'otp' || mode === 'forgot_password' || step === 'new_password') && (
+                            <TouchableOpacity style={styles.backBtn} onPress={() => toggleMode('login')} disabled={isProcessing}>
+                                <Text style={styles.backBtnText}>Back to Sign In</Text>
                             </TouchableOpacity>
                         )}
                     </View>
@@ -575,6 +681,16 @@ const styles = StyleSheet.create({
         color: '#94a3b8',
         fontSize: 14,
         fontWeight: '500',
+    },
+    forgotBtn: {
+        alignSelf: 'flex-end',
+        marginTop: -8,
+        marginBottom: 8,
+    },
+    forgotBtnText: {
+        color: '#bef264',
+        fontSize: 14,
+        fontWeight: '600',
     },
     processingOverlay: {
         ...StyleSheet.absoluteFillObject,

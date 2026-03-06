@@ -152,8 +152,9 @@ export default function WorkoutScreen() {
             newSet.add(id);
         }
 
-        completeExercise(currentDay.day_number, id, mode);
+        // Update UI immediately (optimistic) — API call fires in background
         setCompletedExerciseIds(newSet);
+        completeExercise(currentDay.day_number, id, mode);
 
         if (isCompleting) {
             posthog.capture('exercise_completed', {

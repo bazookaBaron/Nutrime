@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Alert, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -53,86 +53,78 @@ export default function ActiveWorkoutScreen() {
     const [playing, setPlaying] = useState(false);
     const [elapsedMs, setElapsedMs] = useState(exercise.elapsed_seconds * 1000);
     const [isActive, setIsActive] = useState(false);
-    const [caloriesBurned, setCaloriesBurned] = useState(0);
     const [videoReady, setVideoReady] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
 
     const startTimeRef = useRef<number | null>(null);
     const accumulatedTimeRef = useRef(exercise.elapsed_seconds * 1000);
+    // Cross-render mutable elapsed to read inside callbacks without stale closure issues
+    const elapsedMsRef = useRef(exercise.elapsed_seconds * 1000);
 
     // Set/Rep state
     const [currentSet, setCurrentSet] = useState(exercise.completed_sets + 1);
     const [completedSets, setCompletedSets] = useState(exercise.completed_sets);
     const [showLogEffect, setShowLogEffect] = useState(false);
 
-    // Save progress helper
+    // Calories derived directly — no state, no effect
+    const caloriesBurned = useMemo(() => {
+        if (!userProfile?.weight) return 0;
+        let hours = 0;
+        if (isSetRep) {
+            const targetHours = exercise.targetDuration / 60;
+            hours = (completedSets / exercise.sets) * targetHours;
+        } else {
+            hours = elapsedMs / (1000 * 3600);
+        }
+        return exercise.met * userProfile.weight * hours;
+    }, [elapsedMs, isSetRep, completedSets, exercise.sets, exercise.targetDuration, exercise.met, userProfile?.weight]);
+
+    // Save progress helper — reads live refs so no stale closure
     const saveProgress = useCallback((forceElapsedMs?: number) => {
-        const ms = forceElapsedMs ?? elapsedMs;
+        const ms = forceElapsedMs ?? elapsedMsRef.current;
         if (exercise.day_number && exercise.id) {
             const seconds = Math.floor(ms / 1000);
-            const setsToReport = isSetRep ? completedSets : null;
-            completeExercise(exercise.day_number, exercise.id, exercise.mode, caloriesBurned, setsToReport, seconds);
-        }
-    }, [elapsedMs, exercise.day_number, exercise.id, exercise.mode, isSetRep, completedSets, caloriesBurned]);
-
-    // Periodically save progress while active
-    useEffect(() => {
-        if (!isActive) return;
-        const interval = setInterval(() => {
-            saveProgress();
-        }, 30000); // Save every 30 seconds
-        return () => clearInterval(interval);
-    }, [isActive, saveProgress]);
-
-    // Timer logic with high precision using requestAnimationFrame (Only for Duration type)
-    useEffect(() => {
-        if (isSetRep) return;
-
-        let animationFrameId: number;
-
-        const tick = () => {
-            if (startTimeRef.current !== null) {
-                setElapsedMs(accumulatedTimeRef.current + (Date.now() - startTimeRef.current));
-                animationFrameId = requestAnimationFrame(tick);
-            }
-        };
-
-        if (isActive) {
-            startTimeRef.current = Date.now();
-            animationFrameId = requestAnimationFrame(tick);
-        } else {
-            if (startTimeRef.current !== null) {
-                accumulatedTimeRef.current += Date.now() - startTimeRef.current;
-            }
-            startTimeRef.current = null;
-        }
-
-        return () => {
-            if (animationFrameId) cancelAnimationFrame(animationFrameId);
-        };
-    }, [isActive, isSetRep]);
-
-    // Calorie calculation
-    useEffect(() => {
-        // Formula: Kcal = MET * Weight(kg) * Duration(hr)
-        if (userProfile?.weight) {
+            const setsToReport = isSetRep ? completedSets : 0; // Duration always 0 sets
+            const weight = userProfile?.weight || 70;
             let hours = 0;
             if (isSetRep) {
-                // If it's sets/reps, scale the target duration by the percentage of sets completed
                 const targetHours = exercise.targetDuration / 60;
                 hours = (completedSets / exercise.sets) * targetHours;
             } else {
-                hours = elapsedMs / (1000 * 3600);
+                hours = ms / (1000 * 3600);
             }
-            const burned = exercise.met * userProfile.weight * hours;
-            setCaloriesBurned(burned);
+            const inlineCalories = exercise.met * weight * hours;
+            completeExercise(exercise.day_number, exercise.id, exercise.mode, inlineCalories, setsToReport, seconds);
         }
-    }, [elapsedMs, exercise.met, userProfile?.weight, isSetRep, completedSets, exercise.sets, exercise.targetDuration]);
+    }, [exercise.day_number, exercise.id, exercise.mode, isSetRep, completedSets,
+    exercise.met, exercise.targetDuration, exercise.sets, userProfile?.weight, completeExercise]);
+
+    // (Periodic save interval removed as per user request to only sync on Mark as Done or Close)
+
+    // Timer — using setInterval at 100ms to avoid flooding React Fabric with 60fps state updates
+    // (requestAnimationFrame + setState causes 'max update depth exceeded' on new architecture)
+    useEffect(() => {
+        if (isSetRep) return;
+
+        if (isActive) {
+            startTimeRef.current = Date.now();
+            const interval = setInterval(() => {
+                const now = Date.now();
+                const newMs = accumulatedTimeRef.current + (now - (startTimeRef.current ?? now));
+                elapsedMsRef.current = newMs;
+                setElapsedMs(newMs);
+            }, 100); // 100ms — smooth display, safe for React scheduler
+            return () => clearInterval(interval);
+        } else {
+            if (startTimeRef.current !== null) {
+                accumulatedTimeRef.current += Date.now() - startTimeRef.current;
+                elapsedMsRef.current = accumulatedTimeRef.current;
+            }
+            startTimeRef.current = null;
+        }
+    }, [isActive, isSetRep]);
 
     const toggleTimer = () => {
-        if (isActive) {
-            saveProgress(); // Save when pausing
-        }
         setIsActive(!isActive);
     };
 
@@ -161,7 +153,9 @@ export default function ActiveWorkoutScreen() {
             }
             // Background sync — no await
             if (exercise.day_number && exercise.id) {
-                completeExercise(exercise.day_number, exercise.id, exercise.mode, null, nextCompleted);
+                setTimeout(() => {
+                    completeExercise(exercise.day_number, exercise.id, exercise.mode, null, nextCompleted);
+                }, 0);
             }
         }
     };
@@ -170,12 +164,22 @@ export default function ActiveWorkoutScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setIsActive(false);
         setPlaying(false);
+        const latestMs = elapsedMsRef.current;
+        const seconds = Math.floor(latestMs / 1000);
         setShowSuccessModal(true); // show instantly
         // Background sync — no await
         if (exercise.day_number && exercise.id) {
-            const setsToReport = isSetRep ? completedSets : 1;
-            completeExercise(exercise.day_number, exercise.id, exercise.mode, caloriesBurned, setsToReport);
+            const setsToReport = isSetRep ? completedSets : 0;
+            setTimeout(() => {
+                completeExercise(exercise.day_number, exercise.id, exercise.mode, caloriesBurned, setsToReport, seconds);
+            }, 0);
         }
+    };
+
+    const handleHeaderBack = () => {
+        // Sync one last time before exiting via the X button
+        saveProgress();
+        router.back();
     };
 
     const handleCloseModal = () => {
@@ -186,7 +190,7 @@ export default function ActiveWorkoutScreen() {
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
+                <TouchableOpacity onPress={handleHeaderBack} style={styles.closeBtn}>
                     <X size={24} color="#FFF" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle} numberOfLines={1}>{exercise.name}</Text>
@@ -259,8 +263,12 @@ export default function ActiveWorkoutScreen() {
                             <TouchableOpacity style={[styles.controlBtn, { backgroundColor: '#333' }]} onPress={() => {
                                 setElapsedMs(0);
                                 accumulatedTimeRef.current = 0;
+                                elapsedMsRef.current = 0;
                                 setIsActive(false);
                                 setPlaying(false);
+                                setTimeout(() => {
+                                    saveProgress(0); // Update DB in background
+                                }, 0);
                             }}>
                                 <RotateCcw size={24} color="#FFF" />
                             </TouchableOpacity>

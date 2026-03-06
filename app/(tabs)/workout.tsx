@@ -58,6 +58,7 @@ export default function WorkoutScreen() {
     }, [isFocused]);
 
     const [selectedDayIndex, setSelectedDayIndex] = useState(0);
+    const [dayLoading, setDayLoading] = useState(false);
     const [mode, setMode] = useState<'Gym' | 'Home'>('Gym');
 
     const [replaceModalVisible, setReplaceModalVisible] = useState(false);
@@ -78,6 +79,13 @@ export default function WorkoutScreen() {
             }
         }
     }, [sortedSchedule, today]);
+
+    // Clear the loader once the selected day's content has settled
+    useEffect(() => {
+        if (!dayLoading) return;
+        const timer = setTimeout(() => setDayLoading(false), 300);
+        return () => clearTimeout(timer);
+    }, [selectedDayIndex, dayLoading]);
 
     const currentDay = sortedSchedule[selectedDayIndex];
     const isTodaySelected = currentDay?.date === today;
@@ -296,7 +304,16 @@ export default function WorkoutScreen() {
                             const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
 
                             return (
-                                <TouchableOpacity key={day.id || index} onPress={() => setSelectedDayIndex(index)} style={[styles.dayChip, isSelected && styles.dayChipSelected, isToday && !isSelected && styles.dayChipToday, !isToday && !isSelected && styles.dayChipDimmed, day.completed && styles.dayChipCompleted]}>
+                                <TouchableOpacity
+                                    key={day.id || index}
+                                    onPress={() => {
+                                        if (index !== selectedDayIndex) {
+                                            setDayLoading(true);
+                                            setSelectedDayIndex(index);
+                                        }
+                                    }}
+                                    style={[styles.dayChip, isSelected && styles.dayChipSelected, isToday && !isSelected && styles.dayChipToday, !isToday && !isSelected && styles.dayChipDimmed, day.completed && styles.dayChipCompleted]}
+                                >
                                     <View style={styles.dayHeader}>
                                         <Text style={[styles.dayChipText, isSelected && styles.dayChipTextSelected]}>{dayName}</Text>
                                         {isToday && <PulsatingDot color={isSelected ? '#000' : '#bef264'} />}
@@ -318,11 +335,18 @@ export default function WorkoutScreen() {
                             </View>
                         </View>
                         <Text style={styles.exerciseListLabel}>{exercises.length} Exercises ({mode})</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.exerciseScroll}>
-                            {exercises.map((ex: any, idx: number) => (
-                                <ExerciseCard key={idx} exercise={ex} onComplete={() => handleComplete(ex)} onReplace={() => handleReplaceRequest(ex)} onStart={() => handleStart(ex)} disabled={!isTodaySelected} isCompleted={completedExerciseIds.has(ex.instance_id || ex.name)} />
-                            ))}
-                        </ScrollView>
+                        {dayLoading ? (
+                            <View style={styles.dayLoadingContainer}>
+                                <ActivityIndicator size="large" color="#bef264" />
+                                <Text style={styles.dayLoadingText}>Loading workout...</Text>
+                            </View>
+                        ) : (
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.exerciseScroll}>
+                                {exercises.map((ex: any, idx: number) => (
+                                    <ExerciseCard key={idx} exercise={ex} onComplete={() => handleComplete(ex)} onReplace={() => handleReplaceRequest(ex)} onStart={() => handleStart(ex)} disabled={!isTodaySelected} isCompleted={completedExerciseIds.has(ex.instance_id || ex.name)} />
+                                ))}
+                            </ScrollView>
+                        )}
                         <Leaderboard currentUserId={userProfile?.id || ''} userCountry={userProfile?.country} userState={userProfile?.state} />
                     </View>
                 )}
@@ -428,6 +452,8 @@ const styles = StyleSheet.create({
     exerciseScroll: { paddingRight: 20 },
     startWorkoutBtn: { backgroundColor: '#bef264', padding: 16, borderRadius: 16, alignItems: 'center', marginTop: 20 },
     startWorkoutText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
+    dayLoadingContainer: { height: 200, justifyContent: 'center', alignItems: 'center', gap: 14 },
+    dayLoadingText: { fontSize: 14, color: '#666', fontWeight: '500' },
     emptyState: { alignItems: 'center', marginTop: 50 },
     emptyText: { color: '#666', marginTop: 12, fontSize: 16 },
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },

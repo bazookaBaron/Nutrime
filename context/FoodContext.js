@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import Fuse from 'fuse.js';
 import { useConvex } from 'convex/react';
 import { api } from '../convex/_generated/api';
 import { useUser } from './UserContext';
@@ -15,6 +16,22 @@ export const FoodProvider = ({ children }) => {
     const convex = useConvex();
     const [dailyLog, setDailyLog] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // Build Fuse index once — O(n) on mount, O(log n) per search after that
+    const fuseIndex = useMemo(() => new Fuse(foodDatabase, {
+        keys: ['name'],
+        threshold: 0.3,       // 0 = perfect match, 1 = match anything
+        distance: 200,        // how far into the string to look for the pattern
+        minMatchCharLength: 2,
+        includeScore: true,
+    }), []);
+
+    const searchFood = (query, limit = 50) => {
+        if (!query || query.trim().length === 0) return [];
+        return fuseIndex
+            .search(query.trim(), { limit })
+            .map(result => result.item);
+    };
 
     useEffect(() => {
         if (user) {
@@ -147,7 +164,7 @@ export const FoodProvider = ({ children }) => {
     };
 
     return (
-        <FoodContext.Provider value={{ dailyLog, foodDatabase, addFoodToLog, removeFoodFromLog, getDailySummary, getMTDSummary, getLast7DaysCalories, loading }}>
+        <FoodContext.Provider value={{ dailyLog, foodDatabase, searchFood, addFoodToLog, removeFoodFromLog, getDailySummary, getMTDSummary, getLast7DaysCalories, loading }}>
             {children}
         </FoodContext.Provider>
     );

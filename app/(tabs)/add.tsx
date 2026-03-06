@@ -2,12 +2,12 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useFood } from '../../context/FoodContext';
 import { useUser } from '../../context/UserContext';
-import { Search, Plus, ScanLine, X } from 'lucide-react-native';
+import { Search, Plus, ScanLine } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { usePostHog } from 'posthog-react-native';
 
 export default function AddFood() {
-    const { foodDatabase, addFoodToLog, dailyLog } = useFood();
+    const { foodDatabase, searchFood, addFoodToLog, dailyLog } = useFood();
     const { nutritionTargets, todayStr } = useUser();
     const posthog = usePostHog();
     const [searchQuery, setSearchQuery] = useState('');
@@ -46,27 +46,13 @@ export default function AddFood() {
     const performSearch = useCallback((text: string) => {
         if (text.length > 0) {
             setIsSearching(true);
-            const query = text.toLowerCase();
-            const results = foodDatabase
-                .filter(item => item.name && item.name.toLowerCase().includes(query))
-                .map(item => {
-                    const itemName = item.name.toLowerCase();
-                    let score = 0;
-                    if (itemName === query) score = 3;
-                    else if (itemName.startsWith(query)) score = 2;
-                    else if (itemName.includes(' ' + query)) score = 1.5;
-                    else score = 1;
-                    return { ...item, score };
-                })
-                .sort((a, b) => b.score - a.score || a.name.length - b.name.length)
-                .slice(0, 50);
-
+            const results = searchFood(text, 50);
             setFilteredFood(results);
             setIsSearching(false);
         } else {
             setFilteredFood([]);
         }
-    }, [foodDatabase]);
+    }, [searchFood]);
 
     const handleSearch = (text: string) => {
         setSearchQuery(text);
@@ -76,9 +62,12 @@ export default function AddFood() {
 
         if (text.length === 0) {
             setFilteredFood([]);
+            setIsSearching(false);
             return;
         }
 
+        // Show spinner immediately so the user sees feedback right away
+        setIsSearching(true);
         searchTimeout.current = setTimeout(() => {
             performSearch(text);
         }, 300);
@@ -185,10 +174,8 @@ export default function AddFood() {
                         placeholderTextColor="#9ca3af"
                         autoFocus
                     />
-                    {searchQuery.length > 0 && (
-                        <TouchableOpacity onPress={() => handleSearch('')}>
-                            <X size={18} color="#9ca3af" />
-                        </TouchableOpacity>
+                    {isSearching && searchQuery.length > 0 && (
+                        <ActivityIndicator size="small" color="#84cc16" />
                     )}
                 </View>
                 <TouchableOpacity onPress={() => router.back()}>
@@ -248,9 +235,16 @@ export default function AddFood() {
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
                     searchQuery.length > 0 ? (
-                        <View style={styles.emptyContainer}>
-                            <Text style={styles.emptyText}>No food found</Text>
-                        </View>
+                        isSearching ? (
+                            <View style={styles.emptyContainer}>
+                                <ActivityIndicator size="large" color="#84cc16" />
+                                <Text style={[styles.emptyText, { marginTop: 14, color: '#666' }]}>Searching...</Text>
+                            </View>
+                        ) : (
+                            <View style={styles.emptyContainer}>
+                                <Text style={styles.emptyText}>No food found</Text>
+                            </View>
+                        )
                     ) : null
                 }
             />

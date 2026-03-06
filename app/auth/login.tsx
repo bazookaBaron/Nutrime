@@ -33,6 +33,14 @@ export default function AuthScreen() {
     const [mode, setMode] = useState<'login' | 'register'>('login');
     const [step, setStep] = useState<'form' | 'otp'>('form');
 
+    // Reset forms when switching modes
+    const toggleMode = (newMode: 'login' | 'register') => {
+        setMode(newMode);
+        setStep('form');
+        setOtpCode('');
+        setIsProcessing(false);
+    };
+
     // Global Loading State - freezes UI while Clerk API calls process
     const [isProcessing, setIsProcessing] = useState(false);
 
@@ -47,7 +55,7 @@ export default function AuthScreen() {
     const handleGoogle = async () => {
         setIsProcessing(true);
         try {
-            const redirectUrl = Linking.createURL('/auth/login');
+            const redirectUrl = Linking.createURL('/');
             const { createdSessionId, setActive, signUp: googleSignUp } = await startOAuthFlow({ redirectUrl });
 
             if (createdSessionId && setActive) {
@@ -117,6 +125,32 @@ export default function AuthScreen() {
                 posthog.identify(email.trim(), { $set: { email: email.trim() } });
                 posthog.capture('user_logged_in', { email: email.trim() });
                 // keep isProcessing true for handoff
+            } else if (result.status === 'needs_first_factor') {
+                // E.g. Password verified, but email not verified
+                const firstFactor = result.supportedFirstFactors?.find((f: any) => f.strategy === 'email_code') as any;
+                if (firstFactor) {
+                    await signIn.prepareFirstFactor({ strategy: 'email_code', emailAddressId: firstFactor.emailAddressId });
+                    setStep('otp');
+                } else {
+                    showAlert('Authentication Error', 'No supported verification method found.');
+                }
+                setIsProcessing(false);
+            } else if (result.status === 'needs_second_factor') {
+                // E.g. 2FA enabled
+                const secondFactor = result.supportedSecondFactors?.find((f: any) => f.strategy === 'email_code') as any;
+                if (secondFactor) {
+                    await signIn.prepareSecondFactor({ strategy: 'email_code' });
+                    setStep('otp');
+                } else {
+                    showAlert('Authentication Error', 'No supported 2FA method found.');
+                }
+                setIsProcessing(false);
+            } else if (result.status === 'needs_identifier') {
+                setIsProcessing(false);
+                showAlert('Login Failed', 'Identifier not found. Please sign up.');
+            } else if (result.status === 'needs_new_password') {
+                setIsProcessing(false);
+                showAlert('Password Reset Required', 'Please reset your password to continue.');
             } else {
                 setIsProcessing(false);
                 showAlert('Login Failed', `Account status: ${result.status}. Please check your credentials.`);
@@ -136,22 +170,15 @@ export default function AuthScreen() {
 
         setIsProcessing(true);
         try {
-            const result = await signUp.create({
+            await signUp.create({
                 emailAddress: email.trim().toLowerCase(),
                 password,
             });
 
-            if (result.status === 'complete') {
-                await setSignUpActive({ session: result.createdSessionId });
-                // keep isProcessing true
-            } else if (result.status === 'missing_requirements') {
-                await result.prepareEmailAddressVerification({ strategy: 'email_code' });
-                setStep('otp');
-                setIsProcessing(false); // Free UI for OTP input
-            } else {
-                setIsProcessing(false);
-                showAlert('Error', `Status: ${result.status}`);
-            }
+            // Always prepare verification after creating the signup attempt
+            await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+            setStep('otp');
+            setIsProcessing(false); // Free UI for OTP input
         } catch (err: any) {
             setIsProcessing(false);
             const msg = err?.errors?.[0]?.longMessage || err?.message || 'Sign up failed.';
@@ -242,13 +269,13 @@ export default function AuthScreen() {
                             <View style={styles.toggleContainer}>
                                 <TouchableOpacity
                                     style={[styles.toggleBtn, mode === 'login' && styles.toggleBtnActive]}
-                                    onPress={() => setMode('login')}
+                                    onPress={() => toggleMode('login')}
                                 >
                                     <Text style={[styles.toggleText, mode === 'login' && styles.toggleTextActive]}>Sign In</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={[styles.toggleBtn, mode === 'register' && styles.toggleBtnActive]}
-                                    onPress={() => setMode('register')}
+                                    onPress={() => toggleMode('register')}
                                 >
                                     <Text style={[styles.toggleText, mode === 'register' && styles.toggleTextActive]}>Sign Up</Text>
                                 </TouchableOpacity>

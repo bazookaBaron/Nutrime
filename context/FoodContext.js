@@ -6,6 +6,7 @@ import { useUser } from './UserContext';
 import { Alert } from 'react-native';
 import foodDatabase from '../assets/food_data.json';
 import { getTodayISODate } from '../utils/DateUtils';
+import { useAlert } from './AlertContext';
 
 const FoodContext = createContext();
 
@@ -14,6 +15,7 @@ export const useFood = () => useContext(FoodContext);
 export const FoodProvider = ({ children }) => {
     const { user, isMock, todayStr } = useUser();
     const convex = useConvex();
+    const { showAlert } = useAlert();
     const [dailyLog, setDailyLog] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -61,7 +63,7 @@ export const FoodProvider = ({ children }) => {
 
     const addFoodToLog = async (food, mealType = 'snack', quantity = 1) => {
         if (!user) {
-            Alert.alert("Please sign in to save data");
+            showAlert("Authentication Required", "Please sign in to save data");
             return;
         }
 
@@ -100,7 +102,7 @@ export const FoodProvider = ({ children }) => {
         } catch (e) {
             console.error("Error adding food log", e);
             setDailyLog(prev => prev.filter(item => item.id !== optimisticEntry.id));
-            Alert.alert("Failed to save entry");
+            showAlert("Log Error", "Failed to save entry");
         }
     };
 
@@ -114,7 +116,7 @@ export const FoodProvider = ({ children }) => {
         } catch (e) {
             console.error("Error deleting food log", e);
             setDailyLog(prevLog);
-            Alert.alert("Failed to delete entry");
+            showAlert("Delete Error", "Failed to delete entry");
         }
     };
 

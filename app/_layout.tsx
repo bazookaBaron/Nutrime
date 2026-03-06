@@ -31,6 +31,8 @@ import { posthog } from '../src/config/posthog';
 import tokenCache from '../utils/tokenCache';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { api } from '../convex/_generated/api';
+import { AlertProvider } from '../context/AlertContext';
+import CustomAlert from '../components/Modals/CustomAlert';
 
 const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL as string);
 
@@ -128,6 +130,7 @@ function RootLayoutNav() {
       )}
 
       <StatusBar style="auto" />
+      <CustomAlert />
     </ThemeProvider>
   );
 }
@@ -153,13 +156,15 @@ export default function RootLayout() {
             maxElementsCaptured: 20,
           }}
         >
-          <UserProvider>
-            <FoodProvider>
-              <ChallengesProvider>
-                <RootLayoutNav />
-              </ChallengesProvider>
-            </FoodProvider>
-          </UserProvider>
+          <AlertProvider>
+            <UserProvider>
+              <FoodProvider>
+                <ChallengesProvider>
+                  <RootLayoutNav />
+                </ChallengesProvider>
+              </FoodProvider>
+            </UserProvider>
+          </AlertProvider>
         </PostHogProvider>
       </ConvexProviderWithClerk>
     </ClerkProvider>

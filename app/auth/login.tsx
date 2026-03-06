@@ -9,17 +9,21 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { usePostHog } from 'posthog-react-native';
 import { Mail, Lock, User, ArrowRight, Chrome } from 'lucide-react-native';
+import { useAlert } from '../../context/AlertContext';
 
 WebBrowser.maybeCompleteAuthSession();
 
 // Helpers
-const showAlert = (title: string, message: string) => {
-    if (Platform.OS === 'web') window.alert(`${title}\n\n${message}`);
-    else Alert.alert(title, message);
-};
+// Helper removed in favor of context-aware version inside component
 
 export default function AuthScreen() {
     const posthog = usePostHog();
+    const { showAlert: contextShowAlert } = useAlert();
+
+    const showAlert = (title: string, message: string) => {
+        if (Platform.OS === 'web') window.alert(`${title}\n\n${message}`);
+        else contextShowAlert(title, message);
+    };
 
     const { signIn, setActive: setSignInActive, isLoaded: isSignInLoaded } = useSignIn();
     const { signUp, setActive: setSignUpActive, isLoaded: isSignUpLoaded } = useSignUp();
@@ -107,7 +111,7 @@ export default function AuthScreen() {
                 identifier: email.trim().toLowerCase(),
                 password,
             });
-
+            console.log(result);
             if (result.status === 'complete') {
                 await setSignInActive({ session: result.createdSessionId });
                 posthog.identify(email.trim(), { $set: { email: email.trim() } });
@@ -115,7 +119,7 @@ export default function AuthScreen() {
                 // keep isProcessing true for handoff
             } else {
                 setIsProcessing(false);
-                showAlert('Login Failed', `Status: ${result.status}`);
+                showAlert('Login Failed', `Account status: ${result.status}. Please check your credentials.`);
             }
         } catch (err: any) {
             setIsProcessing(false);
@@ -156,32 +160,59 @@ export default function AuthScreen() {
     };
 
     const handleVerifyOTP = async () => {
-        if (!isSignUpLoaded) return;
+        if (!isSignUpLoaded || !isSignInLoaded) return;
         if (!otpCode.trim()) return showAlert('Missing OTP', 'Please enter the code sent to your email.');
 
         setIsProcessing(true);
         try {
-            let result = await signUp.attemptEmailAddressVerification({ code: otpCode.trim() });
+            if (mode === 'login') {
+                // Handle Sign In MFA/Verification
+                // Try second factor first (MFA)
+                let result;
+                if (signIn.status === 'needs_second_factor') {
+                    result = await signIn.attemptSecondFactor({
+                        strategy: 'email_code',
+                        code: otpCode.trim(),
+                    });
+                } else {
+                    // Try first factor (Email verification)
+                    result = await signIn.attemptFirstFactor({
+                        strategy: 'email_code',
+                        code: otpCode.trim(),
+                    });
+                }
 
-            if (result.status === 'missing_requirements') {
-                const nameParts = fullName.trim().split(' ');
-                const fName = nameParts[0] || '';
-                const lName = nameParts.slice(1).join(' ') || '';
-
-                result = await signUp.update({
-                    username: username.trim().toLowerCase(),
-                    firstName: fName,
-                    lastName: lName,
-                });
-            }
-
-            if (result.status === 'complete') {
-                await setSignUpActive({ session: result.createdSessionId });
-                posthog.capture('user_verified_signup', { email: email.trim() });
-                // keep isProcessing true
+                if (result.status === 'complete') {
+                    await setSignInActive({ session: result.createdSessionId });
+                    posthog.capture('user_logged_in_mfa', { email: email.trim() });
+                } else {
+                    setIsProcessing(false);
+                    showAlert('Login Error', `Status: ${result.status}`);
+                }
             } else {
-                setIsProcessing(false);
-                showAlert('Error', `Status: ${result.status}`);
+                // Handle Sign Up (Register) Verification
+                let result = await signUp.attemptEmailAddressVerification({ code: otpCode.trim() });
+
+                if (result.status === 'missing_requirements') {
+                    const nameParts = fullName.trim().split(' ');
+                    const fName = nameParts[0] || '';
+                    const lName = nameParts.slice(1).join(' ') || '';
+
+                    result = await signUp.update({
+                        username: username.trim().toLowerCase(),
+                        firstName: fName,
+                        lastName: lName,
+                    });
+                }
+
+                if (result.status === 'complete') {
+                    await setSignUpActive({ session: result.createdSessionId });
+                    posthog.capture('user_verified_signup', { email: email.trim() });
+                    // keep isProcessing true
+                } else {
+                    setIsProcessing(false);
+                    showAlert('Error', `Status: ${result.status}`);
+                }
             }
         } catch (err: any) {
             setIsProcessing(false);

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useUser } from '../../context/UserContext';
+import { useAlert } from '../../context/AlertContext';
 import { ArrowLeft, ArrowRight } from 'lucide-react-native';
 
 export default function Step3bTarget() {
@@ -9,6 +10,7 @@ export default function Step3bTarget() {
     const [durationWeeks, setDurationWeeks] = useState('');
 
     const { userProfile, updateProfile } = useUser();
+    const { showAlert } = useAlert();
     const router = useRouter();
 
     const currentWeight = userProfile?.weight || 0;
@@ -21,7 +23,7 @@ export default function Step3bTarget() {
         const weeks = parseFloat(durationWeeks);
 
         if (isNaN(tWeight) || isNaN(weeks) || weeks <= 0) {
-            Alert.alert("Invalid Input", "Please enter valid numbers.");
+            showAlert("Invalid Input", "Please enter valid numbers.");
             return;
         }
 
@@ -30,7 +32,7 @@ export default function Step3bTarget() {
         const weeklyChange = weightDiff / weeks;
 
         if (Math.abs(weeklyChange) > 1.5) {
-            Alert.alert(
+            showAlert(
                 "Aggressive Goal Warning",
                 `This plan implies changing your weight by ${Math.abs(weeklyChange).toFixed(1)}kg per week. A safe rate is usually 0.5-1.0kg per week. Are you sure?`,
                 [

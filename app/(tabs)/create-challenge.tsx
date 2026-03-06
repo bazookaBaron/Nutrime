@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useChallenges } from '../../context/ChallengesContext';
+import { useAlert } from '../../context/AlertContext';
 import { Calendar, ChevronLeft, Target, Timer, Trophy } from 'lucide-react-native';
 
 export default function CreateChallengeScreen() {
     const router = useRouter();
     const { createChallenge } = useChallenges();
+    const { showAlert } = useAlert();
     const [loading, setLoading] = useState(false);
 
     const [form, setForm] = useState({
@@ -27,24 +29,24 @@ export default function CreateChallengeScreen() {
     const handleSubmit = async () => {
         // Validation
         if (!form.title.trim()) {
-            Alert.alert('Error', 'Please enter a challenge title');
+            showAlert('Error', 'Please enter a challenge title');
             return;
         }
         if (form.title.length > 50) {
-            Alert.alert('Error', 'Title must be 50 characters or less');
+            showAlert('Error', 'Title must be 50 characters or less');
             return;
         }
         if (!form.description.trim()) {
-            Alert.alert('Error', 'Please enter a description');
+            showAlert('Error', 'Please enter a description');
             return;
         }
         if (form.description.length > 200) {
-            Alert.alert('Error', 'Description must be 200 characters or less');
+            showAlert('Error', 'Description must be 200 characters or less');
             return;
         }
 
         if (!form.type) {
-            Alert.alert('Error', 'Please select a challenge category');
+            showAlert('Error', 'Please select a challenge category');
             return;
         }
 
@@ -52,25 +54,25 @@ export default function CreateChallengeScreen() {
         let finalTarget = parseFloat(form.target_value);
         if (form.type !== 'custom') {
             if (isNaN(finalTarget) || finalTarget <= 0) {
-                Alert.alert('Error', 'Please enter a valid target value');
+                showAlert('Error', 'Please enter a valid target value');
                 return;
             }
 
             // Category specific limits
             if (form.type === 'steps' && finalTarget > 50000) {
-                Alert.alert('Error', 'Steps target cannot exceed 50,000');
+                showAlert('Error', 'Steps target cannot exceed 50,000');
                 return;
             }
             if (form.type === 'calories' && finalTarget > 10000) {
-                Alert.alert('Error', 'Calories target cannot exceed 10,000 kcal');
+                showAlert('Error', 'Calories target cannot exceed 10,000 kcal');
                 return;
             }
             if (form.type === 'sleep' && finalTarget > 12) {
-                Alert.alert('Error', 'Sleep target cannot exceed 12 hours');
+                showAlert('Error', 'Sleep target cannot exceed 12 hours');
                 return;
             }
             if (form.type === 'water' && finalTarget > 20) {
-                Alert.alert('Error', 'Water target cannot exceed 20 L');
+                showAlert('Error', 'Water target cannot exceed 20 L');
                 return;
             }
         } else {
@@ -80,7 +82,7 @@ export default function CreateChallengeScreen() {
 
         const duration = parseInt(form.duration_days);
         if (isNaN(duration) || duration <= 0 || duration > 365) {
-            Alert.alert('Error', 'Duration must be between 1 and 365 days');
+            showAlert('Error', 'Duration must be between 1 and 365 days');
             return;
         }
 
@@ -101,11 +103,11 @@ export default function CreateChallengeScreen() {
                 end_time: endDate.toISOString(),
             });
 
-            Alert.alert('Success', 'Challenge created! You have been automatically joined.', [
+            showAlert('Success', 'Challenge created! You have been automatically joined.', [
                 { text: 'OK', onPress: () => router.replace('/(tabs)/challenges') }
             ]);
         } catch (error) {
-            Alert.alert('Error', 'Failed to create challenge');
+            showAlert('Error', 'Failed to create challenge');
         } finally {
             setLoading(false);
         }

@@ -359,6 +359,56 @@ export const sendInactiveUserReminder = internalAction({
 });
 
 // =============================================================================
+// 7. PENDING CHALLENGE REMINDER — 6:00 PM daily
+// =============================================================================
+
+export const sendPendingChallengeReminder = internalAction({
+    args: {},
+    handler: async (ctx) => {
+        const REMINDER_HOUR = 18; // 6 PM local
+
+        const users = await ctx.runQuery(internal.notifications.getUsersWithTokens);
+        const messages: any[] = [];
+
+        for (const user of users) {
+            if (getLocalHour(user.timezone) !== REMINDER_HOUR) continue;
+
+            const activeChallenges = await ctx.runQuery(
+                internal.notifications.getUserActiveChallenges,
+                { userId: user.user_id }
+            );
+
+            const today = getLocalDateString(user.timezone);
+            let hasPending = false;
+            let challengeTitle = "";
+
+            for (const { userChallenge, challenge } of activeChallenges) {
+                if (!challenge) continue;
+                const logs = userChallenge.daily_logs || [];
+                if (!logs.includes(today)) {
+                    hasPending = true;
+                    challengeTitle = challenge.title;
+                    break; // Just need one pending to trigger the reminder
+                }
+            }
+
+            if (hasPending) {
+                const name = user.full_name?.split(" ")[0] || "there";
+                messages.push({
+                    to: user.push_token,
+                    sound: "default",
+                    title: "Challenge Reminder! 🎯",
+                    body: `Hey ${name}, you haven't checked off your daily goal for "${challengeTitle}". Get it done before the day ends!`,
+                    data: { screen: "challenges" },
+                });
+            }
+        }
+
+        await sendPushMessages(ctx, messages);
+    },
+});
+
+// =============================================================================
 // INTERNAL QUERIES (used by the actions above)
 // =============================================================================
 

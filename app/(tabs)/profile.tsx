@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useUser } from '../../context/UserContext';
 import { useChallenges } from '../../context/ChallengesContext';
 import { useRouter } from 'expo-router';
+import { useAlert } from '../../context/AlertContext';
 import { Edit2, Bell, ChevronRight, User, Lock, Award, Star, Flame, Trophy, Zap, Crown, FileText, Info, HelpCircle, Inbox } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePostHog } from 'posthog-react-native';
@@ -14,11 +15,12 @@ import { api } from '@/convex/_generated/api';
 export default function ProfileScreen() {
     const { user, userProfile, logout } = useUser();
     const { userChallenges } = useChallenges();
+    const { showAlert } = useAlert();
     const router = useRouter();
     const posthog = usePostHog();
 
     const handleLogout = async () => {
-        Alert.alert(
+        showAlert(
             "Log Out",
             "Are you sure you want to log out?",
             [
@@ -97,7 +99,7 @@ export default function ProfileScreen() {
             }
         } catch (error) {
             console.error("Failed to upload image:", error);
-            Alert.alert("Upload Failed", "Could not upload your profile picture. Please try again.");
+            showAlert("Upload Failed", "Could not upload your profile picture. Please try again.");
         } finally {
             setIsUploading(false);
         }
@@ -105,11 +107,11 @@ export default function ProfileScreen() {
 
     const handleSubmitFeedback = () => {
         if (!feedbackText.trim()) {
-            Alert.alert("Required", "Please enter your feedback to submit.");
+            showAlert("Required", "Please enter your feedback to submit.");
             return;
         }
         // Placeholder for future mail implementation
-        Alert.alert("Feedback Sent", `Your ${feedbackType.toLowerCase()} has been sent to our team. Thank you!`);
+        showAlert("Feedback Sent", `Your ${feedbackType.toLowerCase()} has been sent to our team. Thank you!`);
         setFeedbackText('');
     };
 

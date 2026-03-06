@@ -9,6 +9,7 @@ import { generateWorkoutSchedule, recalculateTargets } from '../utils/WorkoutGen
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { useEnsureProfile } from '../hooks/useEnsureProfile';
 import { getTodayISODate, getYesterdayISODate } from '../utils/DateUtils';
+import { useAlert } from './AlertContext';
 
 // ---------------------------------------------------------------------------
 // Context Definition
@@ -24,6 +25,7 @@ export const UserProvider = ({ children }) => {
     const { isLoaded: isAuthLoaded, isSignedIn, userId, signOut } = useAuth();
     const { user: clerkUser } = useClerkUser();
     const convex = useConvex();
+    const { showAlert } = useAlert();
 
     // Push notification token
     const { expoPushToken, timezone: deviceTimezone } = usePushNotifications();
@@ -217,7 +219,7 @@ export const UserProvider = ({ children }) => {
         try {
             await convex.mutation(api.users.updateProfile, { userId: user.id, updates: coercedUpdates });
         } catch (error) {
-            Alert.alert('Error updating profile', error.message);
+            showAlert('Error updating profile', error.message);
         }
     };
 
@@ -289,7 +291,7 @@ export const UserProvider = ({ children }) => {
         const prev = waterIntake; // save for rollback
         setWaterIntake(newTotal); // instant UI update
         if (targetDate === todayStr && newTotal >= 3.5) {
-            Alert.alert('Goal Reached! 💧', "You've reached your 3.5L daily water goal.");
+            showAlert('Goal Reached! 💧', "You've reached your 3.5L daily water goal.");
         }
         // Background sync — no await
         convex.mutation(api.users.updateDailyStats, {

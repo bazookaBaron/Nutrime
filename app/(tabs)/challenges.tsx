@@ -54,10 +54,11 @@ function ChallengeListCard({
 
     // Inline daily ticks for custom challenges
     const renderCustomProgress = () => {
-        if (!isCustom || !isJoined || isCompleted) return null;
+        if (!isJoined || isCompleted) return null;
         const logs = userChallenge?.daily_logs || [];
-        const duration = challenge.duration_days || 1;
+        const duration = challenge.duration_days || challenge.target_value || 1;
         const startDate = new Date(userChallenge.joined_at);
+        const isWater = challenge.type === 'water';
 
         return (
             <View style={styles.inlineTickRow}>
@@ -70,8 +71,8 @@ function ChallengeListCard({
                     return (
                         <TouchableOpacity
                             key={i}
-                            style={[styles.inlineTick, isDone && styles.inlineTickDone, isFuture && { opacity: 0.4 }]}
-                            disabled={isFuture}
+                            style={[styles.inlineTick, isDone && styles.inlineTickDone, (isFuture || isWater) && { opacity: 0.4 }]}
+                            disabled={isFuture || isWater}
                             onPress={e => {
                                 e.stopPropagation?.();
                                 markDailyProgress?.(userChallenge.id, dateStr, !isDone);
@@ -373,7 +374,7 @@ export default function ChallengesScreen() {
                                         <Target size={16} color="#9ca3af" />
                                         <Text style={styles.modalStatLabel}>Target</Text>
                                         <Text style={styles.modalStatValue}>
-                                            {sc.chal.type === 'custom' ? `${sc.chal.duration_days} days` : `${sc.chal.target_value} ${sc.chal.type}`}
+                                            {`${sc.chal.duration_days || sc.chal.target_value || 1} days`}
                                         </Text>
                                     </View>
                                     <View style={styles.modalStatBox}>
@@ -387,15 +388,6 @@ export default function ChallengesScreen() {
                                         <Text style={styles.modalStatValue}>{sc.chal.participants_count || 0}</Text>
                                     </View>
                                 </View>
-
-                                {(sc.chal.type === 'steps' || sc.chal.type === 'sleep') && (
-                                    <View style={styles.warningBox}>
-                                        <AlertCircle size={16} color="#fbbf24" style={{ marginTop: 2 }} />
-                                        <Text style={styles.warningText}>
-                                            Requires <Text style={{ fontWeight: 'bold' }}>Health Connect</Text> tracking to auto-verify.
-                                        </Text>
-                                    </View>
-                                )}
 
                                 {!sc.uChal && (
                                     <TouchableOpacity
@@ -411,28 +403,34 @@ export default function ChallengesScreen() {
                                     </TouchableOpacity>
                                 )}
 
-                                {sc.uChal && sc.chal.type === 'custom' && (
+                                {sc.uChal && (
                                     <View style={[styles.dailyProgressSection, { borderColor: modalTheme.accent + '44' }]}>
                                         <Text style={styles.dailyProgressTitle}>Daily Goals
                                             <Text style={{ color: '#9ca3af', fontSize: 13, fontWeight: 'normal' }}>
-                                                {' '}({(sc.uChal.daily_logs || []).length}/{sc.chal.duration_days})
+                                                {' '}({(sc.uChal.daily_logs || []).length}/{sc.chal.duration_days || sc.chal.target_value || 1})
                                             </Text>
                                         </Text>
-                                        <Text style={styles.dailyProgressSubtitle}>Tick off each day to complete the challenge</Text>
+                                        <Text style={styles.dailyProgressSubtitle}>
+                                            {sc.chal.type === 'water'
+                                                ? 'Automatically completed when you reach your daily water goal'
+                                                : 'Tick off each day to complete the challenge'
+                                            }
+                                        </Text>
                                         <View style={styles.tickGrid}>
-                                            {Array.from({ length: sc.chal.duration_days }).map((_, i) => {
+                                            {Array.from({ length: sc.chal.duration_days || sc.chal.target_value || 1 }).map((_, i) => {
                                                 const startDate = new Date(sc.uChal.joined_at);
                                                 const targetDate = new Date(startDate);
                                                 targetDate.setDate(startDate.getDate() + i);
                                                 const dateStr = targetDate.toISOString().split('T')[0];
                                                 const isDone = (sc.uChal.daily_logs || []).includes(dateStr);
                                                 const isFuture = targetDate > new Date();
+                                                const isWater = sc.chal.type === 'water';
 
                                                 return (
                                                     <TouchableOpacity
                                                         key={i}
-                                                        style={[styles.tickBox, isDone && { backgroundColor: modalTheme.accent, borderColor: modalTheme.accent }, isFuture && styles.tickBoxDisabled]}
-                                                        disabled={isFuture}
+                                                        style={[styles.tickBox, isDone && { backgroundColor: modalTheme.accent, borderColor: modalTheme.accent }, (isFuture || isWater) && styles.tickBoxDisabled]}
+                                                        disabled={isFuture || isWater}
                                                         onPress={() => markDailyProgress(sc.uChal.id, dateStr, !isDone)}
                                                     >
                                                         <Text style={[styles.tickText, isDone && styles.tickTextDone]}>Day {i + 1}</Text>

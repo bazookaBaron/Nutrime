@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { useFood } from '../../context/FoodContext';
 import { useUser } from '../../context/UserContext';
 import { Search, Plus, ScanLine } from 'lucide-react-native';
@@ -20,13 +21,13 @@ export default function AddFood() {
 
     const fetchSummary = () => {
         const today = todayStr;
-        let logs = dailyLog.filter(item => item.date === today);
+        let logs = dailyLog.filter((item: any) => item.date === today);
 
         if (mealName) {
-            logs = logs.filter(item => item.meal_type?.toLowerCase() === mealName.toLowerCase());
+            logs = logs.filter((item: any) => item.meal_type?.toLowerCase() === mealName.toLowerCase());
         }
 
-        const totals = logs.reduce((acc, item) => ({
+        const totals = logs.reduce((acc: any, item: any) => ({
             calories: acc.calories + (Number(item.calories) || 0),
             protein: acc.protein + (Number(item.protein) || 0),
             carbs: acc.carbs + (Number(item.carbs) || 0),
@@ -48,6 +49,9 @@ export default function AddFood() {
             setIsSearching(true);
             const results = searchFood(text, 50);
             setFilteredFood(results);
+            if (results.length > 0) {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
             setIsSearching(false);
         } else {
             setFilteredFood([]);
@@ -80,6 +84,7 @@ export default function AddFood() {
     }, []);
 
     const handleAddFood = (item: any, qty: number) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         // Fire and forget so optimistic UI updates instantly
         addFoodToLog(item, mealName || 'snack', qty);
         posthog.capture('food_logged', {
@@ -96,8 +101,16 @@ export default function AddFood() {
     const FoodListItem = React.memo(({ item }: { item: any }) => {
         const [quantity, setQuantity] = useState(1);
         const [added, setAdded] = useState(false);
-        const increment = () => setQuantity(q => q + 1);
-        const decrement = () => setQuantity(q => Math.max(1, q - 1));
+        const increment = () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setQuantity(q => q + 1);
+        };
+        const decrement = () => {
+            if (quantity > 1) {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+            setQuantity(q => Math.max(1, q - 1));
+        };
 
         const handlePress = () => {
             handleAddFood(item, quantity);

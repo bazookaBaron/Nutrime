@@ -1,11 +1,11 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import { useConvex, useQuery } from 'convex/react';
 import { api } from '../convex/_generated/api';
 import { useUser } from './UserContext';
 import { useFood } from './FoodContext';
-import { wearableService } from '../services/WearableService';
 import { Alert } from 'react-native';
 import { getTodayISODate } from '../utils/DateUtils';
+import { useAlert } from './AlertContext';
 
 const ChallengesContext = createContext();
 
@@ -15,6 +15,7 @@ export const ChallengesProvider = ({ children }) => {
     const { user, isMock, addXP: userAddXP, userProfile, waterIntake, todayStr } = useUser();
     const convex = useConvex();
     const { dailyLog, getDailySummary } = useFood();
+    const { showAlert } = useAlert();
 
     // ---- Reactive Data Source (Convex) ----
     const dbChallenges = useQuery(api.challenges.getActive, {});
@@ -24,6 +25,7 @@ export const ChallengesProvider = ({ children }) => {
     const [localChallenges, setLocalChallenges] = useState([]);
     const [localUserChallenges, setLocalUserChallenges] = useState([]);
     const [loading, setLoading] = useState(true);
+    const completedProcessed = useRef(new Set());
 
     // Sync local state when DB data changes
     useEffect(() => {
@@ -35,9 +37,19 @@ export const ChallengesProvider = ({ children }) => {
     useEffect(() => {
         if (dbUserChallenges) {
             setLocalUserChallenges(dbUserChallenges.map(u => ({ ...u, id: u._id })));
+
+            // Sync completedProcessed with actual DB status to allow re-verification 
+            // of new joins while keeping track of what's already done.
+            dbUserChallenges.forEach(uc => {
+                if (uc.status === 'completed') {
+                    completedProcessed.current.add(uc._id);
+                }
+            });
+
             setLoading(false);
         } else if (!user) {
             setLocalUserChallenges([]);
+            completedProcessed.current.clear();
             setLoading(false);
         }
     }, [dbUserChallenges, user]);
@@ -53,7 +65,7 @@ export const ChallengesProvider = ({ children }) => {
             const summary = getDailySummary(today);
             verifyChallenges([], waterIntake, summary.calories);
         }
-    }, [waterIntake, dailyLog, challenges.length, userChallenges.length, todayStr, user, loading]);
+    }, [waterIntake, dailyLog, challenges.length, userChallenges, todayStr, user, loading]);
 
     const fetchChallenges = async () => {
         // No longer needed due to useQuery, but kept for interface compatibility if needed elsewhere
@@ -91,7 +103,7 @@ export const ChallengesProvider = ({ children }) => {
             await convex.mutation(api.challenges.join, { userId: user.id, challengeId });
         } catch (e) {
             console.error("Error joining challenge:", e);
-            Alert.alert("Failed to join challenge");
+            showAlert("Join Failed", "Failed to join challenge");
             // Rollback optimistic update
             setLocalUserChallenges(prev => prev.filter(uc => uc.challenge_id !== challengeId));
             setLocalChallenges(prev => prev.map(c =>
@@ -117,20 +129,6 @@ export const ChallengesProvider = ({ children }) => {
         const activeJoined = userChallenges.filter(uc => uc.status === 'joined');
         if (activeJoined.length === 0) return;
 
-        // If wearable metrics are needed and not provided, fetch them
-        const needsWearable = activeJoined.some(uc => {
-            const c = challenges.find(ch => ch.id === uc.challenge_id);
-            return c && (c.type === 'steps' || c.type === 'sleep');
-        });
-
-        if (needsWearable && wearableData.length === 0) {
-            try {
-                wearableData = await wearableService.getHistory(30);
-            } catch (e) {
-                console.log("Failed to fetch wearable data for verification", e);
-            }
-        }
-
         let anyCompleted = false;
 
         for (const uc of activeJoined) {
@@ -143,68 +141,34 @@ export const ChallengesProvider = ({ children }) => {
 
             let isCompleted = false;
 
-            // --- Steps Challenge ---
-            if (challenge.type === 'steps') {
-                // Sum steps in wearableData whose date falls between joinedAt and endTime
-                let totalSteps = 0;
-                wearableData.forEach(day => {
-                    const dayDate = new Date(day.date);
-                    if (dayDate >= joinedAt && dayDate <= endTime) {
-                        totalSteps += day.steps;
-                    }
-                });
-                if (totalSteps >= challenge.target_value) {
-                    isCompleted = true;
-                }
-            }
+            const logs = uc.daily_logs || [];
+            // Use duration_days if available, otherwise fallback to target_value (especially for older custom challenges)
+            const duration = challenge.duration_days || challenge.target_value || 1;
 
-            // --- Water Challenge ---
-            else if (challenge.type === 'water') {
-                // Goal is now in Litres (e.g. 3.0)
+            // --- Water Challenge (Auto-completion for today) ---
+            if (challenge.type === 'water') {
                 const targetValue = parseFloat(challenge.target_value || 3.0);
                 if (currentWater >= targetValue) {
-                    isCompleted = true;
-                }
-            }
-
-            // --- Calories Challenge (Eat Healthy) ---
-            else if (challenge.type === 'calories') {
-                // Assuming target_value is the max limit. We might need a duration check, 
-                // but for MVP, if currentKcal > 0 and currentKcal <= target_value (and say it's end of day)
-                // We'll mark completed if they drop below the target on any day or just check daily limit.
-                // Reusing simple logic: if currentKcal > 0 and currentKcal <= target_value, completed.
-                if (currentKcal > 0 && currentKcal <= challenge.target_value) {
-                    isCompleted = true;
-                }
-            }
-
-            // --- Sleep Challenge (Early Sleep) ---
-            else if (challenge.type === 'sleep') {
-                // Check if they slept before specific time (e.g. 11 PM) or met duration
-                // target_value could be minutes (e.g. 420 for 7 hours)
-                let metSleepGoal = false;
-                wearableData.forEach(day => {
-                    const dayDate = new Date(day.date);
-                    if (dayDate >= joinedAt && dayDate <= endTime) {
-                        // Check duration
-                        if (day.sleep_minutes >= challenge.target_value) {
-                            metSleepGoal = true;
-                        }
+                    // Automatically add today's date if not already there
+                    const todayDate = todayStr;
+                    if (!logs.includes(todayDate)) {
+                        markDailyProgress(uc.id, todayDate, true);
+                        // Since markDailyProgress updates state asynchronously, 
+                        // we push it to our local tracking array for the duration check below
+                        logs.push(todayDate);
                     }
-                });
-                if (metSleepGoal) isCompleted = true;
-            }
-
-            // --- Custom Challenge ---
-            else if (challenge.type === 'custom') {
-                // Progress is number of distinct days logged in daily_logs
-                const logs = uc.daily_logs || [];
-                if (logs.length >= challenge.target_value) {
-                    isCompleted = true;
                 }
             }
 
-            if (isCompleted) {
+            // --- All Challenges: Check Overall Completion ---
+            // A challenge is completed if the user has manually (or automatically for water) 
+            // checked off enough distinct days (duration_days) in `daily_logs`.
+            if (logs.length >= duration) {
+                isCompleted = true;
+            }
+
+            if (isCompleted && !completedProcessed.current.has(uc.id)) {
+                completedProcessed.current.add(uc.id);
                 anyCompleted = true;
 
                 // If it's a "custom" challenge being verified for the first time, or if we just joined,
@@ -213,7 +177,7 @@ export const ChallengesProvider = ({ children }) => {
 
                 if (!isInstantCompletion) {
                     console.log(`Challenge Completed: ${challenge.title}`);
-                    Alert.alert("Challenge Completed! 🎉", `You completed '${challenge.title}' and earned ${challenge.xp_reward} XP!`);
+                    showAlert("Challenge Completed! 🎉", `You completed '${challenge.title}' and earned ${challenge.xp_reward} XP!`);
                 }
 
                 // Reward XP

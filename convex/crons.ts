@@ -73,6 +73,15 @@ crons.hourly(
     internal.notifications.sendInactiveUserReminder
 );
 
+// ─── PENDING CHALLENGE REMINDER ───────────────────────────────────────────────
+// Runs every hour; internal action fires at 6 PM local time.
+// Sends a notification if the user hasn't ticked off their daily challenge log.
+crons.hourly(
+    "pending-challenge-push",
+    { minuteUTC: 30 },
+    internal.notifications.sendPendingChallengeReminder
+);
+
 crons.interval(
     "clear-expired-challenges",
     { hours: 48 },

@@ -1,33 +1,46 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, StyleSheet,
-    Alert, KeyboardAvoidingView, Platform, ScrollView,
-    ActivityIndicator, Animated, Keyboard
+    KeyboardAvoidingView, Platform, ScrollView,
+    ActivityIndicator
 } from 'react-native';
-import { useSignIn, useSignUp, useOAuth } from '@clerk/clerk-expo';
+import { useRouter } from 'expo-router'
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSignIn, useSignUp, useSSO } from '@clerk/clerk-expo';
 import * as WebBrowser from 'expo-web-browser';
-import * as Linking from 'expo-linking';
+import * as AuthSession from 'expo-auth-session';
 import { usePostHog } from 'posthog-react-native';
-import { Mail, Lock, User, ArrowRight, Chrome } from 'lucide-react-native';
+import { Mail, Lock, User, ArrowRight } from 'lucide-react-native';
 import { useAlert } from '../../context/AlertContext';
 
+// Required at module level — dismisses the OAuth browser when the app
+// receives the deep-link callback (works regardless of which route is active).
 WebBrowser.maybeCompleteAuthSession();
 
-// Helpers
-// Helper removed in favor of context-aware version inside component
-
+// Warm up the Android Chrome Custom Tab so it opens instantly.
+const useWarmUpBrowser = () => {
+    useEffect(() => {
+        if (Platform.OS !== 'android') return;
+        void WebBrowser.warmUpAsync();
+        return () => { void WebBrowser.coolDownAsync(); };
+    }, []);
+};
+const router = useRouter();
 export default function AuthScreen() {
+    useWarmUpBrowser();
+
     const posthog = usePostHog();
     const { showAlert: contextShowAlert } = useAlert();
 
     const showAlert = (title: string, message: string) => {
-        if (Platform.OS === 'web') window.alert(`${title}\n\n${message}`);
+        if (Platform.OS === 'web') window.alert(`${title} \n\n${message} `);
         else contextShowAlert(title, message);
     };
 
     const { signIn, setActive: setSignInActive, isLoaded: isSignInLoaded } = useSignIn();
     const { signUp, setActive: setSignUpActive, isLoaded: isSignUpLoaded } = useSignUp();
-    const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
+    const { startSSOFlow } = useSSO();
 
     // UX State
     const [mode, setMode] = useState<'login' | 'register' | 'forgot_password'>('login');
@@ -53,49 +66,66 @@ export default function AuthScreen() {
     const [otpCode, setOtpCode] = useState('');
     const [newPassword, setNewPassword] = useState('');
 
-    // --- Google OAuth ---
-    const handleGoogle = async () => {
+    // --- Google OAuth (official Clerk Expo pattern) ---
+    const handleGoogle = useCallback(async () => {
         setIsProcessing(true);
         try {
-            const redirectUrl = Linking.createURL('/');
-            const { createdSessionId, setActive, signUp: googleSignUp } = await startOAuthFlow({ redirectUrl });
+            // makeRedirectUri() produces the correct native deep-link URI
+            // (e.g. valor://expo-auth-session) that Clerk will redirect back to.
+            const redirectUrl = AuthSession.makeRedirectUri({
+                scheme: "valor",
+                path: "auth/login"
+            });
+
+            const { createdSessionId, setActive, signUp: googleSignUp } = await startSSOFlow({
+                strategy: 'oauth_google',
+                redirectUrl,
+            });
 
             if (createdSessionId && setActive) {
-                // Success
+                // Existing user – session created directly.
                 await setActive({ session: createdSessionId });
                 posthog.capture('user_google_auth');
-                // Deliberately keep isProcessing = true while _layout hands off routing.
+                // Keep isProcessing = true; _layout.tsx loader covers the transition.
             } else if (googleSignUp?.status === 'missing_requirements') {
-                // Generate username for Clerk
-                const rawName = ((googleSignUp.firstName || '') + (googleSignUp.lastName || '')).replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                // New user – Clerk needs a username before completing the signup.
+                const rawName = ((googleSignUp.firstName || '') + (googleSignUp.lastName || ''))
+                    .replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
                 const randomId = Math.floor(1000 + Math.random() * 9000).toString();
-                const fallbackUsername = (rawName ? rawName.slice(0, 11) + randomId : `user${randomId}`).toLowerCase();
+                const fallbackUsername = (rawName
+                    ? rawName.slice(0, 11) + randomId
+                    : `user${randomId}`).toLowerCase();
 
                 const updatePayload: any = { username: fallbackUsername };
                 if (googleSignUp.firstName) updatePayload.firstName = googleSignUp.firstName;
                 if (googleSignUp.lastName) updatePayload.lastName = googleSignUp.lastName;
 
-                const finalResult = await googleSignUp.update(updatePayload);
+                const completed = await googleSignUp.update(updatePayload);
 
-                if (finalResult.status === 'complete' && finalResult.createdSessionId && setActive) {
-                    await setActive({ session: finalResult.createdSessionId });
-                    posthog.capture('user_google_auth');
-                    // Success, keep isProcessing true
+                if (completed.status === 'complete' && completed.createdSessionId && setActive) {
+                    await setActive({ session: completed.createdSessionId });
+                    posthog.capture('user_google_signup');
+                    // Keep isProcessing = true; loader covers the transition.
                 } else {
-                    throw new Error(`Unexpected status: ${finalResult.status}`);
+                    throw new Error(`Unexpected status after username update: ${completed.status}`);
                 }
             } else {
-                throw new Error('Google Sign-In failed or was cancelled.');
+                // User cancelled the browser or flow was inconclusive – just reset.
+                setIsProcessing(false);
             }
         } catch (err: any) {
-            console.error('Google Auth Error:', err);
-            // If they just closed the browser, don't show a massive error
-            if (err?.code !== 'session_exists') {
-                showAlert('Authentication Error', err?.errors?.[0]?.longMessage || err?.message || 'Something went wrong.');
-            }
+            console.error('[Google OAuth] Error:', err);
             setIsProcessing(false);
+            // Don't alert if the user simply closed the browser.
+            const code = err?.errors?.[0]?.code ?? err?.code;
+            if (code !== 'session_exists' && code !== 'cancelled') {
+                showAlert(
+                    'Sign-in Error',
+                    err?.errors?.[0]?.longMessage || err?.message || 'Google sign-in failed.',
+                );
+            }
         }
-    };
+    }, [startSSOFlow, posthog]);
 
     // --- Email & Password ---
     const handleSubmit = async () => {
@@ -231,7 +261,7 @@ export default function AuthScreen() {
                     setIsProcessing(false);
                 } else {
                     setIsProcessing(false);
-                    showAlert('Error', `Unexpected status: ${result.status}`);
+                    showAlert('Error', `Unexpected status: ${result.status} `);
                 }
             } else if (mode === 'login') {
                 // Handle Sign In MFA/Verification
@@ -255,7 +285,7 @@ export default function AuthScreen() {
                     posthog.capture('user_logged_in_mfa', { email: email.trim() });
                 } else {
                     setIsProcessing(false);
-                    showAlert('Login Error', `Status: ${result.status}`);
+                    showAlert('Login Error', `Status: ${result.status} `);
                 }
             } else {
                 // Handle Sign Up (Register) Verification
@@ -279,7 +309,7 @@ export default function AuthScreen() {
                     // keep isProcessing true
                 } else {
                     setIsProcessing(false);
-                    showAlert('Error', `Status: ${result.status}`);
+                    showAlert('Error', `Status: ${result.status} `);
                 }
             }
         } catch (err: any) {
@@ -317,7 +347,7 @@ export default function AuthScreen() {
                 setIsProcessing(false);
             } else {
                 setIsProcessing(false);
-                showAlert('Error', `Unexpected status: ${result.status}`);
+                showAlert('Error', `Unexpected status: ${result.status} `);
             }
         } catch (err: any) {
             setIsProcessing(false);
@@ -328,16 +358,22 @@ export default function AuthScreen() {
 
     return (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
+            <LinearGradient
+                colors={['#020617', '#0f172a', '#1e293b']}
+                style={StyleSheet.absoluteFillObject}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+            />
             <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
                 <View style={styles.contentWrapper}>
                     {/* Header Section */}
                     <View style={styles.header}>
-                        <View style={styles.iconContainer}>
-                            <Text style={styles.iconText}>N</Text>
+                        <View style={styles.logoWrapper}>
+                            <Image source={require('../../assets/images/valor.png')} style={styles.logoImage} />
                         </View>
-                        <Text style={styles.title}>Nutrient Tracker</Text>
+                        <Text style={styles.title}>Valor</Text>
                         <Text style={styles.subtitle}>
-                            {step === 'otp' ? `We sent a code to ${email}` :
+                            {step === 'otp' ? `We sent a code to ${email} ` :
                                 step === 'new_password' ? 'Create a new secure password' :
                                     mode === 'forgot_password' ? 'Reset your password to regain access' :
                                         'Log your journey, reach your goals'}
@@ -487,7 +523,11 @@ export default function AuthScreen() {
                                     onPress={handleGoogle}
                                     disabled={isProcessing}
                                 >
-                                    <Chrome color="#fff" size={20} />
+                                    <Image
+                                        source="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1200px-Google_%22G%22_logo.svg.png"
+                                        style={styles.googleIcon}
+                                        contentFit="contain"
+                                    />
                                     <Text style={styles.oauthText}>Continue with Google</Text>
                                 </TouchableOpacity>
                             </View>
@@ -516,7 +556,6 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0f172a',
     },
     scrollContent: {
         flexGrow: 1,
@@ -528,24 +567,29 @@ const styles = StyleSheet.create({
     },
     header: {
         alignItems: 'center',
-        marginBottom: 40,
-        marginTop: 60,
+        marginBottom: 35,
+        marginTop: 50,
     },
-    iconContainer: {
-        width: 80,
-        height: 80,
-        borderRadius: 24,
-        backgroundColor: 'rgba(190, 242, 100, 0.1)',
+    logoWrapper: {
+        width: 100,
+        height: 100,
+        borderRadius: 30,
+        backgroundColor: '#1e293b',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(190, 242, 100, 0.2)',
+        borderWidth: 1.5,
+        borderColor: '#F8FAFC',
+        overflow: 'hidden',
     },
-    iconText: {
-        fontSize: 36,
-        fontWeight: '900',
-        color: '#bef264',
+    logoImage: {
+        width: '100%',
+        height: '100%',
+    },
+    googleIcon: {
+        width: 22,
+        height: 22,
+        resizeMode: 'contain',
     },
     title: {
         fontSize: 32,
@@ -561,7 +605,7 @@ const styles = StyleSheet.create({
     },
     card: {
         width: '100%',
-        backgroundColor: '#1e293b',
+        backgroundColor: 'rgba(30, 41, 59, 0.7)',
         borderRadius: 32,
         padding: 24,
         shadowColor: '#000',

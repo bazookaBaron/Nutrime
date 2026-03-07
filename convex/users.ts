@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { checkRateLimit } from "./rateLimit";
 
 const DEFAULT_AVATARS = [
     "kg2d1vwffdez3fx8js4tx118p9822yhh",
@@ -24,6 +25,10 @@ export const ensureProfile = mutation({
         username: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("Unauthenticated call to ensureProfile");
+        if (identity.subject !== args.userId) throw new Error("Unauthorized");
+
         const existing = await ctx.db
             .query("profiles")
             .withIndex("by_user_id", (q) => q.eq("user_id", args.userId))
@@ -52,10 +57,14 @@ export const ensureProfile = mutation({
 export const getProfile = query({
     args: { userId: v.optional(v.string()) },
     handler: async (ctx, args) => {
-        if (!args.userId) return null;
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) return null;
+
+        const requestingUserId = args.userId || identity.subject;
+
         return await ctx.db
             .query("profiles")
-            .withIndex("by_user_id", (q) => q.eq("user_id", args.userId!))
+            .withIndex("by_user_id", (q) => q.eq("user_id", requestingUserId))
             .unique();
     },
 });
@@ -66,6 +75,12 @@ export const updateProfile = mutation({
         updates: v.any(),
     },
     handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("Unauthenticated call to updateProfile");
+        if (identity.subject !== args.userId) throw new Error("Unauthorized");
+
+        await checkRateLimit(ctx, identity.subject, "updateProfile", 20, 60000);
+
         const existing = await ctx.db
             .query("profiles")
             .withIndex("by_user_id", (q) => q.eq("user_id", args.userId))

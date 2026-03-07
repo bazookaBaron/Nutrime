@@ -127,5 +127,13 @@ export default defineSchema({
     })
         .index("by_user_id", ["user_id"])
         .index("by_total_xp", ["total_xp"]),
+
+    rate_limits: defineTable({
+        user_id: v.string(),
+        action: v.string(),
+        count: v.number(),
+        window_start: v.number(),
+        updated_at: v.optional(v.string()),
+    }).index("by_user_id_and_action", ["user_id", "action"]),
 });
 

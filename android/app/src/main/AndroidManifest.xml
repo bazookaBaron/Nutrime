@@ -34,8 +34,8 @@
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="xenith"/>
-        <data android:scheme="exp+xenith"/>
+        <data android:scheme="valor"/>
+        <data android:scheme="exp+valor"/>
       </intent-filter>
       <intent-filter>
         <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE"/>

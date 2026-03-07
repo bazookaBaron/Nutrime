@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Xenith",
-    "slug": "xenith",
+    "name": "Valor",
+    "slug": "valor",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/xenith.png",
-    "scheme": "xenith",
+    "icon": "./assets/images/valor.png",
+    "scheme": "valor",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "web": {
@@ -17,7 +17,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/xenith.png",
+          "image": "./assets/images/valor.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
@@ -49,7 +49,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/xenith.png",
+          "icon": "./assets/images/valor.png",
           "color": "#ffffff"
         }
       ],
@@ -70,7 +70,7 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/xenith.png",
+        "foregroundImage": "./assets/images/valor.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },

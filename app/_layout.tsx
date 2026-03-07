@@ -1,6 +1,16 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
+import * as WebBrowser from 'expo-web-browser';
+import * as SplashScreen from 'expo-splash-screen';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+
+// Prevent native splash screen from auto-hiding to eliminate any flash entirely.
+SplashScreen.preventAutoHideAsync();
+
+// Must be called at module level so the OAuth browser session is dismissed
+// the moment the app receives the deep-link callback, regardless of which
+// route Expo Router resolves to.
+WebBrowser.maybeCompleteAuthSession();
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -22,6 +32,7 @@ import { ClerkProvider } from '@clerk/clerk-expo';
 import { ConvexProviderWithClerk } from 'convex/react-clerk';
 import { ConvexReactClient, useMutation } from 'convex/react';
 import { Platform } from 'react-native';
+import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { UserProvider, useUser } from '../context/UserContext';
@@ -62,68 +73,100 @@ function RootLayoutNav() {
       .catch((e) => console.warn('[Notifications] Failed to sync push token:', e));
   }, [isSignedIn, userId, expoPushToken, timezone]);
 
-  const [initialLoad, setInitialLoad] = useState(true);
+  // ---------------------------------------------------------------------------
+  // Auth transition guard
+  // ---------------------------------------------------------------------------
+  // When isSignedIn changes (especially true→false or false→true after OAuth),
+  // we lock the overlay for a minimum settling period so Convex queries &
+  // UserContext have time to reflect the new state before any redirect fires.
+  const prevIsSignedIn = useRef<boolean | undefined>(undefined);
+  const [authTransitioning, setAuthTransitioning] = useState(false);
+  const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (isAuthLoaded && !loading) {
-      setInitialLoad(false);
+    if (!isAuthLoaded) return;
+    // Detect a change in signed-in state
+    if (prevIsSignedIn.current !== isSignedIn) {
+      prevIsSignedIn.current = isSignedIn;
+      // Block navigation while the new auth state propagates to Convex
+      setAuthTransitioning(true);
+      if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = setTimeout(() => {
+        setAuthTransitioning(false);
+      }, 600); // 600 ms is enough for Convex to return the profile query
     }
-  }, [isAuthLoaded, loading]);
+    return () => {
+      if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
+    };
+  }, [isAuthLoaded, isSignedIn]);
 
+  // Lift the transition blocker as soon as BOTH Clerk and Convex agree
+  useEffect(() => {
+    if (authTransitioning && isAuthLoaded && !loading) {
+      // Both layers have settled — we can release immediately
+      if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
+      setAuthTransitioning(false);
+    }
+  }, [authTransitioning, isAuthLoaded, loading]);
+
+  // ---------------------------------------------------------------------------
   // Redirect logic — runs whenever auth state or onboarding status changes
+  // ---------------------------------------------------------------------------
   const inAuthGroup = segments[0] === 'auth';
   const inOnboardingGroup = segments[0] === 'onboarding';
+  const isIndex = !segments[0];
+
+  const isShowingLoader = !isAuthLoaded || loading || authTransitioning;
 
   const isRedirecting = useMemo(() => {
-    if (!isAuthLoaded || loading) return false;
-    if (!isSignedIn && !inAuthGroup) return true;
-    if (isSignedIn && !hasCompletedOnboarding && !inOnboardingGroup) return true;
-    if (isSignedIn && hasCompletedOnboarding && (inAuthGroup || inOnboardingGroup)) return true;
+    if (isShowingLoader) return false;
+    if (!isSignedIn && isAuthLoaded && (!inAuthGroup && !isIndex)) return true; // Let timeout handle both
+    if (!isSignedIn && isAuthLoaded && isIndex) return true;
+    if (isSignedIn && !hasCompletedOnboarding && (!inOnboardingGroup && !isIndex)) return true;
+    if (isSignedIn && !hasCompletedOnboarding && isIndex) return true;
+    if (isSignedIn && hasCompletedOnboarding && (inAuthGroup || inOnboardingGroup || isIndex)) return true;
     return false;
-  }, [isAuthLoaded, loading, isSignedIn, hasCompletedOnboarding, inAuthGroup, inOnboardingGroup]);
+  }, [isShowingLoader, isSignedIn, isAuthLoaded, hasCompletedOnboarding, inAuthGroup, inOnboardingGroup, isIndex]);
+
+  // Hide the native splash screen ONLY when we are stable and not redirecting.
+  useEffect(() => {
+    if (!isShowingLoader && !isRedirecting) {
+      SplashScreen.hideAsync();
+    }
+  }, [isShowingLoader, isRedirecting]);
 
   useEffect(() => {
-    if (!isAuthLoaded || loading) return; // Wait for Clerk + Convex
+    // Only fire redirects once everything has settled
+    if (isShowingLoader) return;
 
-    // Use a small timeout to let the router mount properly before redirecting,
-    // avoiding navigation being swallowed by Expo Router.
     const timer = setTimeout(() => {
-      if (!isSignedIn) {
-        // Not authenticated → send to login
-        if (!inAuthGroup) {
-          router.replace('/auth/login');
-        }
+      if (!isSignedIn && isAuthLoaded) {
+        if (!inAuthGroup) router.replace('/auth/login');
       } else if (!hasCompletedOnboarding) {
-        // Authenticated but not onboarded → send to onboarding
-        if (!inOnboardingGroup) {
-          router.replace('/onboarding/step1_goal');
-        }
+        if (!inOnboardingGroup) router.replace('/onboarding/step1_goal');
       } else {
-        // Fully authenticated & onboarded → send to tabs
-        if (inAuthGroup || inOnboardingGroup) {
-          router.replace('/(tabs)');
-        }
+        if (inAuthGroup || inOnboardingGroup || isIndex) router.replace('/(tabs)');
       }
-    }, 10);
+    }, 50);
 
     return () => clearTimeout(timer);
-  }, [isAuthLoaded, isSignedIn, loading, hasCompletedOnboarding, segments]);
+  }, [isShowingLoader, isSignedIn, isAuthLoaded, hasCompletedOnboarding, segments, isIndex]);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       {/* 
         Always mount the Stack so the router state stays intact.
-        During auth transitions (when `loading` is true but we haven't redirected yet)
-        we show an absolute-positioned overlay to prevent UI flash.
+        During auth transitions we show an absolute-positioned overlay to
+        prevent any UI flash (login page flickering before redirect).
       */}
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="auth" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="auth" />
+        <Stack.Screen name="onboarding" />
+        <Stack.Screen name="modal" options={{ presentation: "modal" }} />
       </Stack>
 
-      {(!isAuthLoaded || loading || initialLoad || isRedirecting) && (
+      {(isShowingLoader || isRedirecting) && (
         <View style={[StyleSheet.absoluteFillObject, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#0a0a0a', zIndex: 9999 }]}>
           <ActivityIndicator size="large" color="#bef264" />
         </View>
@@ -140,6 +183,20 @@ function RootLayoutNav() {
 // ---------------------------------------------------------------------------
 export default function RootLayout() {
   const isWeb = Platform.OS === 'web';
+
+  useEffect(() => {
+    if (isWeb) return;
+
+    Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
+    const iosApiKey = 'test_lwqFgxakImvSjsbAFBdAJGgAxdJ';
+    const androidApiKey = 'test_lwqFgxakImvSjsbAFBdAJGgAxdJ';
+
+    if (Platform.OS === 'ios') {
+      Purchases.configure({ apiKey: iosApiKey });
+    } else if (Platform.OS === 'android') {
+      Purchases.configure({ apiKey: androidApiKey });
+    }
+  }, [isWeb]);
 
   return (
     <ClerkProvider

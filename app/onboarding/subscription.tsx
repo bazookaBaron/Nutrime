@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useUser } from '../../context/UserContext';
 import { Check } from 'lucide-react-native';
-import Purchases from 'react-native-purchases';
+import Purchases, { PurchasesPackage } from 'react-native-purchases';
 
 const FEATURES = [
     'Log & track daily food + water',
@@ -18,31 +19,80 @@ export default function Subscription() {
     const { completeOnboarding } = useUser();
     const router = useRouter();
     const insets = useSafeAreaInsets();
+
     const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
     const [isProcessing, setIsProcessing] = useState(false);
 
+    // RevenueCat State
+    const [monthlyPackage, setMonthlyPackage] = useState<PurchasesPackage | null>(null);
+    const [yearlyPackage, setYearlyPackage] = useState<PurchasesPackage | null>(null);
+    const [isFetchingOfferings, setIsFetchingOfferings] = useState(true);
+
+    React.useEffect(() => {
+        const fetchOfferings = async () => {
+            try {
+                if (Platform.OS === 'web') return;
+                const offerings = await Purchases.getOfferings();
+                if (offerings.current !== null && offerings.current.availablePackages.length !== 0) {
+                    const packages = offerings.current.availablePackages;
+                    const monthly = packages.find(p => p.packageType === "MONTHLY");
+                    const yearly = packages.find(p => p.packageType === "ANNUAL");
+
+                    if (monthly) setMonthlyPackage(monthly);
+                    if (yearly) setYearlyPackage(yearly);
+                }
+            } catch (e) {
+                console.error("Error fetching offerings:", e);
+            } finally {
+                setIsFetchingOfferings(false);
+            }
+        };
+
+        fetchOfferings();
+    }, []);
+
     const handleSubscribe = async () => {
+        if (Platform.OS === 'web') {
+            await completeOnboarding();
+            return;
+        }
+
         setIsProcessing(true);
         try {
-            // Note: Replace with actual RevenueCat implementation later
-            // const pkg = selectedPlan === 'yearly' ? yearlyPackage : monthlyPackage;
-            // await Purchases.purchasePackage(pkg);
+            const pkg = selectedPlan === 'yearly' ? yearlyPackage : monthlyPackage;
 
-            // Simulating a successful purchase for now
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            if (!pkg) {
+                console.log("No package available to purchase");
+                return;
+            }
 
-            await completeOnboarding();
-            // UserContext state update will trigger layout redirect
-        } catch (e) {
-            console.error("Subscription Error:", e);
-            // Handle error UI if needed
+            const { customerInfo } = await Purchases.purchasePackage(pkg);
+
+            // Assuming 'pro' or checking active entitlements
+            if (typeof customerInfo.entitlements.active !== "undefined" && Object.keys(customerInfo.entitlements.active).length > 0) {
+                await completeOnboarding();
+            } else {
+                // Fallback if no specific entitlement was set up but purchase succeeded
+                await completeOnboarding();
+            }
+
+        } catch (e: any) {
+            if (!e.userCancelled) {
+                console.error("Subscription Error:", e);
+                // Optionally show alert here
+            }
         } finally {
             setIsProcessing(false);
         }
     };
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top || 40, paddingBottom: insets.bottom || 20 }]}>
+        <LinearGradient
+            colors={['#020617', '#0f172a', '#1e293b']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.container, { paddingTop: insets.top || 40, paddingBottom: insets.bottom || 20 }]}
+        >
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
                 {/* Header */}
@@ -77,7 +127,10 @@ export default function Subscription() {
                 {/* Price Display */}
                 <View style={styles.priceContainer}>
                     <Text style={styles.priceText}>
-                        {selectedPlan === 'yearly' ? '$89.00' : '$11.99'}
+                        {isFetchingOfferings ? '...' :
+                            (selectedPlan === 'yearly'
+                                ? (yearlyPackage?.product.priceString || '$89.00')
+                                : (monthlyPackage?.product.priceString || '$11.99'))}
                     </Text>
                     <Text style={styles.pricePeriod}>
                         /{selectedPlan === 'yearly' ? 'year' : 'month'}
@@ -115,14 +168,13 @@ export default function Subscription() {
                     </Text>
                 </TouchableOpacity>
             </View>
-        </View>
+        </LinearGradient>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0a0a0a',
     },
     content: {
         paddingHorizontal: 24,
@@ -260,7 +312,7 @@ const styles = StyleSheet.create({
     footer: {
         paddingHorizontal: 24,
         paddingTop: 10,
-        backgroundColor: '#0a0a0a',
+        backgroundColor: 'transparent',
         borderTopWidth: 1,
         borderTopColor: '#1a1a1a',
     },

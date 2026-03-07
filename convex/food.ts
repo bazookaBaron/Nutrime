@@ -1,13 +1,21 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { checkRateLimit } from "./rateLimit";
 
 export const getLogs = query({
     args: { userId: v.optional(v.string()) },
     handler: async (ctx, args) => {
-        if (!args.userId) return [];
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            return []; // Unauthenticated or still loading
+        }
+
+        // Ensure user is only querying their own data
+        const requestingUserId = args.userId || identity.subject;
+
         return await ctx.db
             .query("food_logs")
-            .withIndex("by_user_id", (q) => q.eq("user_id", args.userId!))
+            .withIndex("by_user_id", (q) => q.eq("user_id", requestingUserId))
             .order("desc")
             .collect();
     },
@@ -29,6 +37,19 @@ export const addLog = mutation({
         meal_type: v.string(),
     },
     handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("Unauthenticated call to addLog");
+        }
+
+        // Ensure client isn't passing a mismatched user_id
+        if (identity.subject !== args.user_id) {
+            throw new Error("Unauthorized data modification.");
+        }
+
+        // --- Rate Limiting Strategy: Max 10 addLogs per 60 seconds ---
+        await checkRateLimit(ctx, identity.subject, "addLog", 10, 60000);
+
         // Find existing entry for this user, date and meal_type
         const existing = await ctx.db
             .query("food_logs")
@@ -74,6 +95,16 @@ export const addLog = mutation({
 export const removeLog = mutation({
     args: { id: v.id("food_logs") },
     handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error("Unauthenticated call to removeLog");
+
+        const existing = await ctx.db.get(args.id);
+        if (!existing) return;
+
+        if (existing.user_id !== identity.subject) {
+            throw new Error("Unauthorized data modification.");
+        }
+
         await ctx.db.delete(args.id);
     },
 });

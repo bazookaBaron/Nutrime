@@ -13,6 +13,40 @@ import AnimatedProgressBar from '@/components/AnimatedProgressBar';
 
 const { width } = Dimensions.get('window');
 
+const REST_QUOTES = [
+    { quote: "Rest is not idleness. It is the work your muscles do to rebuild stronger than before.", author: "Science of Recovery" },
+    { quote: "Growth happens outside the gym too. Your body needs today to come back harder tomorrow.", author: "Elite Athlete Wisdom" },
+    { quote: "Champions aren't built in one session. They're built in the recovery between sessions.", author: "Strength Coach" },
+    { quote: "Muscles grow during rest, not during training. Honour the process.", author: "Exercise Physiology" },
+    { quote: "The best investment you can make today is sleep, hydration, and stillness.", author: "Performance Science" },
+];
+
+const RestDayCard = ({ dayNumber }: { dayNumber: number }) => {
+    const quoteObj = REST_QUOTES[(dayNumber - 1) % REST_QUOTES.length];
+    return (
+        <LinearGradient
+            colors={['#1a1f2e', '#141922']}
+            style={styles.restCard}
+        >
+            <View style={styles.restIconRow}>
+                <Text style={styles.restMoon}>🌙</Text>
+                <View style={styles.restBadge}>
+                    <Text style={styles.restBadgeText}>REST DAY</Text>
+                </View>
+            </View>
+            <Text style={styles.restQuote}>"{quoteObj.quote}"</Text>
+            <Text style={styles.restAuthor}>— {quoteObj.author}</Text>
+            <View style={styles.restTips}>
+                {['💧 Stay hydrated', '🥗 Eat nutritious meals', '😴 Get 8h of sleep', '🧘 Light stretching is OK'].map(tip => (
+                    <View key={tip} style={styles.restTipRow}>
+                        <Text style={styles.restTipText}>{tip}</Text>
+                    </View>
+                ))}
+            </View>
+        </LinearGradient>
+    );
+};
+
 const PulsatingDot = ({ color = '#000' }) => {
     const pulse = useRef(new Animated.Value(1)).current;
 
@@ -328,25 +362,31 @@ export default function WorkoutScreen() {
                 </View>
                 {currentDay && (
                     <View style={styles.workoutSection}>
-                        <View style={styles.workoutHeader}>
-                            <View><Text style={styles.todayFocus}>{currentDay.focus} Focus</Text>{!isTodaySelected && <Text style={styles.notTodayWarning}>Viewing plan for {currentDay.date}</Text>}<View style={styles.calorieBadge}><Flame size={14} color="#FF6B6B" /><Text style={styles.calorieText}>{plannedBurn} kcal Total</Text></View></View>
-                            <View style={styles.toggleContainer}>
-                                <TouchableOpacity style={[styles.toggleBtn, mode === 'Gym' && styles.toggleBtnActive]} onPress={() => setMode('Gym')}><Dumbbell size={16} color={mode === 'Gym' ? '#000' : '#888'} /></TouchableOpacity>
-                                <TouchableOpacity style={[styles.toggleBtn, mode === 'Home' && styles.toggleBtnActive]} onPress={() => setMode('Home')}><HomeIcon size={16} color={mode === 'Home' ? '#000' : '#888'} /></TouchableOpacity>
-                            </View>
-                        </View>
-                        <Text style={styles.exerciseListLabel}>{exercises.length} Exercises ({mode})</Text>
-                        {dayLoading ? (
-                            <View style={styles.dayLoadingContainer}>
-                                <ActivityIndicator size="large" color="#bef264" />
-                                <Text style={styles.dayLoadingText}>Loading workout...</Text>
-                            </View>
+                        {currentDay.focus === 'Rest' ? (
+                            <RestDayCard dayNumber={currentDay.day_number} />
                         ) : (
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.exerciseScroll}>
-                                {exercises.map((ex: any, idx: number) => (
-                                    <ExerciseCard key={idx} exercise={ex} onComplete={() => handleComplete(ex)} onReplace={() => handleReplaceRequest(ex)} onStart={() => handleStart(ex)} disabled={!isTodaySelected} isCompleted={completedExerciseIds.has(ex.instance_id || ex.name)} />
-                                ))}
-                            </ScrollView>
+                            <>
+                                <View style={styles.workoutHeader}>
+                                    <View><Text style={styles.todayFocus}>{currentDay.focus} Focus</Text>{!isTodaySelected && <Text style={styles.notTodayWarning}>Viewing plan for {currentDay.date}</Text>}<View style={styles.calorieBadge}><Flame size={14} color="#FF6B6B" /><Text style={styles.calorieText}>{plannedBurn} kcal Total</Text></View></View>
+                                    <View style={styles.toggleContainer}>
+                                        <TouchableOpacity style={[styles.toggleBtn, mode === 'Gym' && styles.toggleBtnActive]} onPress={() => setMode('Gym')}><Dumbbell size={16} color={mode === 'Gym' ? '#000' : '#888'} /></TouchableOpacity>
+                                        <TouchableOpacity style={[styles.toggleBtn, mode === 'Home' && styles.toggleBtnActive]} onPress={() => setMode('Home')}><HomeIcon size={16} color={mode === 'Home' ? '#000' : '#888'} /></TouchableOpacity>
+                                    </View>
+                                </View>
+                                <Text style={styles.exerciseListLabel}>{exercises.length} Exercises ({mode})</Text>
+                                {dayLoading ? (
+                                    <View style={styles.dayLoadingContainer}>
+                                        <ActivityIndicator size="large" color="#bef264" />
+                                        <Text style={styles.dayLoadingText}>Loading workout...</Text>
+                                    </View>
+                                ) : (
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.exerciseScroll}>
+                                        {exercises.map((ex: any, idx: number) => (
+                                            <ExerciseCard key={idx} exercise={ex} onComplete={() => handleComplete(ex)} onReplace={() => handleReplaceRequest(ex)} onStart={() => handleStart(ex)} disabled={!isTodaySelected} isCompleted={completedExerciseIds.has(ex.instance_id || ex.name)} />
+                                        ))}
+                                    </ScrollView>
+                                )}
+                            </>
                         )}
                         <Leaderboard currentUserId={userProfile?.id || ''} userCountry={userProfile?.country} userState={userProfile?.state} />
                     </View>
@@ -469,4 +509,15 @@ const styles = StyleSheet.create({
     repAddBtn: { backgroundColor: '#bef264', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
     repAddText: { color: '#000', fontSize: 12, fontWeight: 'bold' },
     noOptionsText: { color: '#666', textAlign: 'center', marginTop: 40 },
+    // Rest day card
+    restCard: { marginHorizontal: 20, marginBottom: 20, borderRadius: 24, padding: 24, borderWidth: 1, borderColor: '#2A3050' },
+    restIconRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
+    restMoon: { fontSize: 40 },
+    restBadge: { backgroundColor: 'rgba(99,102,241,0.2)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(99,102,241,0.4)' },
+    restBadgeText: { color: '#818cf8', fontSize: 11, fontWeight: '800', letterSpacing: 1.5 },
+    restQuote: { fontSize: 16, color: '#e2e8f0', fontWeight: '600', lineHeight: 26, fontStyle: 'italic', marginBottom: 10 },
+    restAuthor: { fontSize: 12, color: '#64748b', fontWeight: '600', marginBottom: 24 },
+    restTips: { gap: 10 },
+    restTipRow: { flexDirection: 'row', alignItems: 'center' },
+    restTipText: { fontSize: 14, color: '#94a3b8', fontWeight: '500' },
 });

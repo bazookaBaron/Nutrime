@@ -325,17 +325,30 @@ export const generateWorkoutSchedule = (userProfile, gymExercises, homeExercises
     const difficultyKey = determineDifficulty(userProfile);
 
     const schedule = [];
-    const rotation = ['Upper', 'Lower', 'Core', 'Cardio', 'Rest/Light'];
+    const rotation = ['Upper', 'Lower', 'Core', 'Cardio', 'Rest'];
 
     for (let i = 0; i < numberOfDays; i++) {
         const currentDayNum = startDayNumber + i;
         const currentDate = new Date(startDate);
         currentDate.setDate(startDate.getDate() + i);
 
-        // Determine rotation focus
-        // (day-1) because day is 1-based
+        // Determine rotation focus — (day-1) because day is 1-based
         const rotationIndex = (currentDayNum - 1) % rotation.length;
         const focus = rotation[rotationIndex];
+
+        // Rest day — no exercises, UI shows rest card
+        if (focus === 'Rest') {
+            schedule.push({
+                day_number: currentDayNum,
+                focus: 'Rest',
+                target_calories: 0,
+                gym: { exercises: [], total_calories: 0, duration_minutes: 0 },
+                home: { exercises: [], total_calories: 0, duration_minutes: 0 },
+                completed: false,
+                date: `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`
+            });
+            continue;
+        }
 
         // Generate Gym Session
         const gymPool = filterExercises(gym, focus, difficultyKey);
@@ -343,42 +356,27 @@ export const generateWorkoutSchedule = (userProfile, gymExercises, homeExercises
 
         // Generate Home Session
         const homePool = filterExercises(home, focus, difficultyKey);
-        // If specific body part pool is small for Home, supplement with Full Body and Cardio
         let effectiveHomePool = [...homePool];
-        if (effectiveHomePool.length < 8 && focus !== 'Rest/Light') {
+        if (effectiveHomePool.length < 8) {
             const secondaryPool = filterExercises(home, 'Full Body', difficultyKey);
             const cardioPool = filterExercises(home, 'Cardio', difficultyKey);
-
-            // Add unique exercises from secondary pools
             [...secondaryPool, ...cardioPool].forEach(ex => {
                 if (effectiveHomePool.length < 15 && !effectiveHomePool.some(e => e.name === ex.name)) {
                     effectiveHomePool.push(ex);
                 }
             });
         }
-
         const homeSession = selectExercisesForSession(effectiveHomePool, targetDailyBurn, userProfile.weight, userProfile.goal);
 
-        // Construct Day Object
-        const dayPlan = {
+        schedule.push({
             day_number: currentDayNum,
-            focus: focus,
+            focus,
             target_calories: targetDailyBurn,
-            gym: {
-                exercises: gymSession.exercises,
-                total_calories: gymSession.totalBurn,
-                duration_minutes: gymSession.totalDuration
-            },
-            home: {
-                exercises: homeSession.exercises,
-                total_calories: homeSession.totalBurn,
-                duration_minutes: homeSession.totalDuration
-            },
+            gym: { exercises: gymSession.exercises, total_calories: gymSession.totalBurn, duration_minutes: gymSession.totalDuration },
+            home: { exercises: homeSession.exercises, total_calories: homeSession.totalBurn, duration_minutes: homeSession.totalDuration },
             completed: false,
             date: `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`
-        };
-
-        schedule.push(dayPlan);
+        });
     }
 
     return schedule;

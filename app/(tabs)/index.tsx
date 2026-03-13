@@ -10,7 +10,7 @@ import { usePostHog } from 'posthog-react-native';
 import * as Haptics from 'expo-haptics';
 import {
   Flame, Utensils, Droplet, Plus, Minus,
-  Circle, Zap, Sun, Moon
+  Zap, Sun, Moon
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { PieChart } from 'react-native-gifted-charts';
@@ -66,13 +66,6 @@ export default function Dashboard() {
     return dates;
   }, [todayStr]);
 
-  const pieData = useMemo(() => {
-    return [
-      { value: summary.protein || 0.1, color: '#bef264', text: 'Protein' },
-      { value: summary.carbs || 0.1, color: '#a3e635', text: 'Carbs' },
-      { value: summary.fat || 0.1, color: '#65a30d', text: 'Fats' },
-    ];
-  }, [summary]);
 
   // Calculate Burned Calories from actual completed exercises for selected date
   const { burnedCalories, plannedBurn } = useMemo(() => {
@@ -106,11 +99,16 @@ export default function Dashboard() {
         const result = await fetchLeaderboard('all');
         if (result && result.currentUserEntry) {
           setRanking(result.currentUserEntry.rank);
+        } else if (result) {
+          // New user — default to last place
+          const total = result.top10?.length || 0;
+          setRanking(total + 1);
         } else {
           setRanking('-');
         }
       } catch (e) {
         console.log("Error fetching dashboard rank", e);
+        setRanking('-');
       }
     }
   }
@@ -248,30 +246,45 @@ export default function Dashboard() {
             </View>
           </View>
 
-          {/* Nutrients MTD Card */}
+          {/* Nutrients Card — redesigned pie */}
           <View style={styles.halfStatCard}>
             <View style={styles.cardHeaderSmall}>
               <View>
                 <Text style={styles.cardTitleSmall}>Nutrients</Text>
-                <Text style={styles.cardSubtitleSmall}>Distribution</Text>
-              </View>
-              <View style={[styles.iconBgSmall, { backgroundColor: 'rgba(190, 242, 100, 0.1)' }]}>
-                <Circle size={14} color="#bef264" />
+                <Text style={styles.cardSubtitleSmall}>Today</Text>
               </View>
             </View>
 
             <View style={styles.pieContainer}>
               <PieChart
-                data={pieData}
-                radius={35}
+                data={[
+                  { value: Math.max(summary.protein || 0.1, 0.1), color: '#f97316', text: `${Math.round(summary.protein)}g` },
+                  { value: Math.max(summary.carbs || 0.1, 0.1), color: '#eab308', text: `${Math.round(summary.carbs)}g` },
+                  { value: Math.max(summary.fat || 0.1, 0.1), color: '#8b5cf6', text: `${Math.round(summary.fat)}g` },
+                ]}
+                radius={42}
                 innerRadius={0}
                 isAnimated
                 animationDuration={800}
+                showText
+                textColor="#fff"
+                textSize={9}
+                fontWeight="800"
               />
               <View style={[styles.legendContainer, { marginLeft: 14 }]}>
-                <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#bef264' }]} /><Text style={styles.legendText}>Pro - {Math.round(summary.protein)}g</Text></View>
-                <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#a3e635' }]} /><Text style={styles.legendText}>Carb - {Math.round(summary.carbs)}g</Text></View>
-                <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#65a30d' }]} /><Text style={styles.legendText}>Fat - {Math.round(summary.fat)}g</Text></View>
+                {[
+                  { label: 'Protein', color: '#f97316', val: Math.round(summary.protein) },
+                  { label: 'Carbs', color: '#eab308', val: Math.round(summary.carbs) },
+                  { label: 'Fat', color: '#8b5cf6', val: Math.round(summary.fat) },
+                ].map(({ label, color, val }) => (
+                  <View key={label} style={styles.legendItem}>
+                    <View style={[styles.dot, { backgroundColor: color }]} />
+                    <View>
+                      <Text style={[styles.legendText, { color: '#FFF', fontWeight: '700', fontSize: 11 }]}>{val}g</Text>
+                      <Text style={styles.legendText}>{label}</Text>
+                    </View>
+                  </View>
+                ))}
               </View>
             </View>
           </View>
@@ -381,10 +394,15 @@ export default function Dashboard() {
           {
             ['Breakfast', 'Lunch', 'Dinner', 'Snacks'].map((meal) => {
               const mealLower = meal.toLowerCase();
-              const logs = todayLog.filter(item => (item.meal_type || 'snack').toLowerCase() === mealLower);
+              // Normalize 'snacks' → 'snack' to match mealSplit keys and stored meal_type values
+              const mealKey = mealLower === 'snacks' ? 'snack' : mealLower;
+              const logs = todayLog.filter(item => {
+                const t = (item.meal_type || 'snack').toLowerCase();
+                return t === mealKey || t === mealLower;
+              });
               const consumed = logs.reduce((sum, item) => sum + (Number(item.calories) || 0), 0);
 
-              const target = Math.round((nutritionTargets.calories || 2000) * (nutritionTargets.mealSplit?.[mealLower] || 0.25));
+              const target = Math.round((nutritionTargets.calories || 2000) * (nutritionTargets.mealSplit?.[mealKey] || 0.25));
               const isOver = consumed > target;
               const percentage = Math.min(consumed / target, 1);
               // const percentageText = Math.round((consumed / target) * 100) || 0;

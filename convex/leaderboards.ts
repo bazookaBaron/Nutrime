@@ -84,15 +84,28 @@ export const getUserRank = query({
 
         filtered.sort((a, b) => b.total_xp - a.total_xp);
 
-        // Find user's position
         const userIndex = filtered.findIndex((e) => e.user_id === args.userId);
-        if (userIndex === -1) return null;
 
-        const userEntry = filtered[userIndex];
         const profile = await ctx.db
             .query("profiles")
-            .withIndex("by_user_id", (q) => q.eq("user_id", userEntry.user_id))
+            .withIndex("by_user_id", (q) => q.eq("user_id", args.userId))
             .unique();
+
+        // User not in leaderboard yet — return synthetic last-place entry
+        if (userIndex === -1) {
+            return {
+                rank: filtered.length + 1,
+                user_id: args.userId,
+                username: profile?.username || "You",
+                workout_xp: 0,
+                workout_level: 1,
+                streak: profile?.streak || 0,
+                country: profile?.country,
+                profile_image_url: profile?.profile_image_url,
+            };
+        }
+
+        const userEntry = filtered[userIndex];
 
         return {
             rank: userIndex + 1,

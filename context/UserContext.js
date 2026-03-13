@@ -467,19 +467,15 @@ export const UserProvider = ({ children }) => {
         if (!currentSchedule || currentSchedule.length === 0 || !profile) return;
 
         const today = todayStr;
-
         // 1. Archive blocks that are entirely in the past
-        // We look for any days whose date is before today. But we only want to archive
-        // them if they form a block that is completely finished, OR if they are extremely old.
-        // For simplicity, let's just archive any day that is older than 5 days ago, OR
-        // if the user has a new block that has already started.
-        // Actually, user requested: "after completion of the previous 5 days the past 5 days schedule should be removed".
-        const pastDays = currentSchedule.filter((d) => d.date < today);
-        const futureDays = currentSchedule.filter((d) => d.date >= today);
+        const sortedDaysForArchive = [...currentSchedule].sort((a, b) => a.date.localeCompare(b.date));
+        const absoluteLastDay = sortedDaysForArchive[sortedDaysForArchive.length - 1];
+        
+        // We consider a day as part of an 'old block' if its day_number is at least 5 days older 
+        // than the absolute latest day in the schedule AND it's in the past.
+        const pastDays = currentSchedule.filter((d) => d.date < today && d.day_number <= absoluteLastDay.day_number - 5);
 
-        // Only archive past days if we have at least 5 days in the future/present 
-        // to show, meaning the old block is truly dead and replaced.
-        if (pastDays.length > 0 && futureDays.length >= 5) {
+        if (pastDays.length > 0) {
             const historyEntries = pastDays.map((d) => ({
                 user_id: uid, date: d.date,
                 summary_data: { day_number: d.day_number, focus: d.focus, calories_target: d.target_calories, calories_burned: d.calories_burned || 0, completed: d.completed },
@@ -492,14 +488,13 @@ export const UserProvider = ({ children }) => {
         }
 
         // 2. Generate new block on the 4th day
-        // Find the absolute last scheduled day in the database
-        const sortedDays = [...currentSchedule].sort((a, b) => a.date.localeCompare(b.date));
+        const sortedDays = [...currentSchedule].filter(d => !pastDays.find(p => p.id === d.id)).sort((a, b) => a.date.localeCompare(b.date));
+        if (sortedDays.length === 0) return;
         const lastDay = sortedDays[sortedDays.length - 1];
 
-        // If the last day is LESS THAN OR EQUAL TO 2 days from today, we are on day 4 or 5 of the current block.
-        // So we need to generate the next 5 days.
-        const lastDayDateObj = new Date(lastDay.date);
-        const todayDateObj = new Date(today);
+        // If the last day is LESS THAN OR EQUAL TO 2 days from today, we need to generate the next 5 days.
+        const lastDayDateObj = new Date(lastDay.date + "T00:00:00");
+        const todayDateObj = new Date(today + "T00:00:00");
         const diffTime = lastDayDateObj.getTime() - todayDateObj.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 

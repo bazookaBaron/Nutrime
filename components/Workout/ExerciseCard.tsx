@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { CheckCircle, Circle, RefreshCw, Play, Flame, Clock, Layers } from 'lucide-react-native';
+import { CheckCircle, RefreshCw, Play, Flame, Clock, Layers } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 interface Exercise {
@@ -58,7 +58,11 @@ const ExerciseCard = ({ exercise, onComplete, onReplace, onStart, isCompleted, d
         : `${exercise.duration_minutes.toFixed(1)}m`;
 
     return (
-        <View style={[styles.card, disabled && { opacity: 0.7 }, isDone && styles.cardDone]}>
+        <TouchableOpacity
+            style={[styles.card, disabled && { opacity: 0.7 }, isDone && styles.cardDone]}
+            onPress={!disabled && !isDone ? onStart : undefined}
+            activeOpacity={disabled || isDone ? 1 : 0.85}
+        >
             {/* Completed shimmer overlay */}
             {isDone && (
                 <View style={styles.doneOverlay}>
@@ -97,12 +101,7 @@ const ExerciseCard = ({ exercise, onComplete, onReplace, onStart, isCompleted, d
                         </View>
                     </View>
                 </View>
-                <TouchableOpacity onPress={onComplete} style={styles.checkButton} disabled={disabled}>
-                    {isDone
-                        ? <CheckCircle size={26} color="#bef264" />
-                        : <Circle size={26} color={disabled ? '#333' : '#555'} />
-                    }
-                </TouchableOpacity>
+                {isDone && <CheckCircle size={22} color="#bef264" />}
             </View>
 
             {/* Stats row */}
@@ -157,7 +156,7 @@ const ExerciseCard = ({ exercise, onComplete, onReplace, onStart, isCompleted, d
                     </Text>
                 </TouchableOpacity>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 };
 

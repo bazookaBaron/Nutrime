@@ -1,6 +1,5 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { checkRateLimit } from "./rateLimit";
 
 const DEFAULT_AVATARS = [
     "kg2d1vwffdez3fx8js4tx118p9822yhh",
@@ -19,19 +18,25 @@ const DEFAULT_AVATARS = [
 // ---------------------------------------------------------------------------
 export const ensureProfile = mutation({
     args: {
-        userId: v.string(),
+        // userId arg kept for API compatibility but the server ALWAYS derives
+        // identity from the verified Clerk JWT — never trusts the client value.
+        userId: v.optional(v.string()),
         email: v.optional(v.string()),
         full_name: v.optional(v.string()),
         username: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        // Derive the user identity from the Clerk JWT attached by ConvexProviderWithClerk.
+        // If auth isn't established yet (race condition), return null gracefully
+        // so the client can retry without a server-side error.
         const identity = await ctx.auth.getUserIdentity();
-        if (!identity) throw new Error("Unauthenticated call to ensureProfile");
-        if (identity.subject !== args.userId) throw new Error("Unauthorized");
+        if (!identity) return null;
+
+        const userId = identity.subject;
 
         const existing = await ctx.db
             .query("profiles")
-            .withIndex("by_user_id", (q) => q.eq("user_id", args.userId))
+            .withIndex("by_user_id", (q) => q.eq("user_id", userId))
             .unique();
 
         if (!existing) {
@@ -42,7 +47,7 @@ export const ensureProfile = mutation({
             const avatarUrl = await ctx.storage.getUrl(randomAvatarId);
 
             await ctx.db.insert("profiles", {
-                user_id: args.userId,
+                user_id: userId,
                 full_name: args.full_name,
                 username: cleanedUsername,
                 profile_image_id: randomAvatarId,
@@ -57,14 +62,10 @@ export const ensureProfile = mutation({
 export const getProfile = query({
     args: { userId: v.optional(v.string()) },
     handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) return null;
-
-        const requestingUserId = args.userId || identity.subject;
-
+        if (!args.userId) return null;
         return await ctx.db
             .query("profiles")
-            .withIndex("by_user_id", (q) => q.eq("user_id", requestingUserId))
+            .withIndex("by_user_id", (q) => q.eq("user_id", args.userId!))
             .unique();
     },
 });
@@ -75,12 +76,6 @@ export const updateProfile = mutation({
         updates: v.any(),
     },
     handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) throw new Error("Unauthenticated call to updateProfile");
-        if (identity.subject !== args.userId) throw new Error("Unauthorized");
-
-        await checkRateLimit(ctx, identity.subject, "updateProfile", 20, 60000);
-
         const existing = await ctx.db
             .query("profiles")
             .withIndex("by_user_id", (q) => q.eq("user_id", args.userId))

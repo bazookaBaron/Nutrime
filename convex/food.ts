@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { checkRateLimit } from "./rateLimit";
 
 export const getLogs = query({
     args: { userId: v.optional(v.string()) },
@@ -29,6 +30,9 @@ export const addLog = mutation({
         meal_type: v.string(),
     },
     handler: async (ctx, args) => {
+        // Rate limit: Max 20 logs every 60 seconds per user
+        await checkRateLimit(ctx, args.user_id, "addFoodLog", 20, 60000);
+
         // Find existing entry for this user, date and meal_type
         const existing = await ctx.db
             .query("food_logs")

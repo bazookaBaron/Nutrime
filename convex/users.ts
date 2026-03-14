@@ -1,5 +1,7 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+import { checkRateLimit } from "./rateLimit";
+import { internal } from "./_generated/api";
 
 const DEFAULT_AVATARS = [
     "kg2d1vwffdez3fx8js4tx118p9822yhh",
@@ -34,6 +36,9 @@ export const ensureProfile = mutation({
 
         const userId = identity.subject;
 
+        // Rate limit: Max 3 profile ensurations every 30 seconds per user
+        await checkRateLimit(ctx, userId, "ensureProfile", 3, 30000);
+
         const existing = await ctx.db
             .query("profiles")
             .withIndex("by_user_id", (q) => q.eq("user_id", userId))
@@ -46,16 +51,25 @@ export const ensureProfile = mutation({
             const randomAvatarId = DEFAULT_AVATARS[Math.floor(Math.random() * DEFAULT_AVATARS.length)];
             const avatarUrl = await ctx.storage.getUrl(randomAvatarId);
 
-            await ctx.db.insert("profiles", {
+            // Count existing profiles to assign new user's initial ranking (last place)
+            const allProfiles = await ctx.db.query("profiles").collect();
+            const newRanking = allProfiles.length + 1;
+
+            const profileId = await ctx.db.insert("profiles", {
                 user_id: userId,
                 full_name: args.full_name,
                 username: cleanedUsername,
                 profile_image_id: randomAvatarId,
                 profile_image_url: avatarUrl ?? undefined,
+                workout_xp: 0,
+                workout_level: 1,
+                streak: 1,
+                global_ranking: newRanking,
                 updated_at: new Date().toISOString(),
             });
+            return profileId;
         }
-        return existing?._id ?? null;
+        return existing._id;
     },
 });
 
@@ -76,6 +90,9 @@ export const updateProfile = mutation({
         updates: v.any(),
     },
     handler: async (ctx, args) => {
+        // Rate limit: Max 10 profile updates every 60 seconds per user
+        await checkRateLimit(ctx, args.userId, "updateProfile", 10, 60000);
+
         const existing = await ctx.db
             .query("profiles")
             .withIndex("by_user_id", (q) => q.eq("user_id", args.userId))
@@ -92,8 +109,22 @@ export const updateProfile = mutation({
                 updated_at: new Date().toISOString(),
             });
         } else {
+            // Assign random default avatar if not provided
+            const randomAvatarId = DEFAULT_AVATARS[Math.floor(Math.random() * DEFAULT_AVATARS.length)];
+            const avatarUrl = await ctx.storage.getUrl(randomAvatarId);
+
+            // Count existing profiles for ranking
+            const allProfiles = await ctx.db.query("profiles").collect();
+            const newRanking = allProfiles.length + 1;
+
             await ctx.db.insert("profiles", {
                 user_id: args.userId,
+                workout_xp: 0,
+                workout_level: 1,
+                streak: 1,
+                global_ranking: newRanking,
+                profile_image_id: randomAvatarId,
+                profile_image_url: avatarUrl ?? undefined,
                 ...cleanedUpdates,
                 updated_at: new Date().toISOString(),
             });
@@ -238,6 +269,9 @@ export const incrementXP = mutation({
             } else {
                 await ctx.db.insert("leaderboards", lbData);
             }
+
+            // Sync global rankings across all profiles after XP change
+            await ctx.runMutation(internal.users.syncGlobalRankings, {});
         }
     },
 });
@@ -313,4 +347,63 @@ export const updateProfileImage = mutation({
 
         return url;
     },
+});
+
+// ---------------------------------------------------------------------------
+// Sync global rankings
+// ---------------------------------------------------------------------------
+export const syncGlobalRankings = internalMutation({
+    handler: async (ctx) => {
+        // Fetch all leaderboard entries sorted by xp
+        const entries = await ctx.db.query("leaderboards").collect();
+        entries.sort((a, b) => b.total_xp - a.total_xp);
+
+        // Update profiles with their new global ranking
+        for (let i = 0; i < entries.length; i++) {
+            const entry = entries[i];
+            const profile = await ctx.db
+                .query("profiles")
+                .withIndex("by_user_id", (q) => q.eq("user_id", entry.user_id))
+                .unique();
+
+            if (profile && profile.global_ranking !== i + 1) {
+                await ctx.db.patch(profile._id, {
+                    global_ranking: i + 1,
+                    updated_at: new Date().toISOString()
+                });
+            }
+        }
+    }
+});
+
+// ---------------------------------------------------------------------------
+// Reset streaks for inactive users
+// ---------------------------------------------------------------------------
+export const resetStaleStreaks = internalMutation({
+    handler: async (ctx) => {
+        // Run daily. Reset streak to 0 if last_active_date is older than 2 days ago
+        // to handle timezone fuzziness responsibly and not clear it early.
+        const twoDaysAgo = new Date();
+        twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+        const cutoff = twoDaysAgo.toISOString().split("T")[0]; // YYYY-MM-DD
+
+        const profiles = await ctx.db.query("profiles").collect();
+        for (const profile of profiles) {
+            if (profile.streak && profile.streak > 0) {
+                if (!profile.last_active_date || profile.last_active_date <= cutoff) {
+                    await ctx.db.patch(profile._id, { streak: 0 });
+                    
+                    // Update leaderboard concurrently
+                    const lbEntry = await ctx.db
+                        .query("leaderboards")
+                        .withIndex("by_user_id", (q) => q.eq("user_id", profile.user_id))
+                        .unique();
+                        
+                    if (lbEntry) {
+                        await ctx.db.patch(lbEntry._id, { streak: 0 });
+                    }
+                }
+            }
+        }
+    }
 });

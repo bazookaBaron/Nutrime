@@ -51,24 +51,22 @@ function initials(username: string) {
     return (username || '?').slice(0, 2).toUpperCase();
 }
 
-// Rank-specific neon colors
+// Rank-specific neon colors - Vibrant Theme
 const RANK_COLORS: Record<number, { border: string; glow: string; bg: string }> = {
     1: {
-        border: '#FF6B00',          // hot orange
-        glow: 'rgba(255,107,0,0.35)',
-        bg: 'rgba(255,107,0,0.15)'
+        border: '#FBBF24',          // Vibrant Gold
+        glow: 'rgba(251, 191, 36, 0.35)',
+        bg: 'rgba(251, 191, 36, 0.15)'
     },
-
     2: {
-        border: '#00C853',          // vivid green
-        glow: 'rgba(0,200,83,0.35)',
-        bg: 'rgba(0,200,83,0.15)'
+        border: '#22D3EE',          // Vibrant Cyan
+        glow: 'rgba(34, 211, 238, 0.35)',
+        bg: 'rgba(34, 211, 238, 0.15)'
     },
-
     3: {
-        border: '#2979FF',          // bright blue
-        glow: 'rgba(41,121,255,0.35)',
-        bg: 'rgba(41,121,255,0.15)'
+        border: '#FB923C',          // Vibrant Orange
+        glow: 'rgba(251, 146, 60, 0.35)',
+        bg: 'rgba(251, 146, 60, 0.15)'
     },
 };
 
@@ -274,16 +272,90 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId, userCountry, u
                         <Text style={styles.emptyText}>No users found in this region.</Text>
                     </View>
                 ) : (
-                    <View style={styles.scrollWrapper}>
-                        <View style={{ height: LIST_HEIGHT }}>
-                            <ScrollView
-                                showsVerticalScrollIndicator={false}
-                                contentContainerStyle={styles.scrollContent}
-                            >
-                                {displayData.map((item, index) => renderItem({ item, index }))}
-                            </ScrollView>
+                    <>
+                        {/* ─── PODIUM TOP 3 ─── */}
+                        {displayData.length >= 3 && (
+                            <View style={styles.podiumContainer}>
+                                {/* Rank 2 (Left) */}
+                                <Pressable style={styles.podiumColumn} onPress={() => handlePress(displayData[1])}>
+                                    <View style={[styles.podiumAvatarWrapper, { borderColor: RANK_COLORS[2].border }]}>
+                                        {displayData[1].profile_image_url ? (
+                                            <Image source={{ uri: displayData[1].profile_image_url }} style={styles.podiumAvatarImage} />
+                                        ) : (
+                                            <View style={[styles.podiumAvatarImage, { backgroundColor: avatarColor(displayData[1].user_id) }]}>
+                                                <Text style={styles.podiumAvatarInitials}>{initials(displayData[1].username)}</Text>
+                                            </View>
+                                        )}
+                                        <View style={[styles.podiumMedalBox, { backgroundColor: RANK_COLORS[2].border }]}>
+                                            <Text style={styles.podiumMedalText}>2</Text>
+                                        </View>
+                                    </View>
+                                    <Text style={styles.podiumUsername} numberOfLines={1}>{displayData[1].username}</Text>
+                                    <View style={styles.podiumXpBadge}>
+                                        <Text style={styles.podiumXpText}>{displayData[1].workout_xp} XP</Text>
+                                    </View>
+                                    <View style={[styles.podiumBlock, styles.podiumBlock2]} />
+                                </Pressable>
+
+                                {/* Rank 1 (Center) */}
+                                <Pressable style={[styles.podiumColumn, { zIndex: 10 }]} onPress={() => handlePress(displayData[0])}>
+                                    <View style={styles.crownContainer}>
+                                        <Trophy size={20} color="#bef264" fill="rgba(190,242,100,0.5)" />
+                                    </View>
+                                    <View style={[styles.podiumAvatarWrapper, styles.podiumAvatarWrapper1, { borderColor: RANK_COLORS[1].border }]}>
+                                        {displayData[0].profile_image_url ? (
+                                            <Image source={{ uri: displayData[0].profile_image_url }} style={styles.podiumAvatarImage1} />
+                                        ) : (
+                                            <View style={[styles.podiumAvatarImage1, { backgroundColor: avatarColor(displayData[0].user_id) }]}>
+                                                <Text style={styles.podiumAvatarInitials1}>{initials(displayData[0].username)}</Text>
+                                            </View>
+                                        )}
+                                        <View style={[styles.podiumMedalBox, { backgroundColor: RANK_COLORS[1].border, width: 24, height: 24, borderRadius: 12 }]}>
+                                            <Text style={[styles.podiumMedalText, { fontSize: 13 }]}>1</Text>
+                                        </View>
+                                    </View>
+                                    <Text style={[styles.podiumUsername, { fontSize: 13, fontWeight: '800' }]} numberOfLines={1}>{displayData[0].username}</Text>
+                                    <View style={styles.podiumXpBadge}>
+                                        <Text style={styles.podiumXpText}>{displayData[0].workout_xp} XP</Text>
+                                    </View>
+                                    <View style={[styles.podiumBlock, styles.podiumBlock1]} />
+                                </Pressable>
+
+                                {/* Rank 3 (Right) */}
+                                <Pressable style={styles.podiumColumn} onPress={() => handlePress(displayData[2])}>
+                                    <View style={[styles.podiumAvatarWrapper, { borderColor: RANK_COLORS[3].border }]}>
+                                        {displayData[2].profile_image_url ? (
+                                            <Image source={{ uri: displayData[2].profile_image_url }} style={styles.podiumAvatarImage} />
+                                        ) : (
+                                            <View style={[styles.podiumAvatarImage, { backgroundColor: avatarColor(displayData[2].user_id) }]}>
+                                                <Text style={styles.podiumAvatarInitials}>{initials(displayData[2].username)}</Text>
+                                            </View>
+                                        )}
+                                        <View style={[styles.podiumMedalBox, { backgroundColor: RANK_COLORS[3].border }]}>
+                                            <Text style={styles.podiumMedalText}>3</Text>
+                                        </View>
+                                    </View>
+                                    <Text style={styles.podiumUsername} numberOfLines={1}>{displayData[2].username}</Text>
+                                    <View style={styles.podiumXpBadge}>
+                                        <Text style={styles.podiumXpText}>{displayData[2].workout_xp} XP</Text>
+                                    </View>
+                                    <View style={[styles.podiumBlock, styles.podiumBlock3]} />
+                                </Pressable>
+                            </View>
+                        )}
+
+                        {/* ─── LIST (Ranks 4+) ─── */}
+                        <View style={styles.scrollWrapper}>
+                            <View style={{ height: LIST_HEIGHT }}>
+                                <ScrollView
+                                    showsVerticalScrollIndicator={false}
+                                    contentContainerStyle={styles.scrollContent}
+                                >
+                                    {displayData.slice(3).map((item, index) => renderItem({ item, index: index + 3 }))}
+                                </ScrollView>
+                            </View>
                         </View>
-                    </View>
+                    </>
                 )}
             </View>
 
@@ -731,6 +803,115 @@ const styles = StyleSheet.create({
         width: 1,
         height: 24,
         backgroundColor: '#1A1A1A',
+    },
+    podiumContainer: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        justifyContent: 'center',
+        paddingHorizontal: 10,
+        height: 220,
+        marginBottom: 16,
+    },
+    podiumColumn: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+    },
+    crownContainer: {
+        marginBottom: 4,
+    },
+    podiumAvatarWrapper: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        borderWidth: 2,
+        marginBottom: 8,
+        position: 'relative',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    podiumAvatarWrapper1: {
+        width: 66,
+        height: 66,
+        borderRadius: 33,
+        borderWidth: 3,
+        marginBottom: 8,
+    },
+    podiumAvatarImage: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 25,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    podiumAvatarImage1: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 33,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    podiumAvatarInitials: {
+        color: '#FFF',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    podiumAvatarInitials1: {
+        color: '#FFF',
+        fontSize: 22,
+        fontWeight: 'bold',
+    },
+    podiumMedalBox: {
+        position: 'absolute',
+        bottom: -6,
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: '#111',
+    },
+    podiumMedalText: {
+        color: '#111',
+        fontSize: 10,
+        fontWeight: '900',
+    },
+    podiumUsername: {
+        color: '#FFF',
+        fontSize: 12,
+        fontWeight: '600',
+        marginBottom: 4,
+        textAlign: 'center',
+    },
+    podiumXpBadge: {
+        backgroundColor: '#FFF',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 10,
+        marginBottom: 8,
+    },
+    podiumXpText: {
+        color: '#000',
+        fontSize: 10,
+        fontWeight: '800',
+    },
+    podiumBlock: {
+        width: '90%',
+        borderTopLeftRadius: 8,
+        borderTopRightRadius: 8,
+    },
+    podiumBlock1: {
+        height: 90,
+        backgroundColor: '#FBBF24',
+    },
+    podiumBlock2: {
+        height: 60,
+        backgroundColor: '#22D3EE',
+    },
+    podiumBlock3: {
+        height: 40,
+        backgroundColor: '#FB923C',
     },
 });
 

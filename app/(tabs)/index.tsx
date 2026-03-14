@@ -212,7 +212,7 @@ export default function Dashboard() {
               </View>
               <View>
                 <Text style={styles.topCardLabel}>Global Rank</Text>
-                <Text style={styles.topCardValue}>#{ranking || '-'}</Text>
+                <Text style={styles.topCardValue}>#{userProfile?.global_ranking || ranking || '-'}</Text>
               </View>
             </View>
           </LinearGradient>
@@ -268,19 +268,18 @@ export default function Dashboard() {
                 animationDuration={800}
                 showText
                 textColor="#fff"
-                textSize={9}
+                textSize={10}
                 fontWeight="800"
               />
               <View style={[styles.legendContainer, { marginLeft: 14 }]}>
                 {[
-                  { label: 'Protein', color: '#f97316', val: Math.round(summary.protein) },
-                  { label: 'Carbs', color: '#eab308', val: Math.round(summary.carbs) },
-                  { label: 'Fat', color: '#8b5cf6', val: Math.round(summary.fat) },
-                ].map(({ label, color, val }) => (
+                  { label: 'Protein', color: '#f97316' },
+                  { label: 'Carbs', color: '#eab308' },
+                  { label: 'Fat', color: '#8b5cf6' },
+                ].map(({ label, color }) => (
                   <View key={label} style={styles.legendItem}>
                     <View style={[styles.dot, { backgroundColor: color }]} />
                     <View>
-                      <Text style={[styles.legendText, { color: '#FFF', fontWeight: '700', fontSize: 11 }]}>{val}g</Text>
                       <Text style={styles.legendText}>{label}</Text>
                     </View>
                   </View>

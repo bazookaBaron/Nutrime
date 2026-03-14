@@ -88,4 +88,20 @@ crons.interval(
     internal.challenges.clearExpiredChallenges
 );
 
+// ─── GLOBAL RANKINGS SYNC ─────────────────────────────────────────────────────
+// Runs daily at midnight UTC to ensure all profiles have an up-to-to date ranking.
+crons.daily(
+    "sync-global-rankings",
+    { hourUTC: 0, minuteUTC: 0 },
+    internal.users.syncGlobalRankings
+);
+
+// ─── STREAK RESET ─────────────────────────────────────────────────────
+// Runs daily at 1AM UTC to reset streaks for users inactive for > 48h
+crons.daily(
+    "reset-stale-streaks",
+    { hourUTC: 1, minuteUTC: 0 },
+    internal.users.resetStaleStreaks
+);
+
 export default crons;

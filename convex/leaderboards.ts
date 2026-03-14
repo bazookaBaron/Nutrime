@@ -98,7 +98,7 @@ export const getUserRank = query({
                 user_id: args.userId,
                 username: profile?.username || "You",
                 workout_xp: 0,
-                workout_level: 1,
+                workout_level: profile?.workout_level || 1,
                 streak: profile?.streak || 0,
                 country: profile?.country,
                 profile_image_url: profile?.profile_image_url,

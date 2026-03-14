@@ -35,6 +35,7 @@ export default defineSchema({
         country: v.optional(v.string()),
         state: v.optional(v.string()),
         updated_at: v.optional(v.string()),
+        global_ranking: v.optional(v.number()),
     }).index("by_user_id", ["user_id"]),
 
     daily_stats: defineTable({

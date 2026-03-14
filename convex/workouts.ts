@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { checkRateLimit } from "./rateLimit";
 
 export const getDailyPlans = query({
     args: { userId: v.optional(v.string()) },
@@ -27,6 +28,9 @@ export const upsertDailyPlans = mutation({
         ),
     },
     handler: async (ctx, args) => {
+        // Rate limit: Max 5 plan upserts every 60 seconds per user
+        await checkRateLimit(ctx, args.userId, "upsertDailyPlans", 5, 60000);
+
         for (const plan of args.plans) {
             // Upsert by userId + date
             const existing = await ctx.db

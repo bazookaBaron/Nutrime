@@ -8,12 +8,15 @@
  * @module
  */
 
+import type * as backfillLevel from "../backfillLevel.js";
+import type * as backfillRankings from "../backfillRankings.js";
 import type * as challenges from "../challenges.js";
 import type * as crons from "../crons.js";
 import type * as food from "../food.js";
 import type * as leaderboards from "../leaderboards.js";
 import type * as notifications from "../notifications.js";
 import type * as rateLimit from "../rateLimit.js";
+import type * as resetUnsetXP from "../resetUnsetXP.js";
 import type * as users from "../users.js";
 import type * as workouts from "../workouts.js";
 
@@ -24,12 +27,15 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  backfillLevel: typeof backfillLevel;
+  backfillRankings: typeof backfillRankings;
   challenges: typeof challenges;
   crons: typeof crons;
   food: typeof food;
   leaderboards: typeof leaderboards;
   notifications: typeof notifications;
   rateLimit: typeof rateLimit;
+  resetUnsetXP: typeof resetUnsetXP;
   users: typeof users;
   workouts: typeof workouts;
 }>;

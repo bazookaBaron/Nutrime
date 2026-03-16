@@ -51,8 +51,8 @@ export default function Step2Stats() {
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <ArrowLeft size={24} color="#fff" />
                 </TouchableOpacity>
-                <Text style={styles.stepText}>Step 2 of 4</Text>
-                <Text style={styles.skipText}>    </Text>
+                <Text style={styles.stepText}>Step 2 of 5</Text>
+                <View style={styles.placeholder} />
             </View>
 
             <View style={styles.progressBar}>
@@ -182,9 +182,8 @@ const styles = StyleSheet.create({
         color: '#6b7280',
         fontWeight: '600',
     },
-    skipText: {
-        fontSize: 14,
-        color: '#6b7280',
+    placeholder: {
+        width: 40,
     },
     progressBar: {
         height: 4,

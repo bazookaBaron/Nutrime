@@ -74,20 +74,20 @@ const PulsatingDot = ({ color = '#000' }) => {
 
 export default function WorkoutScreen() {
     const router = useRouter();
-    const { userProfile, workoutSchedule, completeExercise, regenerateFullSchedule, fetchLeaderboard, todayStr } = useUser();
+    const { user, userProfile, workoutSchedule, completeExercise, regenerateFullSchedule, fetchLeaderboard, todayStr } = useUser();
     const posthog = usePostHog();
     const isFocused = useIsFocused();
     const [refreshing, setRefreshing] = useState(false);
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await fetchLeaderboard('city');
+        await fetchLeaderboard('all');
         setRefreshing(false);
     }, []);
 
     useEffect(() => {
         if (isFocused) {
-            fetchLeaderboard('city');
+            fetchLeaderboard('all');
         }
     }, [isFocused]);
 
@@ -388,7 +388,7 @@ export default function WorkoutScreen() {
                                 )}
                             </>
                         )}
-                        <Leaderboard currentUserId={userProfile?.id || ''} userCountry={userProfile?.country} userState={userProfile?.state} />
+                        <Leaderboard currentUserId={user?.id || ''} userCountry={userProfile?.country} userState={userProfile?.state} />
                     </View>
                 )}
                 {(!workoutSchedule || workoutSchedule.length === 0) ? (

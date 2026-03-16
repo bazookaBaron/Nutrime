@@ -34,7 +34,9 @@ export const UserProvider = ({ children }) => {
     const email = clerkUser?.primaryEmailAddress?.emailAddress ?? null;
     const fullName = clerkUser?.fullName ?? null;
     const username = clerkUser?.username ?? null;
-    useEnsureProfile(userId, email, fullName, username);
+    
+    console.log('[UserContext] clerkUser:', clerkUser ? 'present' : 'absent', 'userId:', userId, 'timezone:', deviceTimezone);
+    useEnsureProfile(userId, email, fullName, username, deviceTimezone);
 
     // -------------------------------------------------------------------------
     // Reactive Data — Convex real-time subscriptions

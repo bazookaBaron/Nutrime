@@ -52,7 +52,12 @@ export default function GoalDonutChart({ consumed, goal }: Props) {
                     innerCircleColor="#1f2937"
                     strokeWidth={0}
                     isAnimated
+                    // @ts-ignore
+                    animateOnDataChange={true}
+                    // @ts-ignore
+                    onDataChangeAnimationDuration={600}
                     animationDuration={600}
+                    animationType="timing"
                 />
                 {/* Center label */}
                 <View style={styles.centerLabel} pointerEvents="none">

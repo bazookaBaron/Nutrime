@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Check, Plus, ScanLine, Search } from 'lucide-react-native';
+import { Check, Info, Plus, Search } from 'lucide-react-native';
 import { usePostHog } from 'posthog-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -303,13 +303,19 @@ export default function AddFood() {
                 fatTarget={fatTarget}
             />
 
+            {/* USDA Attribution Banner */}
+            <View style={styles.usdaBanner}>
+                <View style={styles.usdaIconBg}>
+                    <Info size={14} color="#bef264" />
+                </View>
+                <Text style={styles.usdaText}>
+                    All food calorie and macro data is sourced from the official <Text style={styles.usdaHighlight}>USDA National Nutrient Database</Text>.
+                </Text>
+            </View>
+
             {/* Results header */}
             <View style={styles.resultsHeader}>
                 <Text style={styles.resultsTitle}>SEARCH RESULTS</Text>
-                <TouchableOpacity style={styles.scanBtn}>
-                    <ScanLine size={16} color="#84cc16" style={{ marginRight: 5 }} />
-                    <Text style={styles.scanText}>SCAN</Text>
-                </TouchableOpacity>
             </View>
 
             {/* List */}
@@ -367,8 +373,6 @@ const styles = StyleSheet.create({
     // Results
     resultsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
     resultsTitle: { fontSize: 11, fontWeight: '800', color: '#666', letterSpacing: 1 },
-    scanBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E1E1E', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: '#333' },
-    scanText: { fontSize: 12, fontWeight: '700', color: '#FFF' },
     listContent: { paddingBottom: 40 },
 
     // Food card
@@ -387,4 +391,34 @@ const styles = StyleSheet.create({
     // Empty
     empty: { alignItems: 'center', marginTop: 50, gap: 14 },
     emptyText: { fontSize: 15, color: '#555' },
+    usdaBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(190,242,100,0.05)',
+        padding: 12,
+        borderRadius: 16,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(190,242,100,0.15)',
+    },
+    usdaIconBg: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: 'rgba(190,242,100,0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 10,
+    },
+    usdaText: {
+        flex: 1,
+        fontSize: 12,
+        color: '#94a3b8',
+        lineHeight: 18,
+        fontWeight: '500',
+    },
+    usdaHighlight: {
+        color: '#bef264',
+        fontWeight: '700',
+    },
 });

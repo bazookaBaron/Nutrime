@@ -1,11 +1,18 @@
-import React, { useState, useCallback } from 'react';
-import {
-    View, Text, StyleSheet, TouchableOpacity, Pressable, Modal,
-    TouchableWithoutFeedback, ScrollView, Animated, Easing, Image
-} from 'react-native';
-import { Trophy, X, Zap, Star } from 'lucide-react-native';
-import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import { useQuery } from 'convex/react';
+import { Star, Trophy, X, Zap } from 'lucide-react-native';
+import React, { useCallback, useState } from 'react';
+import {
+    Animated, Easing, Image,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View
+} from 'react-native';
 
 interface LeaderboardEntry {
     rank: number;
@@ -98,7 +105,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId, userCountry, u
     }, []);
 
     // Reactive Filter Calculation
-    const filterValue = scope === 'country' ? userCountry : (scope === 'state' ? userState : undefined);
+    // Ensure we send undefined instead of null/empty to Convex to avoid type errors
+    const filterValue = (scope === 'country' ? userCountry : (scope === 'state' ? userState : undefined)) || undefined;
 
     // LIVE SUBSCRIPTIONS: Convex will push updates automatically
     const top10 = useQuery(api.leaderboards.getLeaderboard, { scope, filter: filterValue });
@@ -113,7 +121,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId, userCountry, u
     const isCurrentUserInTop10 = data.top10.some(entry => entry.user_id === currentUserId);
     const displayData = [...data.top10];
     if (!isCurrentUserInTop10 && data.currentUserEntry) {
-        displayData.push(data.currentUserEntry);
+        displayData.push(data.currentUserEntry as any);
     }
 
     const handlePress = useCallback((item: LeaderboardEntry) => {
@@ -269,7 +277,10 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId, userCountry, u
                     </View>
                 ) : data.top10.length === 0 ? (
                     <View style={styles.loadingContainer}>
-                        <Text style={styles.emptyText}>No users found in this region.</Text>
+                        <Text style={styles.emptyText}>No users found for this {scope}.</Text>
+                        {!filterValue && scope !== 'all' && (
+                            <Text style={styles.hintText}>Set your {scope} in settings to see local rankings.</Text>
+                        )}
                     </View>
                 ) : (
                     <>
@@ -346,16 +357,53 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId, userCountry, u
 
                         {/* ─── LIST (Ranks 4+) ─── */}
                         <View style={styles.scrollWrapper}>
-                            <View style={{ height: LIST_HEIGHT }}>
-                                <ScrollView
-                                    showsVerticalScrollIndicator={false}
-                                    contentContainerStyle={styles.scrollContent}
-                                >
-                                    {displayData.slice(3).map((item, index) => renderItem({ item, index: index + 3 }))}
-                                </ScrollView>
-                            </View>
+                            <ScrollView
+                                showsVerticalScrollIndicator={true}
+                                nestedScrollEnabled={true}
+                                contentContainerStyle={styles.scrollContent}
+                            >
+                                {displayData.slice(3).map((item, index) => renderItem({ item, index: index + 3 }))}
+                            </ScrollView>
                         </View>
                     </>
+                )}
+
+                {/* Sticky User Row (Always shown at bottom) */}
+                {data.currentUserEntry && (
+                    <View style={styles.stickyUserRow}>
+                        <Pressable
+                            style={styles.neonCard}
+                            onPress={() => handlePress(data.currentUserEntry!)}
+                        >
+                            <View style={styles.rankContainer}>
+                                <Text style={styles.rankTextSticky}>#{data.currentUserEntry.rank || '??'}</Text>
+                            </View>
+
+                            <View style={styles.avatarSticky}>
+                                {data.currentUserEntry.profile_image_url ? (
+                                    <Image style={styles.avatarStickyImage} source={{ uri: data.currentUserEntry.profile_image_url }} />
+                                ) : (
+                                    <View style={[styles.avatarSticky, { backgroundColor: '#000', marginRight: 0 }]}>
+                                        <Text style={styles.avatarInitialsSticky}>{initials(data.currentUserEntry.username || 'User')}</Text>
+                                    </View>
+                                )}
+                            </View>
+
+                            <View style={styles.userInfo}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                    <Text style={styles.usernameSticky} numberOfLines={1}>
+                                        {data.currentUserEntry.username || 'You'}
+                                    </Text>
+                                    <Text style={styles.youLabel}>(you)</Text>
+                                </View>
+                                <Text style={styles.levelTextSticky}>Level {data.currentUserEntry.workout_level || 1}</Text>
+                            </View>
+
+                            <Text style={styles.xpTextSticky}>
+                                {(data.currentUserEntry.workout_xp || 0).toLocaleString()} XP
+                            </Text>
+                        </Pressable>
+                    </View>
                 )}
             </View>
 
@@ -436,7 +484,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ currentUserId, userCountry, u
     );
 };
 
-const LIST_HEIGHT = 500; // Enough for a good list view before scrolling is needed
+const LIST_HEIGHT = 800; // Increased height for better visibility
 
 const styles = StyleSheet.create({
     container: {
@@ -531,12 +579,16 @@ const styles = StyleSheet.create({
         backgroundColor: '#0A0A0A',
         borderWidth: 1,
         borderColor: '#1A1A1A',
+        maxHeight: 600, // Fluid height with a max cap
     },
     scrollContent: {
         paddingVertical: 8,
+        paddingBottom: 20,
+        flexGrow: 1, // Allow content to expand fluidly
     },
     loadingContainer: {
-        height: LIST_HEIGHT,
+        maxHeight: LIST_HEIGHT,
+        minHeight: 150,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -544,6 +596,12 @@ const styles = StyleSheet.create({
         color: '#444',
         fontSize: 14,
         fontWeight: '600',
+    },
+    hintText: {
+        color: '#666',
+        fontSize: 12,
+        marginTop: 8,
+        textAlign: 'center',
     },
     entryRow: {
         flexDirection: 'row',

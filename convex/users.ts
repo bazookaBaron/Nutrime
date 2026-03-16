@@ -1,7 +1,7 @@
-import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
-import { checkRateLimit } from "./rateLimit";
 import { internal } from "./_generated/api";
+import { internalMutation, mutation, query } from "./_generated/server";
+import { checkRateLimit } from "./rateLimit";
 
 const DEFAULT_AVATARS = [
     "kg2d1vwffdez3fx8js4tx118p9822yhh",
@@ -26,50 +26,133 @@ export const ensureProfile = mutation({
         email: v.optional(v.string()),
         full_name: v.optional(v.string()),
         username: v.optional(v.string()),
+        timezone: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        // Derive the user identity from the Clerk JWT attached by ConvexProviderWithClerk.
-        // If auth isn't established yet (race condition), return null gracefully
-        // so the client can retry without a server-side error.
+        console.log("[ensureProfile] Handler started. Args:", JSON.stringify(args));
         const identity = await ctx.auth.getUserIdentity();
-        if (!identity) return null;
+        if (!identity) {
+            console.error("[ensureProfile] ERROR: No identity found. JWT verification might have failed or not yet reached Convex.");
+            throw new Error("Unauthenticated: Identity must be established before ensuring profile.");
+        }
 
         const userId = identity.subject;
+        console.log("[ensureProfile] Authenticated userId:", userId);
 
-        // Rate limit: Max 3 profile ensurations every 30 seconds per user
-        await checkRateLimit(ctx, userId, "ensureProfile", 3, 30000);
+        // Rate limit
+        await checkRateLimit(ctx, userId, "ensureProfile", 10, 30000);
+        console.log("[ensureProfile] Rate limit check passed.");
 
         const existing = await ctx.db
             .query("profiles")
             .withIndex("by_user_id", (q) => q.eq("user_id", userId))
             .unique();
 
+        console.log("[ensureProfile] Existing profile lookup result:", !!existing);
+
+        let profileId;
+        let created = false;
+
         if (!existing) {
-            const cleanedUsername = args.username ? args.username.slice(0, 9).toLowerCase() : undefined;
+            console.log("[ensureProfile] No existing profile. Proceeding with creation...");
+            created = true;
+            const cleanedUsername = args.username ? args.username.slice(0, 15).toLowerCase() : `user-${userId.slice(-4)}`;
+            const displayName = args.full_name || cleanedUsername;
 
-            // Assign random default avatar
+            console.log("[ensureProfile] Using username:", cleanedUsername, "displayName:", displayName);
+
             const randomAvatarId = DEFAULT_AVATARS[Math.floor(Math.random() * DEFAULT_AVATARS.length)];
+            console.log("[ensureProfile] Selected avatarId:", randomAvatarId);
+            
             const avatarUrl = await ctx.storage.getUrl(randomAvatarId);
+            console.log("[ensureProfile] Avatar URL generated:", !!avatarUrl);
 
-            // Count existing profiles to assign new user's initial ranking (last place)
             const allProfiles = await ctx.db.query("profiles").collect();
             const newRanking = allProfiles.length + 1;
 
-            const profileId = await ctx.db.insert("profiles", {
+            console.log("[ensureProfile] Attempting DB insert for 'profiles'...");
+            profileId = await ctx.db.insert("profiles", {
                 user_id: userId,
-                full_name: args.full_name,
+                full_name: displayName,
                 username: cleanedUsername,
                 profile_image_id: randomAvatarId,
                 profile_image_url: avatarUrl ?? undefined,
                 workout_xp: 0,
                 workout_level: 1,
                 streak: 1,
+                timezone: args.timezone,
                 global_ranking: newRanking,
                 updated_at: new Date().toISOString(),
             });
-            return profileId;
+
+            console.log("[ensureProfile] Profile created with ID:", profileId);
+
+            console.log("[ensureProfile] Attempting DB insert for 'leaderboards'...");
+            await ctx.db.insert("leaderboards", {
+                user_id: userId,
+                username: cleanedUsername,
+                total_xp: 0,
+                streak: 1,
+                profile_image_url: avatarUrl ?? undefined,
+                country: "Global",
+                state: "Global",
+            });
+            console.log("[ensureProfile] Leaderboard entry created successfully.");
+        } else {
+            console.log("[ensureProfile] Profile already exists. ID:", existing._id);
+            profileId = existing._id;
+
+            // 1. Ensure leaderboard entry exists
+            const lbEntry = await ctx.db.query("leaderboards")
+                .withIndex("by_user_id", q => q.eq("user_id", userId))
+                .unique();
+
+            if (!lbEntry) {
+                await ctx.db.insert("leaderboards", {
+                    user_id: userId,
+                    username: existing.username || `user-${userId.slice(-4)}`,
+                    total_xp: existing.workout_xp || 0,
+                    streak: existing.streak || 1,
+                    profile_image_url: existing.profile_image_url,
+                    country: existing.country || "Global",
+                    state: existing.state || "Global",
+                });
+            }
+
+            // 2. Patch missing or placeholder profile data
+            const updates: any = {};
+            const isPlaceholderUsername = existing.username?.startsWith('user-');
+
+            if (args.username && (isPlaceholderUsername || !existing.username)) {
+                updates.username = args.username.slice(0, 15).toLowerCase();
+            }
+            if (args.full_name && (!existing.full_name || existing.full_name === existing.username)) {
+                updates.full_name = args.full_name;
+            }
+            if (args.timezone && !existing.timezone) {
+                updates.timezone = args.timezone;
+            }
+
+            if (Object.keys(updates).length > 0) {
+                await ctx.db.patch(existing._id, {
+                    ...updates,
+                    updated_at: new Date().toISOString(),
+                });
+
+                if (lbEntry || !lbEntry) { // sync if it exists or was just created above
+                    const targetLb = lbEntry || await ctx.db.query("leaderboards").withIndex("by_user_id", q => q.eq("user_id", userId)).unique();
+                    if (targetLb) {
+                        const lbUpdates: any = {};
+                        if (updates.username) lbUpdates.username = updates.username;
+                        if (Object.keys(lbUpdates).length > 0) {
+                            await ctx.db.patch(targetLb._id, lbUpdates);
+                        }
+                    }
+                }
+            }
         }
-        return existing._id;
+
+        return { id: profileId, created };
     },
 });
 
@@ -392,13 +475,13 @@ export const resetStaleStreaks = internalMutation({
             if (profile.streak && profile.streak > 0) {
                 if (!profile.last_active_date || profile.last_active_date <= cutoff) {
                     await ctx.db.patch(profile._id, { streak: 0 });
-                    
+
                     // Update leaderboard concurrently
                     const lbEntry = await ctx.db
                         .query("leaderboards")
                         .withIndex("by_user_id", (q) => q.eq("user_id", profile.user_id))
                         .unique();
-                        
+
                     if (lbEntry) {
                         await ctx.db.patch(lbEntry._id, { streak: 0 });
                     }

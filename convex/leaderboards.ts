@@ -29,9 +29,15 @@ export const getLeaderboard = query({
         // Filter by scope
         let filtered = entries;
         if (args.scope === "country" && args.filter) {
-            filtered = entries.filter((e) => e.country === args.filter);
+            filtered = entries.filter((e) => 
+                e.country === args.filter || 
+                (args.filter === "Global" && (!e.country || e.country === "Global"))
+            );
         } else if (args.scope === "state" && args.filter) {
-            filtered = entries.filter((e) => e.state === args.filter);
+            filtered = entries.filter((e) => 
+                e.state === args.filter || 
+                (args.filter === "Global" && (!e.state || e.state === "Global"))
+            );
         }
         // "all" → no filtering
 
@@ -77,9 +83,15 @@ export const getUserRank = query({
 
         let filtered = entries;
         if (args.scope === "country" && args.filter) {
-            filtered = entries.filter((e) => e.country === args.filter);
+            filtered = entries.filter((e) => 
+                e.country === args.filter || 
+                (args.filter === "Global" && (!e.country || e.country === "Global"))
+            );
         } else if (args.scope === "state" && args.filter) {
-            filtered = entries.filter((e) => e.state === args.filter);
+            filtered = entries.filter((e) => 
+                e.state === args.filter || 
+                (args.filter === "Global" && (!e.state || e.state === "Global"))
+            );
         }
 
         filtered.sort((a, b) => b.total_xp - a.total_xp);

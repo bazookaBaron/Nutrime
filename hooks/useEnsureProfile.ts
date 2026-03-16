@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
-import { useMutation } from 'convex/react';
 import { useAuth } from '@clerk/clerk-expo';
+import { useMutation } from 'convex/react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../convex/_generated/api';
 
 /**
@@ -8,42 +8,62 @@ import { api } from '../convex/_generated/api';
  * becomes fully authenticated. Uses `useMutation` (not the raw convex client)
  * so that the Clerk JWT is already attached before the call is made, and guards
  * on `isLoaded && isSignedIn` to eliminate the unauthenticated-call race.
- *
- * @param userId   - The Clerk user ID (or null/undefined if not signed in)
- * @param email    - Optional email to store on profile creation
- * @param fullName - Optional display name to store on profile creation
- * @param username - Optional username to store on profile creation
  */
 export function useEnsureProfile(
     userId: string | null | undefined,
     email?: string | null,
     fullName?: string | null,
     username?: string | null,
+    timezone?: string | null,
 ) {
     const { isLoaded, isSignedIn } = useAuth();
     const ensureProfile = useMutation(api.users.ensureProfile);
-    const ensuredRef = useRef<string | null>(null);
+    const lastEnsuredRef = useRef<string>('');
+    const [retryCount, setRetryCount] = useState(0);
 
     useEffect(() => {
-        // Wait until Clerk has fully loaded and confirmed the session is active.
-        // This ensures ConvexProviderWithClerk has had a chance to attach the JWT
-        // before we fire the mutation — preventing the "Unauthenticated" error.
         if (!isLoaded || !isSignedIn || !userId) return;
 
-        // Only run once per userId (guards against double-firing)
-        if (ensuredRef.current === userId) return;
+        // Create a signature of the data we're ensuring.
+        // If the signature changes, we re-fire; background handles the patch.
+        const dataSignature = `${userId}|${email || ''}|${fullName || ''}|${username || ''}|${timezone || ''}`;
 
-        ensuredRef.current = userId;
+        // Skip if already ensured this specific data, UNLESS we are explicitly retrying.
+        if (lastEnsuredRef.current === dataSignature && retryCount === 0) return;
 
-        ensureProfile({
-            userId,
-            email: email ?? undefined,
-            full_name: fullName ?? undefined,
-            username: username ?? undefined,
-        }).catch((err: unknown) => {
-            console.error('[useEnsureProfile] Failed to ensure profile:', err);
-            // Reset so it retries on next render
-            ensuredRef.current = null;
-        });
-    }, [isLoaded, isSignedIn, userId, email, fullName, username, ensureProfile]);
+        const attemptEnsure = async () => {
+            console.log(`[useEnsureProfile] Attempting (retry: ${retryCount}) for:`, userId);
+            try {
+                const result = await ensureProfile({
+                    userId: userId ?? undefined,
+                    email: email ?? undefined,
+                    full_name: fullName ?? undefined,
+                    username: username ?? undefined,
+                    timezone: timezone ?? undefined,
+                });
+
+                lastEnsuredRef.current = dataSignature;
+                setRetryCount(0); // Reset on success
+                console.log('[useEnsureProfile] SUCCESS: Profile ensured.', result);
+            } catch (err: any) {
+                console.warn('[useEnsureProfile] FAILED to ensure profile:', err.message);
+                
+                // If it's an unauthenticated error, it's likely a race condition with Clerk token.
+                // We'll retry with an exponential-ish backoff or just a steady delay.
+                if (retryCount < 5) {
+                    const delay = Math.min(1000 * Math.pow(2, retryCount), 5000);
+                    console.log(`[useEnsureProfile] Will retry in ${delay}ms...`);
+                    setTimeout(() => {
+                        setRetryCount(prev => prev + 1);
+                    }, delay);
+                } else {
+                    console.error('[useEnsureProfile] Max retries reached.');
+                    // Don't reset lastEnsuredRef so we don't loop infinitely on a real error,
+                    // but allow signature changes to trigger a fresh attempt.
+                }
+            }
+        };
+
+        attemptEnsure();
+    }, [isLoaded, isSignedIn, userId, email, fullName, username, timezone, ensureProfile, retryCount]);
 }

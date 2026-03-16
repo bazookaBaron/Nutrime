@@ -34,13 +34,9 @@ export default function Step1Goal() {
     return (
         <View style={[styles.container, { paddingTop: insets.top || 20 }]}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <ArrowLeft size={24} color="#fff" />
-                </TouchableOpacity>
-                <Text style={styles.stepText}>Step 1 of 4</Text>
-                <TouchableOpacity onPress={() => router.replace('/(tabs)')}>
-                    <Text style={styles.skipText}>Skip</Text>
-                </TouchableOpacity>
+                <View style={styles.placeholder} />
+                <Text style={styles.stepText}>Step 1 of 5</Text>
+                <View style={styles.placeholder} />
             </View>
 
             <View style={styles.progressBar}>
@@ -106,8 +102,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         marginBottom: 10,
     },
-    backButton: {
-        padding: 8,
+    placeholder: {
+        width: 40,
     },
     stepText: {
         fontSize: 14,

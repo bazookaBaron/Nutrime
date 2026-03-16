@@ -257,15 +257,20 @@ export default function Dashboard() {
 
             <View style={styles.pieContainer}>
               <PieChart
-                data={[
+                data={useMemo(() => [
                   { value: Math.max(summary.protein || 0.1, 0.1), color: '#f97316', text: `${Math.round(summary.protein)}g` },
                   { value: Math.max(summary.carbs || 0.1, 0.1), color: '#eab308', text: `${Math.round(summary.carbs)}g` },
                   { value: Math.max(summary.fat || 0.1, 0.1), color: '#8b5cf6', text: `${Math.round(summary.fat)}g` },
-                ]}
+                ], [summary.protein, summary.carbs, summary.fat])}
                 radius={42}
                 innerRadius={0}
                 isAnimated
-                animationDuration={800}
+                // @ts-ignore
+                animateOnDataChange={true}
+                // @ts-ignore
+                onDataChangeAnimationDuration={1200}
+                animationDuration={1200}
+                animationType="timing"
                 showText
                 textColor="#fff"
                 textSize={10}

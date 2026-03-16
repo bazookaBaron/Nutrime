@@ -65,7 +65,7 @@ export default function Step3bTarget() {
                     <ArrowLeft size={24} color="#fff" />
                 </TouchableOpacity>
                 <Text style={styles.stepText}>Step 4 of 5</Text>
-                <Text style={styles.skipText}>    </Text>
+                <View style={styles.placeholder} />
             </View>
 
             <View style={styles.progressBar}>
@@ -161,9 +161,8 @@ const styles = StyleSheet.create({
         color: '#6b7280',
         fontWeight: '600',
     },
-    skipText: {
-        fontSize: 14,
-        color: '#6b7280',
+    placeholder: {
+        width: 40,
     },
     progressBar: {
         height: 4,

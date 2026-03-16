@@ -7,11 +7,13 @@ import {
 import { useRouter } from 'expo-router'
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSignIn, useSignUp, useSSO } from '@clerk/clerk-expo';
+import { useSignIn, useSignUp, useSSO, useUser as useClerkUser } from '@clerk/clerk-expo';
+import { useMutation } from 'convex/react';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import { usePostHog } from 'posthog-react-native';
 import { Mail, Lock, User, ArrowRight } from 'lucide-react-native';
+import { api } from '../../convex/_generated/api';
 import { useAlert } from '../../context/AlertContext';
 
 // Required at module level — dismisses the OAuth browser when the app
@@ -41,6 +43,8 @@ export default function AuthScreen() {
     const { signIn, setActive: setSignInActive, isLoaded: isSignInLoaded } = useSignIn();
     const { signUp, setActive: setSignUpActive, isLoaded: isSignUpLoaded } = useSignUp();
     const { startSSOFlow } = useSSO();
+    const { user: clerkUser } = useClerkUser();
+    const ensureProfile = useMutation(api.users.ensureProfile);
 
     // UX State
     const [mode, setMode] = useState<'login' | 'register' | 'forgot_password'>('login');
@@ -65,6 +69,18 @@ export default function AuthScreen() {
     const [username, setUsername] = useState('');
     const [otpCode, setOtpCode] = useState('');
     const [newPassword, setNewPassword] = useState('');
+    const [resendTimer, setResendTimer] = useState(0);
+
+    // Resend countdown effect
+    useEffect(() => {
+        let interval: any;
+        if (resendTimer > 0) {
+            interval = setInterval(() => {
+                setResendTimer((prev) => prev - 1);
+            }, 1000);
+        }
+        return () => clearInterval(interval);
+    }, [resendTimer]);
 
     // --- Google OAuth (official Clerk Expo pattern) ---
     const handleGoogle = useCallback(async () => {
@@ -86,7 +102,9 @@ export default function AuthScreen() {
                 // Existing user – session created directly.
                 await setActive({ session: createdSessionId });
                 posthog.capture('user_google_auth');
+                
                 // Keep isProcessing = true; _layout.tsx loader covers the transition.
+                // Profile ensuring is handled by useEnsureProfile hook in UserContext.
             } else if (googleSignUp?.status === 'missing_requirements') {
                 // New user – Clerk needs a username before completing the signup.
                 const rawName = ((googleSignUp.firstName || '') + (googleSignUp.lastName || ''))
@@ -105,7 +123,9 @@ export default function AuthScreen() {
                 if (completed.status === 'complete' && completed.createdSessionId && setActive) {
                     await setActive({ session: completed.createdSessionId });
                     posthog.capture('user_google_signup');
+
                     // Keep isProcessing = true; loader covers the transition.
+                    // Profile ensuring is handled by useEnsureProfile hook in UserContext.
                 } else {
                     throw new Error(`Unexpected status after username update: ${completed.status}`);
                 }
@@ -228,9 +248,16 @@ export default function AuthScreen() {
 
         setIsProcessing(true);
         try {
+            const nameParts = fullName.trim().split(' ');
+            const fName = nameParts[0] || '';
+            const lName = nameParts.slice(1).join(' ') || '';
+
             await signUp.create({
                 emailAddress: email.trim().toLowerCase(),
                 password,
+                username: username.trim().toLowerCase(),
+                firstName: fName,
+                lastName: lName,
             });
 
             // Always prepare verification after creating the signup attempt
@@ -306,7 +333,9 @@ export default function AuthScreen() {
                 if (result.status === 'complete') {
                     await setSignUpActive({ session: result.createdSessionId });
                     posthog.capture('user_verified_signup', { email: email.trim() });
+
                     // keep isProcessing true
+                    // Profile ensuring is handled by useEnsureProfile hook in UserContext.
                 } else {
                     setIsProcessing(false);
                     showAlert('Error', `Status: ${result.status} `);
@@ -353,6 +382,40 @@ export default function AuthScreen() {
             setIsProcessing(false);
             const msg = err?.errors?.[0]?.longMessage || err?.message || 'Failed to reset password.';
             showAlert('Error', msg);
+        }
+    };
+
+    const handleResendOTP = async () => {
+        if (resendTimer > 0 || isProcessing) return;
+
+        try {
+            if (mode === 'register') {
+                if (!isSignUpLoaded) return;
+                await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+                showAlert('Code Resent', 'A new verification code has been sent to your email.');
+            } else if (mode === 'forgot_password') {
+                if (!isSignInLoaded) return;
+                await signIn.create({
+                    strategy: "reset_password_email_code",
+                    identifier: email.trim().toLowerCase(),
+                });
+                showAlert('Code Resent', 'A new reset code has been sent to your email.');
+            } else if (mode === 'login') {
+                if (!isSignInLoaded) return;
+                if (signIn.status === 'needs_second_factor') {
+                    await signIn.prepareSecondFactor({ strategy: 'email_code' });
+                } else {
+                    const firstFactor = signIn.supportedFirstFactors?.find((f: any) => f.strategy === 'email_code') as any;
+                    if (firstFactor) {
+                        await signIn.prepareFirstFactor({ strategy: 'email_code', emailAddressId: firstFactor.emailAddressId });
+                    }
+                }
+                showAlert('Code Resent', 'A new verification code has been sent to your email.');
+            }
+            setResendTimer(60);
+        } catch (err: any) {
+            const msg = err?.errors?.[0]?.longMessage || err?.message || 'Failed to resend code.';
+            showAlert('Resend Failed', msg);
         }
     };
 
@@ -428,6 +491,15 @@ export default function AuthScreen() {
                                         autoFocus
                                     />
                                 </View>
+                                <TouchableOpacity
+                                    onPress={handleResendOTP}
+                                    disabled={resendTimer > 0 || isProcessing}
+                                    style={styles.resendContainer}
+                                >
+                                    <Text style={[styles.resendText, resendTimer > 0 && styles.resendTextDisabled]}>
+                                        {resendTimer > 0 ? `Resend code in ${resendTimer}s` : "Didn't receive code? Resend"}
+                                    </Text>
+                                </TouchableOpacity>
                             </View>
                         ) : (
                             <View style={styles.inputGroup}>
@@ -748,5 +820,17 @@ const styles = StyleSheet.create({
         marginTop: 16,
         fontSize: 16,
         fontWeight: '600',
+    },
+    resendContainer: {
+        alignItems: 'center',
+        marginTop: -8,
+    },
+    resendText: {
+        color: '#bef264',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    resendTextDisabled: {
+        color: '#64748b',
     }
 });
